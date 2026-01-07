@@ -1,0 +1,44 @@
+# Docker Compose for EduThreat-CTI Dashboard + API
+# Run with: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # EduThreat-CTI API Server
+  api:
+    build:
+      context: ../EduThreat-CTI
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../EduThreat-CTI/data:/app/data
+    environment:
+      - EDU_CTI_DB_PATH=eduthreat.db
+      - EDU_CTI_DATA_DIR=/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # EduThreat-CTI Dashboard
+  dashboard:
+    build:
+      context: .
+      args:
+        - NEXT_PUBLIC_API_URL=http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    restart: unless-stopped
+
+networks:
+  default:
+    name: eduthreat-network
+
