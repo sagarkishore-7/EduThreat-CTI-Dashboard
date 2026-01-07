@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Search, Bell, RefreshCw } from "lucide-react";
+import { Search, Bell, RefreshCw, Menu } from "lucide-react";
 import { useState } from "react";
 
 const pageTitles: Record<string, string> = {
@@ -14,7 +14,11 @@ const pageTitles: Record<string, string> = {
   "/analytics": "Analytics",
 };
 
-export function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void;
+}
+
+export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -23,26 +27,42 @@ export function Header() {
     : pageTitles[pathname] || "EduThreat-CTI";
 
   return (
-    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-6">
-      <div>
-        <h1 className="text-xl font-semibold">{title}</h1>
-        <p className="text-xs text-muted-foreground">
-          Education Sector Cyber Threat Intelligence
-        </p>
+    <header className="h-16 border-b border-border bg-card/50 backdrop-blur-sm flex items-center justify-between px-4 md:px-6">
+      <div className="flex items-center gap-3">
+        {/* Mobile menu button */}
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden p-2 hover:bg-secondary rounded-lg transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <div>
+          <h1 className="text-lg md:text-xl font-semibold">{title}</h1>
+          <p className="text-xs text-muted-foreground hidden sm:block">
+            Education Sector Cyber Threat Intelligence
+          </p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Search */}
-        <div className="relative">
+      <div className="flex items-center gap-2 md:gap-4">
+        {/* Search - hidden on small screens, visible on medium+ */}
+        <div className="relative hidden md:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search incidents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-64 pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            className="w-48 lg:w-64 pl-10 pr-4 py-2 bg-secondary border border-border rounded-lg text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
+
+        {/* Mobile search button */}
+        <button className="md:hidden p-2 hover:bg-secondary rounded-lg transition-colors">
+          <Search className="w-5 h-5 text-muted-foreground" />
+        </button>
 
         {/* Refresh */}
         <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
@@ -63,4 +83,3 @@ export function Header() {
     </header>
   );
 }
-
