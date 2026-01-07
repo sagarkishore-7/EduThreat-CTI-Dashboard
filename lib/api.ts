@@ -79,11 +79,14 @@ export interface IncidentDetail {
   university_name: string;
   victim_raw_name?: string;
   institution_type?: string;
+  institution_size?: string;
   country?: string;
+  country_code?: string;
   region?: string;
   city?: string;
   incident_date?: string;
   date_precision?: string;
+  discovery_date?: string;
   source_published_date?: string;
   ingested_at?: string;
   title?: string;
@@ -95,15 +98,19 @@ export interface IncidentDetail {
   leak_site_url?: string;
   attack_type_hint?: string;
   attack_category?: string;
+  incident_severity?: string;
   status: string;
   source_confidence: string;
   threat_actor_name?: string;
+  threat_actor_category?: string;
+  threat_actor_motivation?: string;
   timeline?: TimelineEvent[];
   mitre_attack_techniques?: MITRETechnique[];
   attack_dynamics?: AttackDynamics;
   data_impact?: {
     data_breached?: boolean;
     data_exfiltrated?: boolean;
+    data_categories?: string[];
     records_affected_exact?: number;
     records_affected_min?: number;
     records_affected_max?: number;
@@ -121,9 +128,11 @@ export interface IncidentDetail {
     students_affected?: number;
     staff_affected?: number;
     faculty_affected?: number;
+    alumni_affected?: number;
     total_individuals_affected?: number;
   };
   financial_impact?: {
+    estimated_total_cost_usd?: number;
     ransom_cost_usd?: number;
     recovery_cost_usd?: number;
     legal_cost_usd?: number;
@@ -131,6 +140,7 @@ export interface IncidentDetail {
     insurance_payout_usd?: number;
   };
   regulatory_impact?: {
+    applicable_regulations?: string[];
     breach_notification_required?: boolean;
     notification_sent?: boolean;
     fine_imposed?: boolean;
@@ -139,14 +149,21 @@ export interface IncidentDetail {
     class_action_filed?: boolean;
   };
   recovery_metrics?: {
+    recovery_method?: string;
     recovery_duration_days?: number;
+    law_enforcement_involved?: boolean;
     ir_firm_engaged?: string;
+    security_improvements?: string;
   };
   transparency_metrics?: {
     public_disclosure?: boolean;
     public_disclosure_date?: string;
     disclosure_delay_days?: number;
     transparency_level?: string;
+  };
+  education_relevance?: {
+    is_education_related?: boolean;
+    education_confidence?: number;
   };
   llm_enriched: boolean;
   llm_enriched_at?: string;
