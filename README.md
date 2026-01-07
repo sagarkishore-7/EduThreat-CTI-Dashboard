@@ -156,7 +156,29 @@ The dashboard connects to the EduThreat-CTI REST API:
 
 ## 📦 Production Deployment
 
-### Build
+### Production API (Railway)
+
+The API is deployed at:
+```
+https://eduthreat-cti-production.up.railway.app
+```
+
+### Vercel Deployment
+
+1. **Import Repository**
+   - Go to [Vercel](https://vercel.com/new)
+   - Import from GitHub: `sagarkishore-7/EduThreat-CTI-Dashboard`
+
+2. **Configure Environment Variables**
+   Add this environment variable in Vercel project settings:
+   ```
+   NEXT_PUBLIC_API_URL=https://eduthreat-cti-production.up.railway.app
+   ```
+
+3. **Deploy**
+   - Vercel will auto-deploy on push to `main`
+
+### Local Build
 
 ```bash
 # Build for production
@@ -183,13 +205,6 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 EXPOSE 3000
 CMD ["node", "server.js"]
-```
-
-### Vercel
-
-```bash
-# Deploy to Vercel
-npx vercel
 ```
 
 ## 🔒 Security Considerations
