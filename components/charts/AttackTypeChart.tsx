@@ -64,10 +64,11 @@ export function AttackTypeChart({ data }: AttackTypeChartProps) {
               }}
               labelStyle={{ color: "#06b6d4" }}
               itemStyle={{ color: "#e4e4e7" }}
-              formatter={(value: number, name: string, props: { payload: { percentage: number } }) => [
-                `${value} (${props.payload.percentage}%)`,
-                "Incidents",
-              ]}
+              formatter={(value: number, _name: string, props: unknown) => {
+                const payload = (props as { payload?: { percentage?: number } })?.payload;
+                const percentage = payload?.percentage ?? 0;
+                return [`${value} (${percentage}%)`, "Incidents"];
+              }}
             />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {chartData.map((entry, index) => (

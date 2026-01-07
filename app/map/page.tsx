@@ -42,8 +42,9 @@ export default function MapPage() {
     });
   });
 
-  const groupedByRegion: Record<string, typeof countryData.data> = {};
-  countryData?.data.forEach((country) => {
+  type CountryItem = { category: string; count: number };
+  const groupedByRegion: Record<string, CountryItem[]> = {};
+  countryData?.data?.forEach((country) => {
     const region = countryToRegion[country.category] || "Other";
     if (!groupedByRegion[region]) {
       groupedByRegion[region] = [];
