@@ -13,6 +13,7 @@ import {
   Check,
   X,
   Loader2,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -196,6 +197,39 @@ export default function AdminPage() {
       }
     } catch (err) {
       setError("Failed to trigger job. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const migrateDatabase = async () => {
+    if (!sessionToken) return;
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/migrate-db`, {
+        method: "POST",
+        headers: {
+          "X-Session-Token": sessionToken,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccess(
+          `Database migrated successfully! ${data.incident_count} incidents copied to ${data.destination}`
+        );
+        // Refresh stats
+        fetchStats(sessionToken);
+      } else {
+        setError(data.message || "Migration failed");
+      }
+    } catch (err) {
+      setError("Migration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -407,6 +441,36 @@ export default function AdminPage() {
             }
           />
         </div>
+      </div>
+
+      {/* Database Migration Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Upload className="w-5 h-5 text-primary" />
+          Database Migration
+        </h2>
+        
+        <p className="text-muted-foreground mb-4">
+          Migrate database from repository to Railway persistent storage volume.
+          This copies the database to <code className="text-xs bg-secondary px-1 py-0.5 rounded">/app/data</code> for persistent storage.
+        </p>
+        
+        <button
+          onClick={migrateDatabase}
+          disabled={loading}
+          className={cn(
+            "px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors",
+            "bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700",
+            loading && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Upload className="w-5 h-5" />
+          )}
+          {loading ? "Migrating..." : "Migrate Database to Persistent Storage"}
+        </button>
       </div>
 
       {/* Scheduler Section */}
