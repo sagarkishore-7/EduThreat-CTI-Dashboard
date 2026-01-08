@@ -458,68 +458,177 @@ export default function AdminPage() {
       )}
 
       {/* Export Section */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Database className="w-5 h-5 text-primary" />
-          Database Export
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <ExportButton
-            label="Full Database"
-            description="Download SQLite DB file"
-            icon={Database}
-            loading={downloading === "db"}
-            onClick={() =>
-              downloadFile(
-                "/export/database",
-                `eduthreat_${Date.now()}.db`,
-                "db"
-              )
-            }
-          />
+      <div className="space-y-6">
+        {/* Database Export */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Database className="w-5 h-5 text-primary" />
+            Database Export
+          </h2>
           
-          <ExportButton
-            label="Full CSV Export"
-            description="All enriched data as CSV"
-            icon={FileDown}
-            loading={downloading === "csv-full"}
-            onClick={() =>
-              downloadFile(
-                "/export/csv/full?education_only=true",
-                `eduthreat_full_${Date.now()}.csv`,
-                "csv-full"
-              )
-            }
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ExportButton
+              label="Full Database (SQLite)"
+              description="Download complete SQLite database file (.db)"
+              icon={Database}
+              loading={downloading === "db"}
+              onClick={() =>
+                downloadFile(
+                  "/export/database",
+                  `eduthreat_${Date.now()}.db`,
+                  "db"
+                )
+              }
+            />
+            
+            <ExportButton
+              label="Database as CSV"
+              description="All incidents exported as CSV format"
+              icon={FileDown}
+              loading={downloading === "csv-db"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/full?education_only=false",
+                  `eduthreat_database_${Date.now()}.csv`,
+                  "csv-db"
+                )
+              }
+            />
+          </div>
+        </div>
+
+        {/* Enriched CSV Export Section */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <FileDown className="w-5 h-5 text-primary" />
+            Enriched CSV Export
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Export only incidents that have been enriched with LLM data. Includes all enrichment fields (timeline, MITRE ATT&CK, attack dynamics, etc.)
+          </p>
           
-          <ExportButton
-            label="Incidents CSV"
-            description="Incidents table"
-            icon={FileDown}
-            loading={downloading === "csv-incidents"}
-            onClick={() =>
-              downloadFile(
-                "/export/csv/incidents?education_only=true",
-                `eduthreat_incidents_${Date.now()}.csv`,
-                "csv-incidents"
-              )
-            }
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ExportButton
+              label="Enriched CSV (Education Only)"
+              description="Enriched incidents, education-related only"
+              icon={FileDown}
+              loading={downloading === "csv-enriched-edu"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/enriched?education_only=true",
+                  `eduthreat_enriched_education_${Date.now()}.csv`,
+                  "csv-enriched-edu"
+                )
+              }
+            />
+            
+            <ExportButton
+              label="Enriched CSV (All)"
+              description="All enriched incidents, including non-education"
+              icon={FileDown}
+              loading={downloading === "csv-enriched-all"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/enriched?education_only=false",
+                  `eduthreat_enriched_all_${Date.now()}.csv`,
+                  "csv-enriched-all"
+                )
+              }
+            />
+            
+            <ExportButton
+              label="Enrichments Table CSV"
+              description="Raw enrichment data table"
+              icon={FileDown}
+              loading={downloading === "csv-enrichments"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/incident_enrichments_flat?education_only=true",
+                  `eduthreat_enrichments_${Date.now()}.csv`,
+                  "csv-enrichments"
+                )
+              }
+            />
+          </div>
+        </div>
+
+        {/* Full CSV Export Section */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <FileDown className="w-5 h-5 text-primary" />
+            Full CSV Export
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Export ALL incidents (enriched and unenriched). For enriched incidents, includes enrichment data. For unenriched incidents, includes only basic fields.
+          </p>
           
-          <ExportButton
-            label="Sources CSV"
-            description="All source attributions"
-            icon={FileDown}
-            loading={downloading === "csv-sources"}
-            onClick={() =>
-              downloadFile(
-                "/export/csv/incident_sources?education_only=false",
-                `eduthreat_sources_${Date.now()}.csv`,
-                "csv-sources"
-              )
-            }
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <ExportButton
+              label="Full CSV (Education Only)"
+              description="All incidents, education-related only"
+              icon={FileDown}
+              loading={downloading === "csv-full-edu"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/full?education_only=true",
+                  `eduthreat_full_education_${Date.now()}.csv`,
+                  "csv-full-edu"
+                )
+              }
+            />
+            
+            <ExportButton
+              label="Full CSV (All Incidents)"
+              description="All incidents, enriched and unenriched"
+              icon={FileDown}
+              loading={downloading === "csv-full-all"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/full?education_only=false",
+                  `eduthreat_full_all_${Date.now()}.csv`,
+                  "csv-full-all"
+                )
+              }
+            />
+            
+            <ExportButton
+              label="Incidents Table CSV"
+              description="Raw incidents table data"
+              icon={FileDown}
+              loading={downloading === "csv-incidents"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/incidents?education_only=false",
+                  `eduthreat_incidents_${Date.now()}.csv`,
+                  "csv-incidents"
+                )
+              }
+            />
+          </div>
+        </div>
+
+        {/* Additional Tables Export */}
+        <div className="bg-card border border-border rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <FileDown className="w-5 h-5 text-primary" />
+            Additional Tables Export
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ExportButton
+              label="Sources CSV"
+              description="All source attributions"
+              icon={FileDown}
+              loading={downloading === "csv-sources"}
+              onClick={() =>
+                downloadFile(
+                  "/export/csv/incident_sources?education_only=false",
+                  `eduthreat_sources_${Date.now()}.csv`,
+                  "csv-sources"
+                )
+              }
+            />
+          </div>
         </div>
       </div>
 
