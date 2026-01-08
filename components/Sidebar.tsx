@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Database,
   X,
+  Settings,
 } from "lucide-react";
 
 const navigation = [
@@ -23,6 +24,10 @@ const navigation = [
   { name: "Ransomware", href: "/ransomware", icon: Shield },
   { name: "Threat Actors", href: "/threat-actors", icon: Users },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+];
+
+const adminNav = [
+  { name: "Admin Panel", href: "/admin", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -105,6 +110,34 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               </Link>
             );
           })}
+          
+          {/* Admin Section */}
+          <div className="pt-4 mt-4 border-t border-border">
+            <p className="px-3 py-1 text-xs text-muted-foreground uppercase tracking-wider">
+              Management
+            </p>
+            {adminNav.map((item) => {
+              const isActive = pathname === item.href || 
+                (item.href !== "/" && pathname.startsWith(item.href));
+              
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={handleNavClick}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    isActive
+                      ? "bg-primary/10 text-primary border border-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  )}
+                >
+                  <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
+                  {item.name}
+                </Link>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Status */}
