@@ -235,6 +235,43 @@ export default function AdminPage() {
     }
   };
 
+  const uploadDatabase = async (file: File) => {
+    if (!sessionToken) return;
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(`${API_URL}/api/admin/upload-database`, {
+        method: "POST",
+        headers: {
+          "X-Session-Token": sessionToken,
+        },
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setSuccess(
+          `Database uploaded successfully! ${data.incident_count} incidents, ${data.enriched_count} enriched. Size: ${data.db_size_mb} MB`
+        );
+        // Refresh stats
+        fetchStats(sessionToken);
+      } else {
+        setError(data.detail || data.message || "Upload failed");
+      }
+    } catch (err) {
+      setError("Upload failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Clear messages after 5 seconds
   useEffect(() => {
     if (error || success) {
@@ -447,30 +484,75 @@ export default function AdminPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <Upload className="w-5 h-5 text-primary" />
-          Database Migration
+          Database Migration & Upload
         </h2>
         
         <p className="text-muted-foreground mb-4">
-          Migrate database from repository to Railway persistent storage volume.
-          This copies the database to <code className="text-xs bg-secondary px-1 py-0.5 rounded">/app/data</code> for persistent storage.
+          Upload your local database file to Railway persistent storage, or migrate from repository.
         </p>
         
-        <button
-          onClick={migrateDatabase}
-          disabled={loading}
-          className={cn(
-            "px-6 py-3 rounded-lg font-medium flex items-center gap-2 transition-colors",
-            "bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700",
-            loading && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : (
-            <Upload className="w-5 h-5" />
-          )}
-          {loading ? "Migrating..." : "Migrate Database to Persistent Storage"}
-        </button>
+        <div className="space-y-4">
+          {/* Upload Database File */}
+          <div className="border border-border rounded-lg p-4 bg-secondary/30">
+            <h3 className="font-medium mb-2">Upload Local Database</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Upload your local <code className="text-xs bg-background px-1 py-0.5 rounded">data/eduthreat.db</code> file
+            </p>
+            <label className="block">
+              <input
+                type="file"
+                accept=".db"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    uploadDatabase(file);
+                  }
+                }}
+                disabled={loading}
+                className="hidden"
+                id="db-upload"
+              />
+              <span
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-colors",
+                  "bg-primary/10 hover:bg-primary/20 border border-primary/20",
+                  loading && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                {loading ? "Uploading..." : "Choose Database File (.db)"}
+              </span>
+            </label>
+          </div>
+          
+          {/* Migrate from Repo */}
+          <div className="border border-border rounded-lg p-4 bg-secondary/30">
+            <h3 className="font-medium mb-2">Migrate from Repository</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              Copy database from repository to <code className="text-xs bg-background px-1 py-0.5 rounded">/app/data</code>
+            </p>
+            <button
+              onClick={migrateDatabase}
+              disabled={loading}
+              className={cn(
+                "px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors",
+                "bg-secondary hover:bg-secondary/80 border border-border",
+                loading && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4" />
+              )}
+              {loading ? "Migrating..." : "Migrate from Repo"}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Scheduler Section */}
