@@ -14,6 +14,7 @@ import {
   X,
   Loader2,
   Upload,
+  Calendar,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -267,6 +268,48 @@ export default function AdminPage() {
       }
     } catch (err) {
       setError("Upload failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fixIncidentDates = async (apply: boolean = false) => {
+    if (!sessionToken) return;
+
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/admin/fix-incident-dates?apply=${apply}`,
+        {
+          method: "POST",
+          headers: {
+            "X-Session-Token": sessionToken,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        if (apply) {
+          setSuccess(
+            `Fixed ${data.fixed} incident dates! ${data.skipped} skipped.`
+          );
+          // Refresh stats
+          fetchStats(sessionToken);
+        } else {
+          setSuccess(
+            `Dry run: Would fix ${data.fixed} incident dates. ${data.skipped} skipped. Click "Apply Fix" to actually update.`
+          );
+        }
+      } else {
+        setError(data.detail || data.message || "Fix failed");
+      }
+    } catch (err) {
+      setError("Fix failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -587,6 +630,54 @@ export default function AdminPage() {
             loading={loading}
             onClick={() => triggerJob("enrich")}
           />
+        </div>
+      </div>
+
+      {/* Data Maintenance Section */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-primary" />
+          Data Maintenance
+        </h2>
+        
+        <p className="text-muted-foreground mb-4">
+          Fix incident dates from timeline data. Updates incidents where the date matches the source published date or where the timeline shows an earlier date.
+        </p>
+        
+        <div className="flex gap-4">
+          <button
+            onClick={() => fixIncidentDates(false)}
+            disabled={loading}
+            className={cn(
+              "px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors",
+              "bg-secondary hover:bg-secondary/80 border border-border",
+              loading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Calendar className="w-4 h-4" />
+            )}
+            {loading ? "Checking..." : "Preview Fix (Dry Run)"}
+          </button>
+          
+          <button
+            onClick={() => fixIncidentDates(true)}
+            disabled={loading}
+            className={cn(
+              "px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors",
+              "bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-600 hover:to-purple-700 text-white",
+              loading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Check className="w-4 h-4" />
+            )}
+            {loading ? "Fixing..." : "Apply Fix"}
+          </button>
         </div>
       </div>
 
