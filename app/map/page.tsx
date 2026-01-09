@@ -26,13 +26,13 @@ export default function MapPage() {
     );
   }
 
-  // Group countries by region (simplified)
+  // Group countries by region (using full country names)
   const regionMap: Record<string, string[]> = {
-    "North America": ["US", "CA", "MX"],
-    "Europe": ["GB", "DE", "FR", "IT", "ES", "NL", "BE", "AT", "CH", "PL", "SE", "NO", "DK", "FI", "IE", "PT", "GR", "CZ", "HU", "RO", "BG"],
-    "Asia Pacific": ["AU", "NZ", "JP", "KR", "SG", "HK", "TW", "IN", "PH", "MY", "TH", "ID", "VN", "CN"],
-    "Middle East & Africa": ["IL", "AE", "SA", "ZA", "EG", "NG", "KE"],
-    "Latin America": ["BR", "AR", "CL", "CO", "PE", "VE"],
+    "North America": ["United States", "Canada", "Mexico"],
+    "Europe": ["United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Belgium", "Austria", "Switzerland", "Poland", "Sweden", "Norway", "Denmark", "Finland", "Ireland", "Portugal", "Greece", "Czech Republic", "Hungary", "Romania", "Bulgaria", "Croatia", "Slovakia", "Slovenia", "Lithuania", "Latvia", "Estonia", "Luxembourg", "Malta", "Cyprus", "Iceland"],
+    "Asia Pacific": ["Australia", "New Zealand", "Japan", "South Korea", "Singapore", "Hong Kong", "Taiwan", "India", "Philippines", "Malaysia", "Thailand", "Indonesia", "Vietnam", "China"],
+    "Middle East & Africa": ["Israel", "United Arab Emirates", "Saudi Arabia", "South Africa", "Egypt", "Nigeria", "Kenya"],
+    "Latin America": ["Brazil", "Argentina", "Chile", "Colombia", "Peru"],
   };
 
   const countryToRegion: Record<string, string> = {};
@@ -117,7 +117,7 @@ export default function MapPage() {
                       )}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xl">{getCountryFlag(country.category)}</span>
+                        <span className="text-xl">{getCountryFlag(country.category, country.flag_emoji)}</span>
                         <span className="text-sm">{country.category}</span>
                       </div>
                       <div className="flex items-center gap-2">
@@ -157,7 +157,7 @@ export default function MapPage() {
               )}
               style={{ animationDelay: `${index * 20}ms` }}
             >
-              <span className="text-xl">{getCountryFlag(country.category)}</span>
+              <span className="text-xl">{getCountryFlag(country.category, country.flag_emoji)}</span>
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium block truncate">{country.category}</span>
                 <span className="text-xs text-muted-foreground">{country.count} incidents</span>

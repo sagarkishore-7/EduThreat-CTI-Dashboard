@@ -109,7 +109,7 @@ export default function IncidentDetailPage() {
             <div className="flex-1">
               {/* Institution Name with Copy */}
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-4xl">{getCountryFlag(incident.country)}</span>
+                <span className="text-4xl">{getCountryFlag(incident.country, incident.country_code ? getCountryFlag(incident.country_code) : undefined)}</span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h1 className="text-2xl lg:text-3xl font-bold">{institutionName}</h1>

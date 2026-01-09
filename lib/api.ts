@@ -175,6 +175,8 @@ export interface CountByCategory {
   category: string;
   count: number;
   percentage: number;
+  country_code?: string;
+  flag_emoji?: string;
 }
 
 export interface TimeSeriesPoint {

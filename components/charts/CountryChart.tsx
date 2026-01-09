@@ -15,6 +15,11 @@ interface CountryChartProps {
   data: CountByCategory[];
 }
 
+// Helper to find flag emoji from data
+function getFlagForCountry(data: CountByCategory[], countryName: string): string | undefined {
+  return data.find(d => d.category === countryName)?.flag_emoji;
+}
+
 const COLORS = [
   "#06b6d4", // cyan
   "#8b5cf6", // purple
@@ -64,10 +69,13 @@ export function CountryChart({ data }: CountryChartProps) {
                 border: "1px solid #27272a",
                 borderRadius: "8px",
               }}
-              formatter={(value: number, name: string) => [
-                `${value} (${((value / total) * 100).toFixed(1)}%)`,
-                `${getCountryFlag(name)} ${name}`,
-              ]}
+              formatter={(value: number, name: string) => {
+                const flagEmoji = getFlagForCountry(data, name);
+                return [
+                  `${value} (${((value / total) * 100).toFixed(1)}%)`,
+                  `${getCountryFlag(name, flagEmoji)} ${name}`,
+                ];
+              }}
             />
           </PieChart>
         </ResponsiveContainer>
@@ -81,7 +89,7 @@ export function CountryChart({ data }: CountryChartProps) {
               style={{ backgroundColor: COLORS[index % COLORS.length] }}
             />
             <span className="text-muted-foreground">
-              {getCountryFlag(item.name)} {item.name}
+              {getCountryFlag(item.name, getFlagForCountry(data, item.name))} {item.name}
             </span>
             <span className="text-foreground ml-auto">{item.value}</span>
           </div>

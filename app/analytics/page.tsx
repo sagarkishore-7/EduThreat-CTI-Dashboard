@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
                 style={{ animationDelay: `${index * 30}ms` }}
               >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{getCountryFlag(item.category)}</span>
+                  <span className="text-2xl">{getCountryFlag(item.category, item.flag_emoji)}</span>
                   <span className="font-medium">{item.category}</span>
                 </div>
                 <div className="flex items-baseline gap-2">

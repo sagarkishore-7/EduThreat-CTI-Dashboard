@@ -87,14 +87,99 @@ export function truncate(str: string | undefined | null, length: number): string
   return str.slice(0, length) + "...";
 }
 
-export function getCountryFlag(countryCode: string | undefined | null): string {
-  if (!countryCode || countryCode.length !== 2) return "🌍";
+export function getCountryFlag(country: string | undefined | null, flagEmoji?: string): string {
+  // If flag_emoji is provided from API, use it directly
+  if (flagEmoji) return flagEmoji;
   
-  const codePoints = countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => 127397 + char.charCodeAt(0));
+  if (!country) return "🌍";
   
-  return String.fromCodePoint(...codePoints);
+  // If it's a 2-character code, convert to flag emoji
+  if (country.length === 2) {
+    const codePoints = country
+      .toUpperCase()
+      .split("")
+      .map((char) => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  }
+  
+  // For full country names, try to extract code or return globe
+  // This is a fallback - ideally the API should provide flag_emoji
+  const countryCodeMap: Record<string, string> = {
+    "United States": "US",
+    "United Kingdom": "GB",
+    "Canada": "CA",
+    "Australia": "AU",
+    "Germany": "DE",
+    "France": "FR",
+    "Italy": "IT",
+    "Spain": "ES",
+    "Netherlands": "NL",
+    "Belgium": "BE",
+    "Switzerland": "CH",
+    "Austria": "AT",
+    "Sweden": "SE",
+    "Norway": "NO",
+    "Denmark": "DK",
+    "Finland": "FI",
+    "Poland": "PL",
+    "Czech Republic": "CZ",
+    "Ireland": "IE",
+    "Portugal": "PT",
+    "Greece": "GR",
+    "Hungary": "HU",
+    "Romania": "RO",
+    "Bulgaria": "BG",
+    "Croatia": "HR",
+    "Slovakia": "SK",
+    "Slovenia": "SI",
+    "Lithuania": "LT",
+    "Latvia": "LV",
+    "Estonia": "EE",
+    "Luxembourg": "LU",
+    "Malta": "MT",
+    "Cyprus": "CY",
+    "Iceland": "IS",
+    "Japan": "JP",
+    "China": "CN",
+    "India": "IN",
+    "South Korea": "KR",
+    "Singapore": "SG",
+    "Malaysia": "MY",
+    "Thailand": "TH",
+    "Philippines": "PH",
+    "Indonesia": "ID",
+    "Vietnam": "VN",
+    "New Zealand": "NZ",
+    "Brazil": "BR",
+    "Mexico": "MX",
+    "Argentina": "AR",
+    "Chile": "CL",
+    "Colombia": "CO",
+    "Peru": "PE",
+    "South Africa": "ZA",
+    "Egypt": "EG",
+    "Nigeria": "NG",
+    "Kenya": "KE",
+    "Israel": "IL",
+    "United Arab Emirates": "AE",
+    "Saudi Arabia": "SA",
+    "Turkey": "TR",
+    "Russia": "RU",
+    "Ukraine": "UA",
+    "Pakistan": "PK",
+    "Bangladesh": "BD",
+    "Taiwan": "TW",
+    "Hong Kong": "HK",
+  };
+  
+  const code = countryCodeMap[country];
+  if (code) {
+    const codePoints = code
+      .split("")
+      .map((char) => 127397 + char.charCodeAt(0));
+    return String.fromCodePoint(...codePoints);
+  }
+  
+  return "🌍";
 }
 
