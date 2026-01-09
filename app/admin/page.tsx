@@ -749,6 +749,43 @@ export default function AdminPage() {
           Data Maintenance
         </h2>
         
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <button
+            onClick={async () => {
+              setLoading(true);
+              setError(null);
+              setSuccess(null);
+              try {
+                const response = await fetch(`${API_URL}/api/admin/normalize-countries`, {
+                  method: "POST",
+                  headers: {
+                    "X-Session-Token": sessionToken || "",
+                  },
+                });
+                const data = await response.json();
+                if (response.ok) {
+                  setSuccess(data.message || `Normalized ${data.updated || 0} country entries`);
+                } else {
+                  setError(data.detail || "Normalization failed");
+                }
+              } catch (err) {
+                setError("Failed to normalize countries");
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
+            Normalize Countries
+          </button>
+        </div>
+        
         <p className="text-muted-foreground mb-4">
           Fix incident dates from timeline data. Updates incidents where the date matches the source published date or where the timeline shows an earlier date.
         </p>

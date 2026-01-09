@@ -45,6 +45,7 @@ import {
   Info,
   Link2,
   Layers,
+  Download,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -109,7 +110,7 @@ export default function IncidentDetailPage() {
             <div className="flex-1">
               {/* Institution Name with Copy */}
               <div className="flex items-center gap-3 mb-2">
-                <span className="text-4xl">{getCountryFlag(incident.country, incident.country_code ? getCountryFlag(incident.country_code) : undefined)}</span>
+                <span className="text-4xl">{getCountryFlag(incident.country)}</span>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h1 className="text-2xl lg:text-3xl font-bold">{institutionName}</h1>
@@ -706,10 +707,20 @@ export default function IncidentDetailPage() {
                   Copy JSON
                 </>
               )}
-            </button>
-          </div>
-        </div>
-      </div>
+                    </button>
+                    </div>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/incidents/${incident.incident_id}/report`}
+                      download
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      title="Download CTI Report"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download CTI Report
+                    </a>
+                  </div>
+                </div>
+              </div>
     </div>
   );
 }
