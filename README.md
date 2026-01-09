@@ -1,12 +1,16 @@
 # EduThreat-CTI Dashboard
 
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](CHANGELOG.md)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-38bdf8)](https://tailwindcss.com/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 **Professional Cyber Threat Intelligence Dashboard for the Education Sector**
 
 A modern, responsive web dashboard for visualizing and analyzing cyber incidents targeting educational institutions worldwide. Built with Next.js 14, TypeScript, and Tailwind CSS.
+
+> **Latest Release (v1.1.0)**: Country normalization with full names and flag emojis, CTI report downloads, enhanced admin panel, and improved incident detail pages for security researchers. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 ![Dashboard Preview](docs/dashboard-preview.png)
 
@@ -33,12 +37,20 @@ A modern, responsive web dashboard for visualizing and analyzing cyber incidents
 - **Impact Metrics**: Data, user, system, financial, regulatory impact
 - **Attack Dynamics**: Kill chain analysis, ransomware details
 - **Source Attribution**: Multi-source tracking and provenance
+- **CTI Report Download**: Comprehensive Markdown reports for researchers and analysts
+- **Country Normalization**: Full country names with ISO codes and flag emojis
 
 ### Analytics Pages
 - **Attack Analysis**: Breakdown by attack category and vector
 - **Ransomware Tracking**: Family-specific statistics and trends
 - **Threat Actors**: Actor profiles with activity summaries
-- **Geographic View**: Regional incident distribution
+- **Geographic View**: Regional incident distribution with full country names and flags
+
+### Admin Panel
+- **Database Management**: Export full database or CSV files
+- **Scheduler Controls**: Trigger RSS, weekly, and enrichment jobs
+- **Data Maintenance**: Normalize countries, fix incident dates
+- **CSV Export**: Separate exports for enriched and full datasets
 
 ## 🚀 Getting Started
 
@@ -134,6 +146,11 @@ The dashboard connects to the EduThreat-CTI REST API:
 | `GET /api/analytics/attack-types` | Attack type breakdown |
 | `GET /api/analytics/ransomware` | Ransomware statistics |
 | `GET /api/analytics/threat-actors` | Threat actor data |
+| `GET /api/incidents/{id}/report` | Download CTI report (Markdown) |
+| `POST /api/admin/*` | Admin endpoints (authentication required) |
+| `POST /api/admin/export/*` | Database and CSV export |
+| `POST /api/admin/scheduler/trigger/*` | Trigger ingestion/enrichment jobs |
+| `POST /api/admin/normalize-countries` | Normalize country data |
 
 ## 🎨 Design System
 
@@ -153,6 +170,12 @@ The dashboard connects to the EduThreat-CTI REST API:
 - Interactive chart tooltips
 - Animated transitions
 - Responsive grid layouts
+
+## 📚 Documentation
+
+- **[CHANGELOG.md](CHANGELOG.md)**: Detailed version history and changes
+- **[VERSION_HISTORY.md](VERSION_HISTORY.md)**: Quick reference version summary
+- **[Main Project README](../EduThreat-CTI/README.md)**: Complete project documentation
 
 ## 📦 Production Deployment
 
