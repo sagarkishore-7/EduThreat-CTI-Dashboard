@@ -108,23 +108,34 @@ export default function IncidentDetailPage() {
         <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="flex-1">
-              {/* Institution Name with Copy */}
+              {/* Institution Name with Copy and Download Report */}
               <div className="flex items-center gap-3 mb-2">
                 <span className="text-4xl">{getCountryFlag(incident.country)}</span>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl lg:text-3xl font-bold">{institutionName}</h1>
-                    <button
-                      onClick={() => copyToClipboard(institutionName, "name")}
-                      className="p-1 hover:bg-secondary rounded transition-colors"
-                      title="Copy institution name"
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-2xl lg:text-3xl font-bold">{institutionName}</h1>
+                      <button
+                        onClick={() => copyToClipboard(institutionName, "name")}
+                        className="p-1 hover:bg-secondary rounded transition-colors"
+                        title="Copy institution name"
+                      >
+                        {copiedField === "name" ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/incidents/${incident.incident_id}/report`}
+                      download
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      title="Download CTI Report"
                     >
-                      {copiedField === "name" ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </button>
+                      <Download className="w-4 h-4" />
+                      Download CTI Report
+                    </a>
                   </div>
                   {incident.institution_type && (
                     <span className="text-sm text-muted-foreground capitalize">
@@ -707,21 +718,10 @@ export default function IncidentDetailPage() {
                   Copy JSON
                 </>
               )}
-                    </button>
-                    </div>
-                    <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/incidents/${incident.incident_id}/report`}
-                      download
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                      title="Download CTI Report"
-                    >
-                      <Download className="w-4 h-4" />
-                      Download CTI Report
-                    </a>
-                  </div>
-                </div>
-              </div>
-    </div>
+            </button>
+          </div>
+        </div>
+      </div>
   );
 }
 
