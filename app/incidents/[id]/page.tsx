@@ -87,10 +87,12 @@ export default function IncidentDetailPage() {
   }
 
   // Determine the best institution name
-  const institutionName = 
-    (incident.university_name && incident.university_name !== "Unknown")
-      ? incident.university_name
-      : (incident.victim_raw_name || "Unknown Institution");
+  let institutionName = "Unknown Institution";
+  if (incident.university_name && incident.university_name !== "Unknown") {
+    institutionName = incident.university_name;
+  } else if (incident.victim_raw_name) {
+    institutionName = incident.victim_raw_name;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-12">
