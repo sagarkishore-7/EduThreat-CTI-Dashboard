@@ -87,12 +87,10 @@ export default function IncidentDetailPage() {
   }
 
   // Determine the best institution name
-  let institutionName = "Unknown Institution";
-  if (incident.university_name && incident.university_name !== "Unknown") {
-    institutionName = incident.university_name;
-  } else if (incident.victim_raw_name) {
-    institutionName = incident.victim_raw_name;
-  }
+  const institutionName: string = 
+    (incident.university_name && incident.university_name !== "Unknown")
+      ? incident.university_name
+      : (incident.victim_raw_name || "Unknown Institution");
 
   return (
     <div className="space-y-6 animate-fade-in max-w-7xl mx-auto pb-12">
@@ -107,7 +105,7 @@ export default function IncidentDetailPage() {
 
       {/* Header Card */}
       <div className="bg-gradient-to-br from-card via-card to-primary/5 border border-border rounded-xl p-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
             <div className="flex-1">
@@ -725,6 +723,7 @@ export default function IncidentDetailPage() {
           </div>
         </div>
       </div>
+    </div>
   );
 }
 

@@ -42,7 +42,7 @@ export default function MapPage() {
     });
   });
 
-  type CountryItem = { category: string; count: number };
+  type CountryItem = { category: string; count: number; flag_emoji?: string };
   const groupedByRegion: Record<string, CountryItem[]> = {};
   countryData?.data?.forEach((country) => {
     const region = countryToRegion[country.category] || "Other";
