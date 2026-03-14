@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { getIncident } from "@/lib/api";
+import { getIncident, API_BASE } from "@/lib/api";
 import {
   formatDate,
   formatNumber,
@@ -129,7 +129,7 @@ export default function IncidentDetailPage() {
                       </button>
                     </div>
                     <a
-                      href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/incidents/${incident.incident_id}/report`}
+                      href={`${API_BASE}/api/incidents/${incident.incident_id}/report`}
                       download
                       className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                       title="Download CTI Report"

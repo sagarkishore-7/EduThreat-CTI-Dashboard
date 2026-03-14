@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased bg-background text-foreground`}
       >
         <Providers>
-          <LayoutWrapper>{children}</LayoutWrapper>
+          <ErrorBoundary>
+            <LayoutWrapper>{children}</LayoutWrapper>
+          </ErrorBoundary>
         </Providers>
       </body>
     </html>

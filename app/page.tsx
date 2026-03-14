@@ -1,13 +1,27 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
-import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
-import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
-import { CountryChart } from "@/components/charts/CountryChart";
-import { RansomwareChart } from "@/components/charts/RansomwareChart";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
+
+const IncidentTimeChart = dynamic(
+  () => import("@/components/charts/IncidentTimeChart").then((m) => m.IncidentTimeChart),
+  { ssr: false }
+);
+const AttackTypeChart = dynamic(
+  () => import("@/components/charts/AttackTypeChart").then((m) => m.AttackTypeChart),
+  { ssr: false }
+);
+const CountryChart = dynamic(
+  () => import("@/components/charts/CountryChart").then((m) => m.CountryChart),
+  { ssr: false }
+);
+const RansomwareChart = dynamic(
+  () => import("@/components/charts/RansomwareChart").then((m) => m.RansomwareChart),
+  { ssr: false }
+);
 import {
   FileText,
   Shield,
