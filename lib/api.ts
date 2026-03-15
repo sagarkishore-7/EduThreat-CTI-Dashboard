@@ -186,6 +186,7 @@ export interface TimeSeriesPoint {
 
 export interface DashboardStats {
   total_incidents: number;
+  education_incidents: number;
   enriched_incidents: number;
   unenriched_incidents: number;
   incidents_with_ransomware: number;
@@ -193,6 +194,10 @@ export interface DashboardStats {
   countries_affected: number;
   unique_threat_actors: number;
   unique_ransomware_families: number;
+  data_sources: number;
+  avg_recovery_days: number | null;
+  total_financial_impact: number;
+  incidents_with_mitre: number;
   last_updated: string;
 }
 

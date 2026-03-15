@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-15
+
+### Analyst-Focused Dashboard Redesign & Interactive World Map
+
+Major release redesigning the dashboard for security researchers and analysts, adding interactive world heatmap, and removing pipeline/database metrics from the main view.
+
+#### Added
+- **Interactive World Heatmap**: Full-width SVG world map using `react-simple-maps` with:
+  - Color-coded heatmap (dark blue → bright cyan) based on incident count per country
+  - Zoom/pan support with `ZoomableGroup`
+  - Hover tooltips with country flag, name, and incident count
+  - Click-to-filter navigation to incidents list
+  - Legend bar (0/Low/Med/High) and top 8 countries quick bar
+  - ISO numeric-to-alpha2 and name-to-code mapping for accurate geographic data matching
+- **Analyst-Focused Dashboard Stats**: Two-tier stat card layout
+  - Primary row: Education Institutions Affected, Ransomware Attacks, Data Breaches, Countries Affected
+  - Secondary row: Threat Actors, MITRE ATT&CK Mapped, Avg Recovery Time, Financial Impact, Intelligence Sources
+  - All stat cards are clickable — link to relevant filtered views
+- **Enhanced StatCard Component**: New props and variants
+  - `href` prop wraps card in Next.js `<Link>` for navigation
+  - `onClick` prop for programmatic interaction
+  - `description` prop for subtitle text
+  - New `purple` and `pink` color variants
+  - Hover scale animation (`hover:scale-[1.02]`)
+- **Enhanced Map Page**: Interactive world map integrated into `/map` route with region groupings and full country list
+
+#### Changed
+- **Dashboard Philosophy**: Main dashboard now shows only education-related analysis data for researchers/analysts — no pipeline status, enrichment counts, or database metrics (moved to admin panel)
+- **Map Page**: Uses `education_incidents` count in header instead of `total_incidents`
+
+#### Removed
+- **Country Normalization Button**: Removed from admin panel (now handled automatically in pipeline)
+- **Pipeline Metrics on Dashboard**: Moved enriched/unenriched/pending counts to admin panel only
+
+#### Dependencies
+- Added `react-simple-maps@^3.0.0` for SVG world map
+- Added `@types/react-simple-maps@^3.0.6` for TypeScript support
+
+---
+
 ## [1.1.0] - 2026-01-08
 
 ### Country Normalization & CTI Reports

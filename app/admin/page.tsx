@@ -1294,33 +1294,6 @@ export default function AdminPage() {
           Data Maintenance
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={async () => {
-              if (!sessionToken) return;
-              setLoading(true);
-              setError(null);
-              try {
-                const res = await fetch(`${API_BASE}/api/admin/normalize-countries`, {
-                  method: "POST",
-                  headers: authHeaders(),
-                });
-                const data = await res.json();
-                if (res.ok)
-                  setSuccess(data.message || `Normalized ${data.updated || 0} entries`);
-                else setError(data.detail || "Failed");
-              } catch {
-                setError("Failed");
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-            className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Normalize Countries
-          </button>
-
           <div className="flex gap-3">
             <button
               onClick={() => fixIncidentDates(false)}

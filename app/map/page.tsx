@@ -1,12 +1,21 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getCountryAnalytics, getStats } from "@/lib/api";
 import { getCountryFlag, formatNumber, cn } from "@/lib/utils";
-import { Globe2, AlertTriangle, MapPin } from "lucide-react";
+import { Globe2, MapPin } from "lucide-react";
 import Link from "next/link";
 
+const WorldHeatmap = dynamic(
+  () => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap),
+  { ssr: false }
+);
+
 export default function MapPage() {
+  const router = useRouter();
+
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: getStats,
@@ -26,7 +35,7 @@ export default function MapPage() {
     );
   }
 
-  // Group countries by region (using full country names)
+  // Group countries by region
   const regionMap: Record<string, string[]> = {
     "North America": ["United States", "Canada", "Mexico"],
     "Europe": ["United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Belgium", "Austria", "Switzerland", "Poland", "Sweden", "Norway", "Denmark", "Finland", "Ireland", "Portugal", "Greece", "Czech Republic", "Hungary", "Romania", "Bulgaria", "Croatia", "Slovakia", "Slovenia", "Lithuania", "Latvia", "Estonia", "Luxembourg", "Malta", "Cyprus", "Iceland"],
@@ -70,12 +79,22 @@ export default function MapPage() {
               <span className="text-muted-foreground ml-2">countries affected</span>
             </div>
             <div>
-              <span className="text-3xl font-bold">{stats.total_incidents}</span>
-              <span className="text-muted-foreground ml-2">total incidents</span>
+              <span className="text-3xl font-bold">{stats.education_incidents}</span>
+              <span className="text-muted-foreground ml-2">education incidents</span>
             </div>
           </div>
         )}
       </div>
+
+      {/* Interactive World Map */}
+      {countryData?.data && (
+        <WorldHeatmap
+          data={countryData.data}
+          onCountryClick={(country) => {
+            router.push(`/incidents?country=${encodeURIComponent(country)}`);
+          }}
+        />
+      )}
 
       {/* Region Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -87,7 +106,7 @@ export default function MapPage() {
           })
           .map(([region, countries], regionIndex) => {
             const totalIncidents = countries.reduce((sum, c) => sum + c.count, 0);
-            
+
             return (
               <div
                 key={region}
@@ -107,7 +126,7 @@ export default function MapPage() {
                   </span>
                 </div>
                 <div className="space-y-2">
-                  {countries.slice(0, 8).map((country, index) => (
+                  {countries.slice(0, 8).map((country) => (
                     <Link
                       key={country.category}
                       href={`/incidents?country=${country.category}`}
@@ -169,4 +188,3 @@ export default function MapPage() {
     </div>
   );
 }
-
