@@ -280,6 +280,7 @@ export async function getIncidents(params: {
   institution_type?: string;
   year?: number;
   enriched_only?: boolean;
+  data_breached?: boolean;
   search?: string;
   sort_by?: string;
   sort_order?: string;
@@ -295,6 +296,7 @@ export async function getIncidents(params: {
   if (params.institution_type) searchParams.set('institution_type', params.institution_type);
   if (params.year) searchParams.set('year', params.year.toString());
   if (params.enriched_only) searchParams.set('enriched_only', 'true');
+  if (params.data_breached) searchParams.set('data_breached', 'true');
   if (params.search) searchParams.set('search', params.search);
   if (params.sort_by) searchParams.set('sort_by', params.sort_by);
   if (params.sort_order) searchParams.set('sort_order', params.sort_order);

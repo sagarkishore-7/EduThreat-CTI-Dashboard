@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getIncidents, getFilters } from "@/lib/api";
@@ -24,6 +25,43 @@ import {
 } from "lucide-react";
 
 export default function IncidentsPage() {
+  return (
+    <Suspense fallback={<IncidentsLoading />}>
+      <IncidentsContent />
+    </Suspense>
+  );
+}
+
+function IncidentsLoading() {
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-xl p-4 h-16 skeleton" />
+      <div className="bg-card border border-border rounded-xl h-[600px] skeleton" />
+    </div>
+  );
+}
+
+function IncidentsContent() {
+  const searchParams = useSearchParams();
+  const urlCountry = searchParams.get("country") || undefined;
+  const urlAttackCategory = searchParams.get("attack_category") || undefined;
+  const urlRansomwareFamily = searchParams.get("ransomware_family") || undefined;
+  const urlThreatActor = searchParams.get("threat_actor") || undefined;
+  const urlYear = searchParams.get("year") ? parseInt(searchParams.get("year")!) : undefined;
+  const urlEnrichedOnly = searchParams.get("enriched_only") === "true" || undefined;
+  const urlDataBreached = searchParams.get("data_breached") === "true" || undefined;
+
+  const initialFilters = {
+    country: urlCountry,
+    attack_category: urlAttackCategory,
+    ransomware_family: urlRansomwareFamily,
+    threat_actor: urlThreatActor,
+    year: urlYear,
+    enriched_only: urlEnrichedOnly,
+    data_breached: urlDataBreached,
+  };
+  const hasUrlFilters = Object.values(initialFilters).some(Boolean);
+
   const [page, setPage] = useState(1);
   const [perPage] = useState(20);
   const [search, setSearch] = useState("");
@@ -31,10 +69,12 @@ export default function IncidentsPage() {
     country?: string;
     attack_category?: string;
     ransomware_family?: string;
+    threat_actor?: string;
     year?: number;
     enriched_only?: boolean;
-  }>({});
-  const [showFilters, setShowFilters] = useState(false);
+    data_breached?: boolean;
+  }>(initialFilters);
+  const [showFilters, setShowFilters] = useState(hasUrlFilters);
 
   const { data: filterOptions } = useQuery({
     queryKey: ["filters"],
@@ -190,6 +230,17 @@ export default function IncidentsPage() {
                   className="rounded bg-secondary border-border"
                 />
                 Enriched Only
+              </label>
+
+              {/* Data Breached */}
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={filters.data_breached || false}
+                  onChange={(e) => handleFilterChange("data_breached", e.target.checked)}
+                  className="rounded bg-secondary border-border"
+                />
+                Data Breaches
               </label>
 
               {/* Clear Filters */}

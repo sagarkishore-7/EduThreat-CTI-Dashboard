@@ -91,7 +91,7 @@ export default function DashboardPage() {
           description="Incidents with confirmed data exfiltration"
           icon={Database}
           variant="warning"
-          href="/incidents?attack_category=data_breach"
+          href="/incidents?data_breached=true"
         />
         <StatCard
           title="Countries Affected"
@@ -104,7 +104,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Secondary Research Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Threat Actors"
           value={stats.unique_threat_actors}
@@ -119,23 +119,19 @@ export default function DashboardPage() {
           description="With technique attribution"
           icon={Target}
           variant="purple"
+          href="/incidents?enriched_only=true"
         />
         <StatCard
-          title="Avg Recovery Time"
-          value={stats.avg_recovery_days ? `${stats.avg_recovery_days} days` : "N/A"}
-          description="Mean time to recover"
-          icon={Clock}
-          variant="warning"
+          title={stats.total_financial_impact > 0 ? "Financial Impact" : "Avg Recovery Time"}
+          value={stats.total_financial_impact > 0
+            ? formatCurrency(stats.total_financial_impact)
+            : stats.avg_recovery_days ? `${stats.avg_recovery_days} days` : "N/A"}
+          description={stats.total_financial_impact > 0
+            ? "Estimated total recovery costs"
+            : "Mean time to recover"}
+          icon={stats.total_financial_impact > 0 ? DollarSign : Clock}
+          variant={stats.total_financial_impact > 0 ? "pink" : "warning"}
         />
-        {stats.total_financial_impact > 0 && (
-          <StatCard
-            title="Financial Impact"
-            value={formatCurrency(stats.total_financial_impact)}
-            description="Estimated total recovery costs"
-            icon={DollarSign}
-            variant="pink"
-          />
-        )}
         <StatCard
           title="Intelligence Sources"
           value={stats.data_sources}
@@ -176,8 +172,8 @@ function DashboardSkeleton() {
           <div key={i} className="bg-card border border-border rounded-xl p-5 h-28 skeleton" />
         ))}
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[...Array(5)].map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[...Array(4)].map((_, i) => (
           <div key={i} className="bg-card border border-border rounded-xl p-5 h-24 skeleton" />
         ))}
       </div>
