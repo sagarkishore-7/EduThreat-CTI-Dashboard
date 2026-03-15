@@ -2,6 +2,27 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 2.1.0 (2026-03-15)
+
+**Focus**: Real-Time Intelligence Pipeline, Re-Enrichment UI & Interactivity Fixes
+
+### Key Features
+- "Start Cron Job" button — one-click continuous intelligence collection with scheduler status display (jobs table, next/last run times, new incidents counter)
+- Re-Enrich section — date picker to reset old enrichments for re-processing with updated extraction schema
+- Dashboard stat cards now clickable — filter to specific incidents (ransomware, data breaches, enriched, by country)
+- Incidents page reads URL query params to pre-fill filters (Suspense-wrapped for Next.js 14)
+- Data Breaches filter checkbox added to incidents page
+- Pipeline stop button now properly cancels running enrichment
+
+### Breaking Changes
+- Requires backend v2.3.0+ for scheduler and re-enrich endpoints
+
+### Migration Notes
+- New admin endpoints used: `/admin/scheduler/start`, `/admin/scheduler/stop`, `/admin/scheduler/status`, `/admin/re-enrich`
+- Incidents page now supports `?data_breached=true` URL parameter
+
+---
+
 ## Version 2.0.0 (2026-03-15)
 
 **Focus**: Analyst-Focused Dashboard Redesign & Interactive World Map

@@ -24,6 +24,9 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  Radio,
+  Power,
+  RotateCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API_BASE } from "@/lib/api";
@@ -145,6 +148,22 @@ export default function AdminPage() {
   const [loadingIncidents, setLoadingIncidents] = useState(false);
   const [deletingIncidents, setDeletingIncidents] = useState(false);
 
+  // Scheduler state
+  const [schedulerStatus, setSchedulerStatus] = useState<{
+    running: boolean;
+    started_at: string | null;
+    last_runs: Record<string, string | null>;
+    total_new_incidents: number;
+    jobs: { interval: string; unit: string; next_run: string | null }[];
+  } | null>(null);
+  const [schedulerLoading, setSchedulerLoading] = useState(false);
+  const schedulerPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Re-enrich state
+  const [reEnrichDate, setReEnrichDate] = useState("");
+  const [reEnrichLoading, setReEnrichLoading] = useState(false);
+  const [reEnrichResult, setReEnrichResult] = useState<{ reverted_count: number; before_date: string } | null>(null);
+
   // ------------------------------------------------------------------
   // Auth helpers
   // ------------------------------------------------------------------
@@ -157,6 +176,7 @@ export default function AdminPage() {
       fetchStats(token);
       fetchPipelineStatus(token);
       fetchRunHistory(token);
+      fetchSchedulerStatus(token);
     }
   }, []);
 
@@ -394,10 +414,6 @@ export default function AdminPage() {
     }
   };
 
-  // ------------------------------------------------------------------
-  // Legacy helpers (downloads, maintenance)
-  // ------------------------------------------------------------------
-
   const downloadFile = async (endpoint: string, filename: string, type: string) => {
     if (!sessionToken) return;
     setDownloading(type);
@@ -450,6 +466,123 @@ export default function AdminPage() {
       setError("Failed to trigger job");
     }
   };
+
+  // ------------------------------------------------------------------
+  // Scheduler helpers
+  // ------------------------------------------------------------------
+
+  const fetchSchedulerStatus = async (token?: string) => {
+    const t = token || sessionToken;
+    if (!t) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scheduler/status`, {
+        headers: { "X-Session-Token": t },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSchedulerStatus(data);
+        // Start/stop polling based on scheduler state
+        if (data.running && !schedulerPollRef.current) {
+          schedulerPollRef.current = setInterval(() => fetchSchedulerStatus(t), 5000);
+        } else if (!data.running && schedulerPollRef.current) {
+          clearInterval(schedulerPollRef.current);
+          schedulerPollRef.current = null;
+        }
+      }
+    } catch {
+      // silent
+    }
+  };
+
+  const startScheduler = async () => {
+    if (!sessionToken) return;
+    setSchedulerLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scheduler/start`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccess("Real-time intelligence pipeline started!");
+        fetchSchedulerStatus(sessionToken);
+        // Also refresh pipeline status since catch-up may start running
+        setTimeout(() => fetchPipelineStatus(sessionToken), 2000);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Failed to start scheduler");
+      }
+    } catch {
+      setError("Failed to start scheduler");
+    } finally {
+      setSchedulerLoading(false);
+    }
+  };
+
+  const stopScheduler = async () => {
+    if (!sessionToken) return;
+    setSchedulerLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scheduler/stop`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSuccess("Scheduler stopped");
+        fetchSchedulerStatus(sessionToken);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Failed to stop scheduler");
+      }
+    } catch {
+      setError("Failed to stop scheduler");
+    } finally {
+      setSchedulerLoading(false);
+    }
+  };
+
+  // Clean up scheduler polling on unmount
+  useEffect(() => {
+    return () => {
+      if (schedulerPollRef.current) clearInterval(schedulerPollRef.current);
+    };
+  }, []);
+
+  // ------------------------------------------------------------------
+  // Re-enrich helpers
+  // ------------------------------------------------------------------
+
+  const handleReEnrich = async () => {
+    if (!sessionToken || !reEnrichDate) return;
+    setReEnrichLoading(true);
+    setError(null);
+    setReEnrichResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/re-enrich`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ before_date: reEnrichDate }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setReEnrichResult({ reverted_count: data.reverted_count, before_date: data.before_date });
+        setSuccess(data.message);
+        fetchStats(sessionToken);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Re-enrichment failed");
+      }
+    } catch {
+      setError("Failed to reset enrichment");
+    } finally {
+      setReEnrichLoading(false);
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Legacy helpers (downloads, maintenance)
+  // ------------------------------------------------------------------
 
   const migrateDatabase = async () => {
     if (!sessionToken) return;
@@ -945,6 +1078,201 @@ export default function AdminPage() {
             small
           />
         </div>
+      </div>
+
+      {/* ============================================================ */}
+      {/* REAL-TIME INTELLIGENCE PIPELINE (SCHEDULER) */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Radio className="w-5 h-5 text-primary" />
+              Real-Time Intelligence Pipeline
+              {schedulerStatus?.running && (
+                <span className="ml-2 flex items-center gap-1.5 text-xs font-medium text-green-400">
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  Active
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Continuous automated collection: RSS every 1h, API sources every 6h, full pipeline daily.
+            </p>
+          </div>
+
+          <button
+            onClick={schedulerStatus?.running ? stopScheduler : startScheduler}
+            disabled={schedulerLoading}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+              schedulerStatus?.running
+                ? "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30"
+                : "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white shadow-lg shadow-green-500/20",
+              schedulerLoading && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            {schedulerLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : schedulerStatus?.running ? (
+              <Power className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+            {schedulerStatus?.running ? "Stop Scheduler" : "Start Cron Job"}
+          </button>
+        </div>
+
+        {/* Scheduler details when running */}
+        {schedulerStatus?.running && (
+          <div className="mt-4 space-y-4">
+            {/* Stats row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Started</div>
+                <div className="text-sm font-medium mt-1">
+                  {schedulerStatus.started_at
+                    ? new Date(schedulerStatus.started_at).toLocaleTimeString()
+                    : "—"}
+                </div>
+              </div>
+              <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">New Incidents</div>
+                <div className="text-sm font-medium mt-1 text-green-400">
+                  {schedulerStatus.total_new_incidents}
+                </div>
+              </div>
+              <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Scheduled Jobs</div>
+                <div className="text-sm font-medium mt-1">
+                  {schedulerStatus.jobs.length}
+                </div>
+              </div>
+              <div className="bg-secondary/50 rounded-lg p-3 text-center">
+                <div className="text-xs text-muted-foreground">Next Run</div>
+                <div className="text-sm font-medium mt-1">
+                  {schedulerStatus.jobs.length > 0 && schedulerStatus.jobs[0].next_run
+                    ? new Date(schedulerStatus.jobs[0].next_run).toLocaleTimeString()
+                    : "—"}
+                </div>
+              </div>
+            </div>
+
+            {/* Job schedule table */}
+            <div className="overflow-hidden rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-secondary/50">
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Job</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Interval</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Last Run</th>
+                    <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Next Run</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    { key: "rss", label: "RSS Feeds", interval: "Every 1 hour" },
+                    { key: "api", label: "API Sources", interval: "Every 6 hours" },
+                    { key: "daily", label: "Full Pipeline", interval: "Every 24 hours" },
+                  ].map((job) => (
+                    <tr key={job.key} className="border-t border-border">
+                      <td className="px-4 py-2.5 font-medium">{job.label}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">{job.interval}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {schedulerStatus.last_runs[job.key]
+                          ? new Date(schedulerStatus.last_runs[job.key]!).toLocaleTimeString()
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {schedulerStatus.jobs.find(
+                          (j, i) =>
+                            (job.key === "rss" && i === 0) ||
+                            (job.key === "api" && i === 1) ||
+                            (job.key === "daily" && i === 2)
+                        )?.next_run
+                          ? new Date(
+                              schedulerStatus.jobs[
+                                job.key === "rss" ? 0 : job.key === "api" ? 1 : 2
+                              ]?.next_run || ""
+                            ).toLocaleTimeString()
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Info when not running */}
+        {!schedulerStatus?.running && (
+          <div className="mt-3 p-4 bg-secondary/30 rounded-lg text-sm text-muted-foreground">
+            Click <span className="text-foreground font-medium">Start Cron Job</span> to activate continuous intelligence collection.
+            The scheduler will run an initial catch-up to fetch recent incidents, then continue monitoring
+            sources at regular intervals with automatic LLM enrichment.
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* RE-ENRICH SECTION */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+          <RotateCw className="w-5 h-5 text-primary" />
+          Re-Enrich Incidents
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Reset enrichment for incidents processed before a given date so they can be
+          re-enriched with the updated extraction schema.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4">
+          <div className="flex-1 max-w-xs">
+            <label className="block text-sm font-medium mb-1.5">
+              Re-enrich incidents enriched before
+            </label>
+            <input
+              type="date"
+              value={reEnrichDate}
+              onChange={(e) => {
+                setReEnrichDate(e.target.value);
+                setReEnrichResult(null);
+              }}
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <button
+            onClick={handleReEnrich}
+            disabled={!reEnrichDate || reEnrichLoading}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+              "bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30",
+              (!reEnrichDate || reEnrichLoading) && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {reEnrichLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RotateCw className="w-4 h-4" />
+            )}
+            Reset &amp; Re-Enrich
+          </button>
+        </div>
+
+        {reEnrichResult && (
+          <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">
+            <span className="font-medium text-amber-400">{reEnrichResult.reverted_count}</span>{" "}
+            incident{reEnrichResult.reverted_count !== 1 ? "s" : ""} enriched before{" "}
+            <span className="font-medium">{reEnrichResult.before_date}</span> have been reset.
+            {reEnrichResult.reverted_count > 0 && (
+              <span className="text-muted-foreground">
+                {" "}Run the <span className="text-foreground">Enrichment</span> phase to re-process them.
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ============================================================ */}
