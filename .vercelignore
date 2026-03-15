@@ -1,0 +1,9 @@
+.git
+.github
+.claude
+.env
+.env.local
+!.env.example
+Dockerfile
+README.md
+docs/
