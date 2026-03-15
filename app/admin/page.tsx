@@ -130,6 +130,21 @@ export default function AdminPage() {
   const logContainerRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Incident management state
+  const [showIncidents, setShowIncidents] = useState(false);
+  const [unenrichedIncidents, setUnenrichedIncidents] = useState<any[]>([]);
+  const [enrichedIncidents, setEnrichedIncidents] = useState<any[]>([]);
+  const [unenrichedTotal, setUnenrichedTotal] = useState(0);
+  const [enrichedTotal, setEnrichedTotal] = useState(0);
+  const [unenrichedPage, setUnenrichedPage] = useState(1);
+  const [enrichedPage, setEnrichedPage] = useState(1);
+  const [selectedUnenriched, setSelectedUnenriched] = useState<Set<string>>(new Set());
+  const [selectedEnriched, setSelectedEnriched] = useState<Set<string>>(new Set());
+  const [incidentSearch, setIncidentSearch] = useState("");
+  const [incidentTab, setIncidentTab] = useState<"unenriched" | "enriched">("unenriched");
+  const [loadingIncidents, setLoadingIncidents] = useState(false);
+  const [deletingIncidents, setDeletingIncidents] = useState(false);
+
   // ------------------------------------------------------------------
   // Auth helpers
   // ------------------------------------------------------------------
@@ -506,6 +521,128 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ------------------------------------------------------------------
+  // Incident management
+  // ------------------------------------------------------------------
+
+  const fetchIncidents = async (type: "unenriched" | "enriched", page = 1, search = "") => {
+    if (!sessionToken) return;
+    setLoadingIncidents(true);
+    try {
+      const params = new URLSearchParams({ page: String(page), per_page: "50" });
+      if (search) params.set("search", search);
+      const res = await fetch(
+        `${API_BASE}/api/admin/incidents/${type}?${params}`,
+        { headers: { "X-Session-Token": sessionToken } }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (type === "unenriched") {
+          setUnenrichedIncidents(data.incidents);
+          setUnenrichedTotal(data.total);
+          setUnenrichedPage(data.page);
+        } else {
+          setEnrichedIncidents(data.incidents);
+          setEnrichedTotal(data.total);
+          setEnrichedPage(data.page);
+        }
+      }
+    } catch {
+      setError(`Failed to fetch ${type} incidents`);
+    } finally {
+      setLoadingIncidents(false);
+    }
+  };
+
+  const deleteSelectedIncidents = async () => {
+    if (!sessionToken) return;
+    const selected = incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched;
+    if (selected.size === 0) return;
+
+    if (!confirm(`Delete ${selected.size} incident(s)? This cannot be undone.`)) return;
+
+    setDeletingIncidents(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/incidents/delete`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ incident_ids: Array.from(selected) }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess(data.message);
+        if (incidentTab === "unenriched") {
+          setSelectedUnenriched(new Set());
+          fetchIncidents("unenriched", unenrichedPage, incidentSearch);
+        } else {
+          setSelectedEnriched(new Set());
+          fetchIncidents("enriched", enrichedPage, incidentSearch);
+        }
+        if (sessionToken) fetchStats(sessionToken);
+      } else {
+        setError(data.detail || "Delete failed");
+      }
+    } catch {
+      setError("Delete failed");
+    } finally {
+      setDeletingIncidents(false);
+    }
+  };
+
+  const clearAllIncidents = async () => {
+    if (!sessionToken) return;
+    if (!confirm("⚠️ DELETE ALL INCIDENTS? This will completely empty the database. This cannot be undone!")) return;
+    if (!confirm("Are you absolutely sure? Type OK in the next prompt to confirm.")) return;
+
+    setDeletingIncidents(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/incidents/clear-all`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSuccess(data.message);
+        setUnenrichedIncidents([]);
+        setEnrichedIncidents([]);
+        setUnenrichedTotal(0);
+        setEnrichedTotal(0);
+        setSelectedUnenriched(new Set());
+        setSelectedEnriched(new Set());
+        if (sessionToken) fetchStats(sessionToken);
+      } else {
+        setError(data.detail || "Clear failed");
+      }
+    } catch {
+      setError("Clear all failed");
+    } finally {
+      setDeletingIncidents(false);
+    }
+  };
+
+  const toggleSelectAll = (type: "unenriched" | "enriched") => {
+    const incidents = type === "unenriched" ? unenrichedIncidents : enrichedIncidents;
+    const selected = type === "unenriched" ? selectedUnenriched : selectedEnriched;
+    const setSelected = type === "unenriched" ? setSelectedUnenriched : setSelectedEnriched;
+
+    if (selected.size === incidents.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(incidents.map((i: any) => i.incident_id)));
+    }
+  };
+
+  const toggleSelect = (id: string, type: "unenriched" | "enriched") => {
+    const selected = type === "unenriched" ? selectedUnenriched : selectedEnriched;
+    const setSelected = type === "unenriched" ? setSelectedUnenriched : setSelectedEnriched;
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
   };
 
   // Clear messages after 8 seconds
@@ -1213,6 +1350,176 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* ============================================================ */}
+      {/* INCIDENT MANAGEMENT */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <button
+          onClick={() => {
+            setShowIncidents(!showIncidents);
+            if (!showIncidents && sessionToken) {
+              fetchIncidents("unenriched", 1, "");
+              fetchIncidents("enriched", 1, "");
+            }
+          }}
+          className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+        >
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Database className="w-5 h-5 text-primary" />
+            Incident Management
+            {(unenrichedTotal > 0 || enrichedTotal > 0) && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({unenrichedTotal} unenriched, {enrichedTotal} enriched)
+              </span>
+            )}
+          </h2>
+          {showIncidents ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </button>
+
+        {showIncidents && (
+          <div className="border-t border-border">
+            {/* Tab bar + actions */}
+            <div className="flex items-center justify-between px-4 py-3 bg-secondary/20 border-b border-border">
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setIncidentTab("unenriched"); if (unenrichedIncidents.length === 0 && sessionToken) fetchIncidents("unenriched", 1, incidentSearch); }}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    incidentTab === "unenriched" ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80"
+                  )}
+                >
+                  Unenriched ({unenrichedTotal})
+                </button>
+                <button
+                  onClick={() => { setIncidentTab("enriched"); if (enrichedIncidents.length === 0 && sessionToken) fetchIncidents("enriched", 1, incidentSearch); }}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    incidentTab === "enriched" ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80"
+                  )}
+                >
+                  Enriched ({enrichedTotal})
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Search incidents..."
+                  value={incidentSearch}
+                  onChange={(e) => setIncidentSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") fetchIncidents(incidentTab, 1, incidentSearch);
+                  }}
+                  className="px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary w-48"
+                />
+                <button
+                  onClick={() => fetchIncidents(incidentTab, 1, incidentSearch)}
+                  className="px-3 py-1.5 rounded-lg bg-secondary hover:bg-secondary/80 text-sm"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+
+            {/* Action bar */}
+            <div className="flex items-center justify-between px-4 py-2 bg-secondary/10 border-b border-border">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleSelectAll(incidentTab)}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {(incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched).size ===
+                  (incidentTab === "unenriched" ? unenrichedIncidents : enrichedIncidents).length &&
+                  (incidentTab === "unenriched" ? unenrichedIncidents : enrichedIncidents).length > 0
+                    ? "Deselect All"
+                    : "Select All"}
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  {(incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched).size} selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={deleteSelectedIncidents}
+                  disabled={
+                    deletingIncidents ||
+                    (incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched).size === 0
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors",
+                    "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30",
+                    ((incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched).size === 0 || deletingIncidents) &&
+                      "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {deletingIncidents ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                  Delete Selected
+                </button>
+                <button
+                  onClick={clearAllIncidents}
+                  disabled={deletingIncidents}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5 transition-colors",
+                    "bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-600/30",
+                    deletingIncidents && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Clear All DB
+                </button>
+              </div>
+            </div>
+
+            {/* Incident table */}
+            <div className="overflow-x-auto">
+              {loadingIncidents ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-muted-foreground">Loading incidents...</span>
+                </div>
+              ) : (
+                <IncidentTable
+                  incidents={incidentTab === "unenriched" ? unenrichedIncidents : enrichedIncidents}
+                  selected={incidentTab === "unenriched" ? selectedUnenriched : selectedEnriched}
+                  onToggle={(id) => toggleSelect(id, incidentTab)}
+                  showEnrichmentCols={incidentTab === "enriched"}
+                />
+              )}
+            </div>
+
+            {/* Pagination */}
+            {(() => {
+              const total = incidentTab === "unenriched" ? unenrichedTotal : enrichedTotal;
+              const page = incidentTab === "unenriched" ? unenrichedPage : enrichedPage;
+              const totalPages = Math.ceil(total / 50);
+              if (totalPages <= 1) return null;
+              return (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-secondary/10">
+                  <span className="text-xs text-muted-foreground">
+                    Page {page} of {totalPages} ({total} total)
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => fetchIncidents(incidentTab, page - 1, incidentSearch)}
+                      disabled={page <= 1}
+                      className="px-3 py-1 rounded text-sm bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => fetchIncidents(incidentTab, page + 1, incidentSearch)}
+                      disabled={page >= totalPages}
+                      className="px-3 py-1 rounded text-sm bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+      </div>
+
       {/* Environment Info */}
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -1388,5 +1695,100 @@ function JobButton({
       </div>
       <p className="text-xs text-muted-foreground">{description}</p>
     </button>
+  );
+}
+
+function IncidentTable({
+  incidents,
+  selected,
+  onToggle,
+  showEnrichmentCols,
+}: {
+  incidents: any[];
+  selected: Set<string>;
+  onToggle: (id: string) => void;
+  showEnrichmentCols?: boolean;
+}) {
+  if (incidents.length === 0) {
+    return (
+      <div className="py-12 text-center text-muted-foreground">
+        No incidents found.
+      </div>
+    );
+  }
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-secondary/30 text-left">
+          <th className="px-3 py-2 w-10">
+            <span className="sr-only">Select</span>
+          </th>
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Institution</th>
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Country</th>
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Date</th>
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Attack Type</th>
+          {showEnrichmentCols && (
+            <>
+              <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Category</th>
+              <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Threat Actor</th>
+              <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Edu?</th>
+            </>
+          )}
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Sources</th>
+          <th className="px-3 py-2 font-medium text-xs text-muted-foreground">Ingested</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-border">
+        {incidents.map((inc) => (
+          <tr
+            key={inc.incident_id}
+            className={cn(
+              "hover:bg-secondary/20 transition-colors",
+              selected.has(inc.incident_id) && "bg-primary/5"
+            )}
+          >
+            <td className="px-3 py-2">
+              <input
+                type="checkbox"
+                checked={selected.has(inc.incident_id)}
+                onChange={() => onToggle(inc.incident_id)}
+                className="rounded border-border"
+              />
+            </td>
+            <td className="px-3 py-2 max-w-[200px] truncate" title={inc.title || inc.university_name}>
+              <div className="font-medium text-xs">{inc.university_name || "Unknown"}</div>
+              {inc.title && (
+                <div className="text-xs text-muted-foreground truncate">{inc.title}</div>
+              )}
+            </td>
+            <td className="px-3 py-2 text-xs">{inc.country || "-"}</td>
+            <td className="px-3 py-2 text-xs whitespace-nowrap">{inc.incident_date || "-"}</td>
+            <td className="px-3 py-2 text-xs">{inc.attack_type_hint || "-"}</td>
+            {showEnrichmentCols && (
+              <>
+                <td className="px-3 py-2 text-xs">{inc.attack_category || "-"}</td>
+                <td className="px-3 py-2 text-xs">{inc.threat_actor_name || "-"}</td>
+                <td className="px-3 py-2 text-xs">
+                  {inc.is_education_related === true ? (
+                    <span className="text-green-400">Yes</span>
+                  ) : inc.is_education_related === false ? (
+                    <span className="text-red-400">No</span>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+              </>
+            )}
+            <td className="px-3 py-2 text-xs text-muted-foreground max-w-[120px] truncate">
+              {inc.sources || "-"}
+            </td>
+            <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+              {inc.ingested_at ? new Date(inc.ingested_at).toLocaleDateString() : "-"}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
