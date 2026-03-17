@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-03-17
+
+### Admin Raw Data Viewer
+
+#### Added
+- **Raw Data Viewer** in admin panel — collapsible section with filters (incident ID, attack category, country, has MITRE, has enrichment JSON) for inspecting raw DB data
+- Expandable incident rows with tabbed views: Key Fields, All Flat Columns, MITRE JSON, Enrichment JSON
+- Copy-to-clipboard buttons for sharing raw data
+- New `getRawIncidents()` API client function with `RawIncidentFilters` interface
+
+---
+
 ## [2.2.0] - 2026-03-15
 
 ### Analytics Dashboard Redesign — World-Class CTI Visualizations

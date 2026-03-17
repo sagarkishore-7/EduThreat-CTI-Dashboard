@@ -2,6 +2,20 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 2.2.1 (2026-03-17)
+
+**Focus**: Admin Raw Data Viewer for DB Inspection
+
+### Key Features
+- Raw Data Viewer added to admin panel with filter controls (incident ID, attack category, country, has MITRE, has enrichment JSON)
+- Expandable rows with tabbed views: Key Fields, All Flat Columns, MITRE JSON, Enrichment JSON
+- Copy-to-clipboard for sharing raw data during debugging
+
+### Breaking Changes
+- Requires backend v2.4.2+ for `/api/admin/raw-incidents` endpoint
+
+---
+
 ## Version 2.2.0 (2026-03-15)
 
 **Focus**: Analytics Dashboard Redesign — World-Class CTI Visualizations
