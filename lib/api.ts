@@ -581,3 +581,36 @@ export async function getUserImpact(): Promise<UserImpactTotals> {
   return fetchAPI('/api/analytics/user-impact');
 }
 
+// ============================================================
+// Admin / Debug Raw Data Viewer
+// ============================================================
+
+export interface RawIncidentFilters {
+  incident_id?: string;
+  has_mitre?: boolean;
+  attack_category?: string;
+  country?: string;
+  has_enrichment?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface RawIncidentResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  incidents: Record<string, unknown>[];
+}
+
+export async function getRawIncidents(filters: RawIncidentFilters = {}): Promise<RawIncidentResponse> {
+  const params = new URLSearchParams();
+  if (filters.incident_id) params.set('incident_id', filters.incident_id);
+  if (filters.has_mitre !== undefined) params.set('has_mitre', String(filters.has_mitre));
+  if (filters.attack_category) params.set('attack_category', filters.attack_category);
+  if (filters.country) params.set('country', filters.country);
+  if (filters.has_enrichment !== undefined) params.set('has_enrichment', String(filters.has_enrichment));
+  if (filters.limit) params.set('limit', String(filters.limit));
+  if (filters.offset) params.set('offset', String(filters.offset));
+  return fetchAPI(`/api/admin/raw-incidents?${params.toString()}`);
+}
+

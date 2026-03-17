@@ -27,9 +27,12 @@ import {
   Radio,
   Power,
   RotateCw,
+  Search,
+  Eye,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, getRawIncidents, RawIncidentFilters } from "@/lib/api";
 
 interface ExportStats {
   total_incidents: number;
@@ -1821,6 +1824,11 @@ export default function AdminPage() {
         )}
       </div>
 
+      {/* ============================================================ */}
+      {/* RAW DATA VIEWER */}
+      {/* ============================================================ */}
+      <RawDataViewer />
+
       {/* Environment Info */}
       <div className="bg-card border border-border rounded-xl p-4">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
@@ -2091,5 +2099,450 @@ function IncidentTable({
         ))}
       </tbody>
     </table>
+  );
+}
+
+// ------------------------------------------------------------------
+// Raw Data Viewer Component
+// ------------------------------------------------------------------
+
+function RawDataViewer() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [filters, setFilters] = useState<RawIncidentFilters>({
+    limit: 10,
+    offset: 0,
+  });
+  const [incidentIdInput, setIncidentIdInput] = useState("");
+  const [attackCategoryInput, setAttackCategoryInput] = useState("");
+  const [countryInput, setCountryInput] = useState("");
+  const [hasMitre, setHasMitre] = useState<string>("any");
+  const [hasEnrichment, setHasEnrichment] = useState<string>("any");
+  const [data, setData] = useState<{ total: number; incidents: Record<string, unknown>[] } | null>(null);
+  const [loadingData, setLoadingData] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  const fetchData = useCallback(async (overrides?: Partial<RawIncidentFilters>) => {
+    setLoadingData(true);
+    setError(null);
+    try {
+      const queryFilters: RawIncidentFilters = {
+        ...filters,
+        ...overrides,
+        incident_id: incidentIdInput || undefined,
+        attack_category: attackCategoryInput || undefined,
+        country: countryInput || undefined,
+        has_mitre: hasMitre === "any" ? undefined : hasMitre === "yes",
+        has_enrichment: hasEnrichment === "any" ? undefined : hasEnrichment === "yes",
+      };
+      const result = await getRawIncidents(queryFilters);
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fetch");
+    } finally {
+      setLoadingData(false);
+    }
+  }, [filters, incidentIdInput, attackCategoryInput, countryInput, hasMitre, hasEnrichment]);
+
+  const handleSearch = () => {
+    setFilters((prev) => ({ ...prev, offset: 0 }));
+    fetchData({ offset: 0 });
+  };
+
+  const handlePageChange = (newOffset: number) => {
+    setFilters((prev) => ({ ...prev, offset: newOffset }));
+    fetchData({ offset: newOffset });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between p-4 hover:bg-secondary/30 transition-colors"
+      >
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Eye className="w-5 h-5 text-primary" />
+          Raw Data Viewer
+          <span className="text-sm font-normal text-muted-foreground">
+            (Debug — inspect DB columns &amp; enrichment JSON)
+          </span>
+        </h2>
+        {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-border">
+          {/* Filters */}
+          <div className="p-4 bg-secondary/20 border-b border-border">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Incident ID</label>
+                <input
+                  type="text"
+                  placeholder="Partial match..."
+                  value={incidentIdInput}
+                  onChange={(e) => setIncidentIdInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Attack Category</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ransomware"
+                  value={attackCategoryInput}
+                  onChange={(e) => setAttackCategoryInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Country</label>
+                <input
+                  type="text"
+                  placeholder="e.g. United States"
+                  value={countryInput}
+                  onChange={(e) => setCountryInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  className="w-full px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Has MITRE</label>
+                <select
+                  value={hasMitre}
+                  onChange={(e) => setHasMitre(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                >
+                  <option value="any">Any</option>
+                  <option value="yes">Yes (has MITRE)</option>
+                  <option value="no">No (no MITRE)</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground block mb-1">Has Enrichment JSON</label>
+                <select
+                  value={hasEnrichment}
+                  onChange={(e) => setHasEnrichment(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary"
+                >
+                  <option value="any">Any</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleSearch}
+                  disabled={loadingData}
+                  className={cn(
+                    "w-full px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-colors",
+                    "bg-gradient-to-r from-cyan-500 to-purple-600 text-white",
+                    loadingData && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {loadingData ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  Fetch
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Results */}
+          {data && (
+            <div>
+              <div className="px-4 py-2 bg-secondary/10 border-b border-border flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  Showing {data.incidents.length} of {data.total} results
+                  {data.total > 0 && ` (offset ${filters.offset})`}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePageChange(Math.max(0, (filters.offset || 0) - (filters.limit || 10)))}
+                    disabled={(filters.offset || 0) <= 0}
+                    className="px-3 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => handlePageChange((filters.offset || 0) + (filters.limit || 10))}
+                    disabled={(filters.offset || 0) + (filters.limit || 10) >= data.total}
+                    className="px-3 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+
+              {data.incidents.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  No incidents match the filters.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {data.incidents.map((incident, idx) => {
+                    const isExpanded = expandedRow === idx;
+                    const incidentId = String(incident.incident_id || "");
+                    const mitreJson = incident.mitre_techniques_json;
+                    const mitreCount = incident.mitre_techniques_count;
+                    const enrichmentData = incident.enrichment_data;
+
+                    // Extract key fields for the summary row
+                    const keyFields: Record<string, unknown> = {
+                      incident_id: incident.incident_id,
+                      university_name: incident.university_name,
+                      country: incident.country,
+                      attack_category: incident.attack_category,
+                      incident_date: incident.incident_date,
+                      mitre_techniques_count: mitreCount,
+                      threat_actor_name: incident.threat_actor_name,
+                      ransomware_family: incident.ransomware_family,
+                    };
+
+                    return (
+                      <div key={idx}>
+                        {/* Summary row */}
+                        <button
+                          onClick={() => setExpandedRow(isExpanded ? null : idx)}
+                          className="w-full text-left px-4 py-3 hover:bg-secondary/20 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <span className="text-xs font-mono text-primary truncate max-w-[180px]">
+                                {incidentId}
+                              </span>
+                              <span className="text-sm font-medium truncate max-w-[200px]">
+                                {String(incident.university_name || "Unknown")}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {String(incident.country || "-")}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {String(incident.attack_category || "-")}
+                              </span>
+                              {Number(mitreCount) > 0 && (
+                                <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">
+                                  MITRE: {String(mitreCount)}
+                                </span>
+                              )}
+                              {enrichmentData != null && (
+                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
+                                  Has JSON
+                                </span>
+                              )}
+                            </div>
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                          </div>
+                        </button>
+
+                        {/* Expanded detail */}
+                        {isExpanded && (
+                          <div className="px-4 pb-4 bg-secondary/10">
+                            {/* Section tabs */}
+                            <div className="flex gap-2 mb-3 pt-2">
+                              {["key_fields", "flat_columns", "mitre_json", "enrichment_json"].map((section) => (
+                                <button
+                                  key={section}
+                                  onClick={() => setExpandedSection(expandedSection === section ? null : section)}
+                                  className={cn(
+                                    "px-3 py-1 rounded-lg text-xs font-medium transition-colors",
+                                    expandedSection === section
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-secondary hover:bg-secondary/80 text-muted-foreground"
+                                  )}
+                                >
+                                  {section === "key_fields" && "Key Fields"}
+                                  {section === "flat_columns" && "All Flat Columns"}
+                                  {section === "mitre_json" && `MITRE JSON (${mitreCount || 0})`}
+                                  {section === "enrichment_json" && "Enrichment JSON"}
+                                </button>
+                              ))}
+                              <button
+                                onClick={() => copyToClipboard(JSON.stringify(incident, null, 2))}
+                                className="px-3 py-1 rounded-lg text-xs font-medium bg-secondary hover:bg-secondary/80 text-muted-foreground flex items-center gap-1 ml-auto"
+                              >
+                                <Copy className="w-3 h-3" />
+                                Copy All
+                              </button>
+                            </div>
+
+                            {/* Key Fields */}
+                            {expandedSection === "key_fields" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto">
+                                <table className="text-xs w-full">
+                                  <tbody>
+                                    {Object.entries(keyFields).map(([k, v]) => (
+                                      <tr key={k} className="border-b border-border/30">
+                                        <td className="py-1.5 pr-4 text-cyan-400 font-mono whitespace-nowrap">{k}</td>
+                                        <td className="py-1.5 text-zinc-300 font-mono">
+                                          {v === null || v === undefined ? (
+                                            <span className="text-red-400/60">NULL</span>
+                                          ) : (
+                                            String(v)
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* All Flat Columns */}
+                            {expandedSection === "flat_columns" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                <table className="text-xs w-full">
+                                  <tbody>
+                                    {Object.entries(incident)
+                                      .filter(([k]) => k !== "enrichment_data")
+                                      .map(([k, v]) => (
+                                        <tr key={k} className="border-b border-border/30">
+                                          <td className="py-1.5 pr-4 text-cyan-400 font-mono whitespace-nowrap align-top">
+                                            {k}
+                                          </td>
+                                          <td className="py-1.5 text-zinc-300 font-mono break-all">
+                                            {v === null || v === undefined ? (
+                                              <span className="text-red-400/60">NULL</span>
+                                            ) : typeof v === "object" ? (
+                                              <pre className="whitespace-pre-wrap text-xs">
+                                                {JSON.stringify(v, null, 2)}
+                                              </pre>
+                                            ) : (
+                                              String(v)
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+
+                            {/* MITRE JSON */}
+                            {expandedSection === "mitre_json" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                {mitreJson ? (
+                                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                                    {typeof mitreJson === "object"
+                                      ? JSON.stringify(mitreJson, null, 2)
+                                      : String(mitreJson)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-400/60">
+                                    mitre_techniques_json is NULL
+                                    {Number(mitreCount) > 0 && (
+                                      <span className="text-yellow-400 ml-2">
+                                        (but mitre_techniques_count = {String(mitreCount)})
+                                      </span>
+                                    )}
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => copyToClipboard(
+                                    mitreJson
+                                      ? typeof mitreJson === "object"
+                                        ? JSON.stringify(mitreJson, null, 2)
+                                        : String(mitreJson)
+                                      : "NULL"
+                                  )}
+                                  className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy MITRE JSON
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Enrichment JSON */}
+                            {expandedSection === "enrichment_json" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                {enrichmentData ? (
+                                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                                    {typeof enrichmentData === "object"
+                                      ? JSON.stringify(enrichmentData, null, 2)
+                                      : String(enrichmentData)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-400/60">
+                                    enrichment_data is NULL (no JSON enrichment found)
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => copyToClipboard(
+                                    enrichmentData
+                                      ? typeof enrichmentData === "object"
+                                        ? JSON.stringify(enrichmentData, null, 2)
+                                        : String(enrichmentData)
+                                      : "NULL"
+                                  )}
+                                  className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy Enrichment JSON
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Bottom pagination */}
+              {data.total > (filters.limit || 10) && (
+                <div className="px-4 py-2 bg-secondary/10 border-t border-border flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Page {Math.floor((filters.offset || 0) / (filters.limit || 10)) + 1} of{" "}
+                    {Math.ceil(data.total / (filters.limit || 10))}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handlePageChange(Math.max(0, (filters.offset || 0) - (filters.limit || 10)))}
+                      disabled={(filters.offset || 0) <= 0}
+                      className="px-3 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => handlePageChange((filters.offset || 0) + (filters.limit || 10))}
+                      disabled={(filters.offset || 0) + (filters.limit || 10) >= data.total}
+                      className="px-3 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!data && !loadingData && !error && (
+            <div className="py-12 text-center text-muted-foreground">
+              <Eye className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Set filters and click Fetch to inspect raw incident data</p>
+              <p className="text-xs mt-1">
+                View all columns from incident_enrichments_flat + full enrichment JSON
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
