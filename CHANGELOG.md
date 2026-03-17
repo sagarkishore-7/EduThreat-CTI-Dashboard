@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-03-17
+
+### Cross-Dimensional Intelligence Visualizations
+
+#### Added
+- **10 new chart components** for cross-dimensional threat intelligence:
+  - `InstitutionRiskMatrix` — ScatterChart bubble matrix (institution type × attack category)
+  - `RecoveryByAttackTypeChart` — Grouped horizontal BarChart (avg recovery/downtime days)
+  - `AttackVectorByInstitution` — Stacked horizontal BarChart (vectors per institution type)
+  - `BreachSeverityTimeline` — ComposedChart with dual Y-axis (monthly incidents + avg records)
+  - `RansomPaymentByYearChart` — ComposedChart (demanded vs paid bars + payment rate line)
+  - `RansomwareFamilyTrend` — Stacked AreaChart (top 8 families by month)
+  - `ActorInstitutionMatrix` — CSS grid heatmap (actors × institution types)
+  - `ActorTTPProfile` — Grouped horizontal BarChart (actors × MITRE tactics)
+  - `DisclosureTimelineScatter` — ScatterChart colored by country
+  - `DataBreachByInstitutionChart` — Horizontal BarChart with breach rate annotations
+- **10 new TypeScript interfaces** and fetch functions in `lib/api.ts`
+- Charts wired into all 4 analytics pages:
+  - `/attacks` — AttackVectorByInstitution, BreachSeverityTimeline
+  - `/ransomware` — RansomPaymentByYearChart, RansomwareFamilyTrend
+  - `/threat-actors` — ActorInstitutionMatrix, ActorTTPProfile
+  - `/analytics` — InstitutionRiskMatrix (replaces OperationalImpactRadar), RecoveryByAttackTypeChart (replaces RecoveryEffectivenessChart), DisclosureTimelineScatter, DataBreachByInstitutionChart
+
+#### Replaced
+- `OperationalImpactRadar` → `InstitutionRiskMatrix` (old chart showed all zeros due to empty operational impact fields)
+- `RecoveryEffectivenessChart` → `RecoveryByAttackTypeChart` (old chart showed all zeros due to empty recovery measure fields)
+
+---
+
 ## [2.2.1] - 2026-03-17
 
 ### Admin Raw Data Viewer

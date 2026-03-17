@@ -9,6 +9,8 @@ import {
   getMitreTactics,
   getInitialAccess,
   getSystemImpact,
+  getAttackVectorByInstitution,
+  getBreachSeverityTimeline,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { AttackTrendChart } from "@/components/charts/AttackTrendChart";
@@ -17,6 +19,8 @@ import { AttackVectorDonut } from "@/components/charts/AttackVectorDonut";
 import { MitreHeatmap } from "@/components/charts/MitreHeatmap";
 import { InitialAccessTreemap } from "@/components/charts/InitialAccessTreemap";
 import { SystemImpactChart } from "@/components/charts/SystemImpactChart";
+import { AttackVectorByInstitution } from "@/components/charts/AttackVectorByInstitution";
+import { BreachSeverityTimeline } from "@/components/charts/BreachSeverityTimeline";
 import {
   Shield,
   Lock,
@@ -34,8 +38,10 @@ export default function AttackIntelligencePage() {
   const { data: mitreTactics, isLoading: l4 } = useQuery({ queryKey: ["mitre-tactics"], queryFn: getMitreTactics });
   const { data: initialAccess, isLoading: l5 } = useQuery({ queryKey: ["initial-access"], queryFn: () => getInitialAccess(12) });
   const { data: systemImpact, isLoading: l6 } = useQuery({ queryKey: ["system-impact"], queryFn: getSystemImpact });
+  const { data: attackVectorByInst, isLoading: l7 } = useQuery({ queryKey: ["attack-vector-by-institution"], queryFn: () => getAttackVectorByInstitution(8) });
+  const { data: breachSeverity, isLoading: l8 } = useQuery({ queryKey: ["breach-severity-timeline"], queryFn: () => getBreachSeverityTimeline(60) });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
 
   // Loading skeleton
   if (isLoading) {
@@ -90,11 +96,17 @@ export default function AttackIntelligencePage() {
       {/* MITRE Heatmap - Full Width */}
       {mitreTactics && <MitreHeatmap data={mitreTactics.data} />}
 
+      {/* Breach Severity Timeline - Full Width */}
+      {breachSeverity && <BreachSeverityTimeline data={breachSeverity} />}
+
       {/* Initial Access + System Impact side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {initialAccess && <InitialAccessTreemap data={initialAccess.data} />}
         {systemImpact && <SystemImpactChart data={systemImpact.data} />}
       </div>
+
+      {/* Attack Vector by Institution - Full Width */}
+      {attackVectorByInst && <AttackVectorByInstitution data={attackVectorByInst} />}
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
   getRansomEconomics,
   getRansomwareRecovery,
   getRansomwareGeo,
+  getRansomPaymentByYear,
+  getRansomwareFamilyTrend,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { RansomwareChart } from "@/components/charts/RansomwareChart";
@@ -17,6 +19,8 @@ import { RansomwareExfiltrationChart } from "@/components/charts/RansomwareExfil
 import { RansomEconomicsPanel } from "@/components/charts/RansomEconomicsPanel";
 import { RecoveryRadarChart } from "@/components/charts/RecoveryRadarChart";
 import { RansomwareGeoGrid } from "@/components/charts/RansomwareGeoGrid";
+import { RansomPaymentByYearChart } from "@/components/charts/RansomPaymentByYearChart";
+import { RansomwareFamilyTrend } from "@/components/charts/RansomwareFamilyTrend";
 import {
   Lock,
   Target,
@@ -33,8 +37,10 @@ export default function RansomwareIntelligencePage() {
   const { data: economics, isLoading: l4 } = useQuery({ queryKey: ["ransom-economics"], queryFn: getRansomEconomics });
   const { data: recovery, isLoading: l5 } = useQuery({ queryKey: ["ransomware-recovery"], queryFn: getRansomwareRecovery });
   const { data: geoData, isLoading: l6 } = useQuery({ queryKey: ["ransomware-geo"], queryFn: getRansomwareGeo });
+  const { data: paymentByYear, isLoading: l7 } = useQuery({ queryKey: ["ransom-payment-by-year"], queryFn: getRansomPaymentByYear });
+  const { data: familyTrend, isLoading: l8 } = useQuery({ queryKey: ["ransomware-family-trend"], queryFn: () => getRansomwareFamilyTrend() });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
 
   if (isLoading) {
     return (
@@ -78,11 +84,17 @@ export default function RansomwareIntelligencePage() {
       {/* Timeline - Full Width */}
       {timeline && <RansomwareTimeline data={timeline.data} />}
 
+      {/* Family Trend - Full Width */}
+      {familyTrend && <RansomwareFamilyTrend data={familyTrend} />}
+
       {/* Family Distribution + Economics side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {familiesDetail && <RansomwareExfiltrationChart data={familiesDetail.data} />}
         {economics && <RansomEconomicsPanel data={economics} />}
       </div>
+
+      {/* Payment By Year - Full Width */}
+      {paymentByYear && <RansomPaymentByYearChart data={paymentByYear} />}
 
       {/* Recovery Comparison + Family Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -9,7 +9,12 @@ import {
   getThreatActorTimeline,
   getActorRansomwareMatrix,
   getActorTargeting,
+  getActorInstitutionTargeting,
+  getActorTTPProfile,
 } from "@/lib/api";
+import type { ActorInstitutionResponse, ActorTTPResponse } from "@/lib/api";
+import { ActorInstitutionMatrix } from "@/components/charts/ActorInstitutionMatrix";
+import { ActorTTPProfile } from "@/components/charts/ActorTTPProfile";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate, getCountryFlag, cn, formatAttackCategory } from "@/lib/utils";
@@ -54,8 +59,10 @@ export default function ThreatActorIntelligencePage() {
   const { data: actorTimeline, isLoading: l4 } = useQuery({ queryKey: ["actor-timeline"], queryFn: () => getThreatActorTimeline(10) });
   const { data: matrix, isLoading: l5 } = useQuery({ queryKey: ["actor-ransomware-matrix"], queryFn: getActorRansomwareMatrix });
   const { data: targeting, isLoading: l6 } = useQuery({ queryKey: ["actor-targeting"], queryFn: () => getActorTargeting(10) });
+  const { data: actorInstitution, isLoading: l7 } = useQuery({ queryKey: ["actor-institution-targeting"], queryFn: () => getActorInstitutionTargeting(12) });
+  const { data: actorTTP, isLoading: l8 } = useQuery({ queryKey: ["actor-ttp-profile"], queryFn: () => getActorTTPProfile(8) });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
 
   if (isLoading) {
     return (
@@ -178,6 +185,9 @@ export default function ThreatActorIntelligencePage() {
         )}
       </div>
 
+      {/* Actor TTP Profile - Full Width */}
+      {actorTTP && <ActorTTPProfile data={actorTTP} />}
+
       {/* Actor-Ransomware Matrix */}
       {matrix && matrix.actors.length > 0 && matrix.families.length > 0 && (
         <div className="bg-card border border-border rounded-xl p-5">
@@ -218,6 +228,9 @@ export default function ThreatActorIntelligencePage() {
           </div>
         </div>
       )}
+
+      {/* Actor Institution Matrix - Full Width */}
+      {actorInstitution && <ActorInstitutionMatrix data={actorInstitution} />}
 
       {/* Actor Targeting */}
       {targeting && targeting.length > 0 && (

@@ -614,3 +614,116 @@ export async function getRawIncidents(filters: RawIncidentFilters = {}): Promise
   return fetchAPI(`/api/admin/raw-incidents?${params.toString()}`);
 }
 
+// ============================================================
+// Extended Cross-Dimensional Analytics
+// ============================================================
+
+export interface InstitutionRiskItem {
+  institution_type: string;
+  attack_category: string;
+  count: number;
+}
+
+export interface RecoveryByAttackTypeItem {
+  attack_category: string;
+  avg_recovery_days: number | null;
+  avg_downtime_days: number | null;
+  incident_count: number;
+}
+
+export interface AttackVectorByInstitutionResponse {
+  institution_types: string[];
+  vectors: string[];
+  data: { institution_type: string; attack_vector: string; count: number }[];
+}
+
+export interface BreachSeverityPoint {
+  month: string;
+  incident_count: number;
+  avg_records: number | null;
+  breach_count: number;
+}
+
+export interface RansomPaymentByYearItem {
+  year: string | null;
+  total_incidents: number;
+  demanded_count: number;
+  paid_count: number;
+  total_demanded: number | null;
+  total_paid: number | null;
+  payment_rate: number;
+}
+
+export interface RansomwareFamilyTrendResponse {
+  families: string[];
+  data: { month: string; family: string; count: number }[];
+}
+
+export interface ActorInstitutionResponse {
+  actors: string[];
+  institution_types: string[];
+  data: { actor: string; institution_type: string; count: number }[];
+}
+
+export interface ActorTTPResponse {
+  actors: string[];
+  tactics: string[];
+  data: { actor: string; tactic: string; count: number }[];
+}
+
+export interface DisclosureTimelinePoint {
+  incident_date: string;
+  disclosure_delay_days: number;
+  country: string;
+  transparency_level: string | null;
+}
+
+export interface BreachByInstitutionItem {
+  institution_type: string;
+  total_incidents: number;
+  breach_count: number;
+  breach_rate: number;
+  avg_records: number | null;
+  total_records: number | null;
+}
+
+export async function getInstitutionRiskMatrix(): Promise<InstitutionRiskItem[]> {
+  return fetchAPI('/api/analytics/institution-risk-matrix');
+}
+
+export async function getRecoveryByAttackType(): Promise<RecoveryByAttackTypeItem[]> {
+  return fetchAPI('/api/analytics/recovery-by-attack-type');
+}
+
+export async function getAttackVectorByInstitution(limit: number = 8): Promise<AttackVectorByInstitutionResponse> {
+  return fetchAPI(`/api/analytics/attack-vector-by-institution?limit=${limit}`);
+}
+
+export async function getBreachSeverityTimeline(months: number = 60): Promise<BreachSeverityPoint[]> {
+  return fetchAPI(`/api/analytics/breach-severity-timeline?months=${months}`);
+}
+
+export async function getRansomPaymentByYear(): Promise<RansomPaymentByYearItem[]> {
+  return fetchAPI('/api/analytics/ransom-payment-by-year');
+}
+
+export async function getRansomwareFamilyTrend(limit: number = 8): Promise<RansomwareFamilyTrendResponse> {
+  return fetchAPI(`/api/analytics/ransomware-family-trend?limit=${limit}`);
+}
+
+export async function getActorInstitutionTargeting(limit: number = 12): Promise<ActorInstitutionResponse> {
+  return fetchAPI(`/api/analytics/actor-institution-targeting?limit=${limit}`);
+}
+
+export async function getActorTTPProfile(limit: number = 8): Promise<ActorTTPResponse> {
+  return fetchAPI(`/api/analytics/actor-ttp-profile?limit=${limit}`);
+}
+
+export async function getDisclosureTimeline(): Promise<DisclosureTimelinePoint[]> {
+  return fetchAPI('/api/analytics/disclosure-timeline');
+}
+
+export async function getBreachByInstitutionType(): Promise<BreachByInstitutionItem[]> {
+  return fetchAPI('/api/analytics/breach-by-institution-type');
+}
+

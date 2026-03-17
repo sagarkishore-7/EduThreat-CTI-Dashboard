@@ -6,22 +6,26 @@ import {
   getCountryAnalytics,
   getTimelineAnalytics,
   getInstitutionTypes,
-  getOperationalImpact,
+  getInstitutionRiskMatrix,
   getFinancialImpact,
   getDataImpact,
   getRegulatoryImpact,
-  getRecoveryMetrics,
+  getRecoveryByAttackType,
   getTransparencyMetrics,
   getUserImpact,
+  getDisclosureTimeline,
+  getBreachByInstitutionType,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
 import { CountryChart } from "@/components/charts/CountryChart";
 import { InstitutionTypeChart } from "@/components/charts/InstitutionTypeChart";
-import { OperationalImpactRadar } from "@/components/charts/OperationalImpactRadar";
+import { InstitutionRiskMatrix } from "@/components/charts/InstitutionRiskMatrix";
 import { FinancialImpactChart } from "@/components/charts/FinancialImpactChart";
 import { RegulatoryComplianceGrid } from "@/components/charts/RegulatoryComplianceGrid";
-import { RecoveryEffectivenessChart } from "@/components/charts/RecoveryEffectivenessChart";
+import { RecoveryByAttackTypeChart } from "@/components/charts/RecoveryByAttackTypeChart";
+import { DisclosureTimelineScatter } from "@/components/charts/DisclosureTimelineScatter";
+import { DataBreachByInstitutionChart } from "@/components/charts/DataBreachByInstitutionChart";
 import { TransparencyPanel } from "@/components/charts/TransparencyPanel";
 import { UserImpactChart } from "@/components/charts/UserImpactChart";
 import { formatCurrency, formatNumber, getCountryFlag, cn } from "@/lib/utils";
@@ -40,15 +44,17 @@ export default function ImpactAnalyticsPage() {
   const { data: countryData, isLoading: l1 } = useQuery({ queryKey: ["analytics-countries"], queryFn: () => getCountryAnalytics(20) });
   const { data: timelineData, isLoading: l2 } = useQuery({ queryKey: ["analytics-timeline"], queryFn: () => getTimelineAnalytics(36) });
   const { data: institutionTypes, isLoading: l3 } = useQuery({ queryKey: ["institution-types"], queryFn: getInstitutionTypes });
-  const { data: operationalImpact, isLoading: l4 } = useQuery({ queryKey: ["operational-impact"], queryFn: getOperationalImpact });
+  const { data: institutionRisk, isLoading: l4 } = useQuery({ queryKey: ["institution-risk-matrix"], queryFn: getInstitutionRiskMatrix });
   const { data: financialImpact, isLoading: l5 } = useQuery({ queryKey: ["financial-impact"], queryFn: getFinancialImpact });
   const { data: dataImpact, isLoading: l6 } = useQuery({ queryKey: ["data-impact"], queryFn: getDataImpact });
   const { data: regulatoryImpact, isLoading: l7 } = useQuery({ queryKey: ["regulatory-impact"], queryFn: getRegulatoryImpact });
-  const { data: recoveryMetrics, isLoading: l8 } = useQuery({ queryKey: ["recovery-metrics"], queryFn: getRecoveryMetrics });
+  const { data: recoveryByAttackType, isLoading: l8 } = useQuery({ queryKey: ["recovery-by-attack-type"], queryFn: getRecoveryByAttackType });
   const { data: transparencyMetrics, isLoading: l9 } = useQuery({ queryKey: ["transparency-metrics"], queryFn: getTransparencyMetrics });
   const { data: userImpact, isLoading: l10 } = useQuery({ queryKey: ["user-impact"], queryFn: getUserImpact });
+  const { data: disclosureTimeline, isLoading: l11 } = useQuery({ queryKey: ["disclosure-timeline"], queryFn: getDisclosureTimeline });
+  const { data: breachByInstitution, isLoading: l12 } = useQuery({ queryKey: ["breach-by-institution"], queryFn: getBreachByInstitutionType });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10 || l11 || l12;
 
   if (isLoading) {
     return (
@@ -97,7 +103,7 @@ export default function ImpactAnalyticsPage() {
       {/* Institution Type + Operational Impact */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {institutionTypes && <InstitutionTypeChart data={institutionTypes.data} />}
-        {operationalImpact && <OperationalImpactRadar data={operationalImpact.data} />}
+        {institutionRisk && <InstitutionRiskMatrix data={institutionRisk} />}
       </div>
 
       {/* Financial Impact - Full Width */}
@@ -137,11 +143,17 @@ export default function ImpactAnalyticsPage() {
         {regulatoryImpact && <RegulatoryComplianceGrid data={regulatoryImpact} />}
       </div>
 
+      {/* Data Breach by Institution Type - Full Width */}
+      {breachByInstitution && <DataBreachByInstitutionChart data={breachByInstitution} />}
+
       {/* Recovery + Transparency */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {recoveryMetrics && <RecoveryEffectivenessChart data={recoveryMetrics} />}
+        {recoveryByAttackType && <RecoveryByAttackTypeChart data={recoveryByAttackType} />}
         {transparencyMetrics && <TransparencyPanel data={transparencyMetrics} />}
       </div>
+
+      {/* Disclosure Timeline - Full Width */}
+      {disclosureTimeline && <DisclosureTimelineScatter data={disclosureTimeline} />}
 
       {/* User Impact - Full Width */}
       {userImpact && <UserImpactChart data={userImpact} />}

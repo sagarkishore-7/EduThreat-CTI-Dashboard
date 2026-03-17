@@ -2,6 +2,23 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 2.3.0 (2026-03-17)
+
+**Focus**: Cross-Dimensional Intelligence Visualizations — 10 New Charts
+
+### Key Features
+- 10 new cross-dimensional chart components leveraging the full enrichment schema
+- Institution Risk Matrix, Recovery by Attack Type, Attack Vector by Institution, Breach Severity Timeline
+- Ransom Payment by Year, Ransomware Family Trend, Actor Institution Matrix, Actor TTP Profile
+- Disclosure Timeline Scatter, Data Breach by Institution Type
+- Replaced 2 empty charts (OperationalImpactRadar, RecoveryEffectivenessChart) with data-backed alternatives
+- All 4 analytics pages enriched: /attacks (+2), /ransomware (+2), /threat-actors (+2), /analytics (replace 2 + add 2)
+
+### Breaking Changes
+- Requires backend v2.5.0+ for 10 new `/api/analytics/*` endpoints
+
+---
+
 ## Version 2.2.1 (2026-03-17)
 
 **Focus**: Admin Raw Data Viewer for DB Inspection
