@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-03-15
+
+### Analytics Dashboard Redesign — World-Class CTI Visualizations
+
+Complete redesign of all 4 analytics pages into deep intelligence visualizations leveraging the full LLM enrichment schema.
+
+#### Added
+- **17 new chart components** in `components/charts/` — AttackTrendChart, AttackVectorDonut, MitreHeatmap, InitialAccessTreemap, SystemImpactChart, RansomwareTimeline, RansomwareExfiltrationChart, RansomEconomicsPanel, RecoveryRadarChart, RansomwareGeoGrid, InstitutionTypeChart, OperationalImpactRadar, FinancialImpactChart, RegulatoryComplianceGrid, RecoveryEffectivenessChart, TransparencyPanel, UserImpactChart
+- **20+ new TypeScript interfaces** and fetch functions in `lib/api.ts`
+- **EmptyState component** for graceful handling of sparse data
+- **Attack Intelligence page**: Stacked area trends, attack vector donut, MITRE ATT&CK heatmap, initial access methods, system impact bars
+- **Ransomware Intelligence page**: Family activity timeline, exfiltration grouped bars, ransom economics panel, recovery radar (ransomware vs others), geographic targeting grid
+- **Threat Actor Intelligence page**: Category/motivation distributions, activity scatter chart, actor-ransomware matrix heatmap, geographic targeting, enhanced profile cards
+- **Impact Analytics page**: Institution type donut, operational impact radar, financial impact stacked bars, data breach metrics, regulatory compliance grid, recovery effectiveness, transparency metrics, user impact bars
+
+#### Changed
+- Sidebar nav labels updated: "Attack Analysis" → "Attack Intelligence", "Ransomware" → "Ransomware Intel", "Analytics" → "Impact Analytics"
+- All analytics queries use only LLM-verified education incidents (not raw scraped data)
+
+---
+
 ## [2.0.0] - 2026-03-15
 
 ### Analyst-Focused Dashboard Redesign & Interactive World Map

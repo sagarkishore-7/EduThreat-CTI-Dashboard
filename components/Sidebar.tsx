@@ -20,10 +20,10 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Incidents", href: "/incidents", icon: FileText },
   { name: "Map View", href: "/map", icon: Globe2 },
-  { name: "Attack Analysis", href: "/attacks", icon: AlertTriangle },
-  { name: "Ransomware", href: "/ransomware", icon: Shield },
+  { name: "Attack Intelligence", href: "/attacks", icon: AlertTriangle },
+  { name: "Ransomware Intel", href: "/ransomware", icon: Shield },
   { name: "Threat Actors", href: "/threat-actors", icon: Users },
-  { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Impact Analytics", href: "/analytics", icon: BarChart3 },
 ];
 
 const adminNav = [

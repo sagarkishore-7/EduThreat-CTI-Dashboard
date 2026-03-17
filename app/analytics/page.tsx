@@ -2,71 +2,72 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  getCountryAnalytics,
-  getAttackTypeAnalytics,
-  getRansomwareAnalytics,
-  getTimelineAnalytics,
   getStats,
+  getCountryAnalytics,
+  getTimelineAnalytics,
+  getInstitutionTypes,
+  getOperationalImpact,
+  getFinancialImpact,
+  getDataImpact,
+  getRegulatoryImpact,
+  getRecoveryMetrics,
+  getTransparencyMetrics,
+  getUserImpact,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
-import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
 import { CountryChart } from "@/components/charts/CountryChart";
-import { RansomwareChart } from "@/components/charts/RansomwareChart";
-import { formatNumber, getCountryFlag, cn } from "@/lib/utils";
+import { InstitutionTypeChart } from "@/components/charts/InstitutionTypeChart";
+import { OperationalImpactRadar } from "@/components/charts/OperationalImpactRadar";
+import { FinancialImpactChart } from "@/components/charts/FinancialImpactChart";
+import { RegulatoryComplianceGrid } from "@/components/charts/RegulatoryComplianceGrid";
+import { RecoveryEffectivenessChart } from "@/components/charts/RecoveryEffectivenessChart";
+import { TransparencyPanel } from "@/components/charts/TransparencyPanel";
+import { UserImpactChart } from "@/components/charts/UserImpactChart";
+import { formatCurrency, formatNumber, getCountryFlag, cn } from "@/lib/utils";
 import {
   BarChart3,
+  Building2,
+  DollarSign,
+  Clock,
+  Scale,
+  Eye,
   Globe2,
-  Shield,
-  Lock,
-  TrendingUp,
-  AlertTriangle,
 } from "lucide-react";
 
-export default function AnalyticsPage() {
-  const { data: stats } = useQuery({
-    queryKey: ["stats"],
-    queryFn: getStats,
-  });
+export default function ImpactAnalyticsPage() {
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
+  const { data: countryData, isLoading: l1 } = useQuery({ queryKey: ["analytics-countries"], queryFn: () => getCountryAnalytics(20) });
+  const { data: timelineData, isLoading: l2 } = useQuery({ queryKey: ["analytics-timeline"], queryFn: () => getTimelineAnalytics(36) });
+  const { data: institutionTypes, isLoading: l3 } = useQuery({ queryKey: ["institution-types"], queryFn: getInstitutionTypes });
+  const { data: operationalImpact, isLoading: l4 } = useQuery({ queryKey: ["operational-impact"], queryFn: getOperationalImpact });
+  const { data: financialImpact, isLoading: l5 } = useQuery({ queryKey: ["financial-impact"], queryFn: getFinancialImpact });
+  const { data: dataImpact, isLoading: l6 } = useQuery({ queryKey: ["data-impact"], queryFn: getDataImpact });
+  const { data: regulatoryImpact, isLoading: l7 } = useQuery({ queryKey: ["regulatory-impact"], queryFn: getRegulatoryImpact });
+  const { data: recoveryMetrics, isLoading: l8 } = useQuery({ queryKey: ["recovery-metrics"], queryFn: getRecoveryMetrics });
+  const { data: transparencyMetrics, isLoading: l9 } = useQuery({ queryKey: ["transparency-metrics"], queryFn: getTransparencyMetrics });
+  const { data: userImpact, isLoading: l10 } = useQuery({ queryKey: ["user-impact"], queryFn: getUserImpact });
 
-  const { data: countryData, isLoading: countryLoading } = useQuery({
-    queryKey: ["analytics-countries"],
-    queryFn: () => getCountryAnalytics(20),
-  });
-
-  const { data: attackData, isLoading: attackLoading } = useQuery({
-    queryKey: ["analytics-attacks"],
-    queryFn: () => getAttackTypeAnalytics(15),
-  });
-
-  const { data: ransomwareData, isLoading: ransomwareLoading } = useQuery({
-    queryKey: ["analytics-ransomware"],
-    queryFn: () => getRansomwareAnalytics(15),
-  });
-
-  const { data: timelineData, isLoading: timelineLoading } = useQuery({
-    queryKey: ["analytics-timeline"],
-    queryFn: () => getTimelineAnalytics(36),
-  });
-
-  const isLoading = countryLoading || attackLoading || ransomwareLoading || timelineLoading;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 skeleton rounded-xl" />
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {[...Array(5)].map((_, i) => <div key={i} className="h-28 skeleton rounded-xl" />)}
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-[380px] skeleton rounded-xl" />
-          ))}
+          {[...Array(6)].map((_, i) => <div key={i} className="h-[380px] skeleton rounded-xl" />)}
         </div>
       </div>
     );
   }
+
+  const eduIncidents = stats?.education_incidents || 0;
+  const totalFinancial = stats?.total_financial_impact || 0;
+  const avgRecovery = stats?.avg_recovery_days;
+  const regulatoryActions = (regulatoryImpact?.fines_imposed || 0) + (regulatoryImpact?.lawsuits_count || 0);
+  const disclosureRate = transparencyMetrics?.disclosure_rate || 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -74,59 +75,78 @@ export default function AnalyticsPage() {
       <div className="bg-card border border-border rounded-xl p-6">
         <div className="flex items-center gap-3 mb-2">
           <BarChart3 className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold">Analytics Dashboard</h1>
+          <h1 className="text-xl font-semibold">Impact Analytics</h1>
         </div>
         <p className="text-muted-foreground">
-          Comprehensive analysis of cyber threats affecting the education sector
+          Comprehensive impact analysis across {eduIncidents} verified education sector incidents
         </p>
       </div>
 
-      {/* Key Stats */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Analyzed"
-            value={stats.total_incidents}
-            icon={TrendingUp}
-            variant="primary"
-          />
-          <StatCard
-            title="Ransomware Rate"
-            value={`${((stats.incidents_with_ransomware / stats.total_incidents) * 100).toFixed(1)}%`}
-            icon={Lock}
-            variant="danger"
-          />
-          <StatCard
-            title="Data Breach Rate"
-            value={`${((stats.incidents_with_data_breach / stats.total_incidents) * 100).toFixed(1)}%`}
-            icon={Shield}
-            variant="warning"
-          />
-          <StatCard
-            title="Enrichment Coverage"
-            value={`${((stats.enriched_incidents / stats.total_incidents) * 100).toFixed(1)}%`}
-            icon={AlertTriangle}
-            variant="success"
-          />
-        </div>
-      )}
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Timeline Chart */}
-        {timelineData && <IncidentTimeChart data={timelineData.data} />}
-
-        {/* Attack Types */}
-        {attackData && <AttackTypeChart data={attackData.data} />}
-
-        {/* Countries */}
-        {countryData && <CountryChart data={countryData.data} />}
-
-        {/* Ransomware */}
-        {ransomwareData && <RansomwareChart data={ransomwareData.data} />}
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <StatCard title="Institutions Affected" value={eduIncidents} icon={Building2} variant="primary" />
+        <StatCard title="Financial Impact" value={formatCurrency(totalFinancial)} icon={DollarSign} variant="danger" />
+        <StatCard title="Avg Recovery" value={avgRecovery ? `${avgRecovery}d` : "N/A"} icon={Clock} variant="warning" />
+        <StatCard title="Regulatory Actions" value={regulatoryActions} icon={Scale} variant="purple" />
+        <StatCard title="Disclosure Rate" value={`${disclosureRate}%`} icon={Eye} variant="success" />
       </div>
 
-      {/* Detailed Country Table */}
+      {/* Incident Timeline - Full Width */}
+      {timelineData && <IncidentTimeChart data={timelineData.data} />}
+
+      {/* Institution Type + Operational Impact */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {institutionTypes && <InstitutionTypeChart data={institutionTypes.data} />}
+        {operationalImpact && <OperationalImpactRadar data={operationalImpact.data} />}
+      </div>
+
+      {/* Financial Impact - Full Width */}
+      {financialImpact && <FinancialImpactChart data={financialImpact.data} />}
+
+      {/* Data Impact + Regulatory */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Data Impact Panel */}
+        <div className="bg-card border border-border rounded-xl p-5">
+          <h3 className="text-lg font-semibold mb-4">Data Impact Analysis</h3>
+          {dataImpact ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-3 bg-secondary/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">Breach Rate</p>
+                <p className="text-2xl font-bold text-red-400">{dataImpact.breach_rate}%</p>
+              </div>
+              <div className="p-3 bg-secondary/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">Exfiltration Rate</p>
+                <p className="text-2xl font-bold text-purple-400">{dataImpact.exfiltration_rate}%</p>
+              </div>
+              <div className="p-3 bg-secondary/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">Total Records Affected</p>
+                <p className="text-2xl font-bold">{dataImpact.total_records ? formatNumber(dataImpact.total_records) : "N/A"}</p>
+              </div>
+              <div className="p-3 bg-secondary/50 rounded-lg">
+                <p className="text-xs text-muted-foreground">Max Records (Single)</p>
+                <p className="text-2xl font-bold">{dataImpact.max_records ? formatNumber(dataImpact.max_records) : "N/A"}</p>
+              </div>
+              <div className="p-3 bg-secondary/50 rounded-lg col-span-2">
+                <p className="text-xs text-muted-foreground">PII Records Leaked</p>
+                <p className="text-2xl font-bold text-orange-400">{dataImpact.total_pii_leaked ? formatNumber(dataImpact.total_pii_leaked) : "N/A"}</p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {regulatoryImpact && <RegulatoryComplianceGrid data={regulatoryImpact} />}
+      </div>
+
+      {/* Recovery + Transparency */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {recoveryMetrics && <RecoveryEffectivenessChart data={recoveryMetrics} />}
+        {transparencyMetrics && <TransparencyPanel data={transparencyMetrics} />}
+      </div>
+
+      {/* User Impact - Full Width */}
+      {userImpact && <UserImpactChart data={userImpact} />}
+
+      {/* Country Table */}
       {countryData && (
         <div className="bg-card border border-border rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
@@ -135,23 +155,14 @@ export default function AnalyticsPage() {
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {countryData.data.map((item, index) => (
-              <div
-                key={item.category}
-                className={cn(
-                  "p-4 bg-secondary/50 rounded-lg border border-border",
-                  "animate-slide-up"
-                )}
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
+              <div key={item.category} className={cn("p-4 bg-secondary/50 rounded-lg border border-border animate-slide-up")} style={{ animationDelay: `${index * 30}ms` }}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-2xl">{getCountryFlag(item.category, item.flag_emoji)}</span>
                   <span className="font-medium">{item.category}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold">{formatNumber(item.count)}</span>
-                  <span className="text-sm text-muted-foreground">
-                    ({item.percentage}%)
-                  </span>
+                  <span className="text-sm text-muted-foreground">({item.percentage}%)</span>
                 </div>
               </div>
             ))}
@@ -161,4 +172,3 @@ export default function AnalyticsPage() {
     </div>
   );
 }
-

@@ -333,3 +333,251 @@ export async function getTimelineAnalytics(months: number = 24): Promise<{ data:
   return fetchAPI(`/api/analytics/timeline?months=${months}`);
 }
 
+// ============================================================
+// Advanced Analytics Types
+// ============================================================
+
+export interface AttackTrendPoint {
+  month: string;
+  attack_category: string | null;
+  count: number;
+}
+
+export interface MitreTacticItem {
+  tactic: string;
+  count: number;
+  techniques: string[];
+}
+
+export interface RansomwareTimelineItem {
+  family: string;
+  incident_count: number;
+  first_seen?: string;
+  last_seen?: string;
+}
+
+export interface RansomwareFamilyDetail {
+  family: string;
+  incident_count: number;
+  exfiltration_count: number;
+  exfiltration_rate: number;
+  avg_ransom: number | null;
+  countries: string[];
+  first_seen?: string;
+  last_seen?: string;
+}
+
+export interface RansomEconomics {
+  total_ransomware: number;
+  demanded_count: number;
+  paid_count: number;
+  payment_rate: number;
+  total_demanded: number | null;
+  avg_demanded: number | null;
+  max_demanded: number | null;
+  total_paid: number | null;
+  avg_paid: number | null;
+}
+
+export interface RecoveryComparison {
+  avg_recovery_days: number;
+  avg_downtime_days: number;
+  backup_rate: number;
+  ir_firm_rate: number;
+  forensics_rate: number;
+  total: number;
+}
+
+export interface RecoveryComparisonResponse {
+  ransomware: RecoveryComparison;
+  other: RecoveryComparison;
+}
+
+export interface RansomwareGeoItem {
+  family: string;
+  countries: { country: string; count: number }[];
+}
+
+export interface ActorTimelinePoint {
+  actor: string;
+  month: string;
+  count: number;
+}
+
+export interface ActorRansomwareMatrix {
+  actors: string[];
+  families: string[];
+  matrix: { actor: string; family: string; count: number }[];
+}
+
+export interface ActorTargetingItem {
+  actor: string;
+  countries: { country: string; count: number }[];
+}
+
+export interface DataImpactStats {
+  total: number;
+  breached_count: number;
+  exfiltrated_count: number;
+  breach_rate: number;
+  exfiltration_rate: number;
+  total_records: number | null;
+  avg_records: number | null;
+  max_records: number | null;
+  total_pii_leaked: number | null;
+}
+
+export interface RegulatoryImpactStats {
+  total: number;
+  gdpr_count: number;
+  hipaa_count: number;
+  ferpa_count: number;
+  notification_required: number;
+  notifications_sent: number;
+  fines_imposed: number;
+  total_fines: number | null;
+  lawsuits_count: number;
+  class_action_count: number;
+}
+
+export interface RecoveryEffectiveness {
+  total: number;
+  avg_recovery_days: number | null;
+  avg_downtime_days: number | null;
+  backup_count: number;
+  backup_rate: number;
+  ir_firm_count: number;
+  ir_firm_rate: number;
+  forensics_count: number;
+  forensics_rate: number;
+  mfa_post_count: number;
+  mfa_adoption_rate: number;
+}
+
+export interface TransparencyStats {
+  total: number;
+  disclosed_count: number;
+  disclosure_rate: number;
+  avg_delay_days: number | null;
+  levels: { level: string; count: number }[];
+}
+
+export interface UserImpactTotals {
+  students: number | null;
+  staff: number | null;
+  faculty: number | null;
+  total_individuals: number | null;
+  incidents_with_data: number;
+}
+
+export interface FinancialImpactByYear {
+  year: string | null;
+  ransom_cost: number | null;
+  recovery_cost: number | null;
+  legal_cost: number | null;
+  notification_cost: number | null;
+  incident_count: number;
+}
+
+export interface OperationalImpactItem {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+// ============================================================
+// Advanced Analytics Fetch Functions
+// ============================================================
+
+export async function getAttackTrends(months: number = 36): Promise<{ data: AttackTrendPoint[]; total: number }> {
+  return fetchAPI(`/api/analytics/attack-trends?months=${months}`);
+}
+
+export async function getAttackVectors(limit: number = 10): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI(`/api/analytics/attack-vectors?limit=${limit}`);
+}
+
+export async function getMitreTactics(): Promise<{ data: MitreTacticItem[]; total: number }> {
+  return fetchAPI('/api/analytics/mitre-tactics');
+}
+
+export async function getInitialAccess(limit: number = 12): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI(`/api/analytics/initial-access?limit=${limit}`);
+}
+
+export async function getSystemImpact(): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI('/api/analytics/system-impact');
+}
+
+export async function getRansomwareTimeline(limit: number = 15): Promise<{ data: RansomwareTimelineItem[]; total: number }> {
+  return fetchAPI(`/api/analytics/ransomware-timeline?limit=${limit}`);
+}
+
+export async function getRansomwareFamiliesDetail(limit: number = 15): Promise<{ data: RansomwareFamilyDetail[]; total: number }> {
+  return fetchAPI(`/api/analytics/ransomware-families-detail?limit=${limit}`);
+}
+
+export async function getRansomEconomics(): Promise<RansomEconomics> {
+  return fetchAPI('/api/analytics/ransom-economics');
+}
+
+export async function getRansomwareRecovery(): Promise<RecoveryComparisonResponse> {
+  return fetchAPI('/api/analytics/ransomware-recovery');
+}
+
+export async function getRansomwareGeo(): Promise<RansomwareGeoItem[]> {
+  return fetchAPI('/api/analytics/ransomware-geo');
+}
+
+export async function getThreatActorCategories(): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI('/api/analytics/threat-actor-categories');
+}
+
+export async function getThreatActorMotivations(): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI('/api/analytics/threat-actor-motivations');
+}
+
+export async function getThreatActorTimeline(limit: number = 10): Promise<{ data: ActorTimelinePoint[]; total: number }> {
+  return fetchAPI(`/api/analytics/threat-actor-timeline?limit=${limit}`);
+}
+
+export async function getActorRansomwareMatrix(): Promise<ActorRansomwareMatrix> {
+  return fetchAPI('/api/analytics/actor-ransomware-matrix');
+}
+
+export async function getActorTargeting(limit: number = 10): Promise<ActorTargetingItem[]> {
+  return fetchAPI(`/api/analytics/actor-targeting?limit=${limit}`);
+}
+
+export async function getInstitutionTypes(): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI('/api/analytics/institution-types');
+}
+
+export async function getOperationalImpact(): Promise<{ data: OperationalImpactItem[]; total: number }> {
+  return fetchAPI('/api/analytics/operational-impact');
+}
+
+export async function getFinancialImpact(): Promise<{ data: FinancialImpactByYear[]; total: number }> {
+  return fetchAPI('/api/analytics/financial-impact');
+}
+
+export async function getDataImpact(): Promise<DataImpactStats> {
+  return fetchAPI('/api/analytics/data-impact');
+}
+
+export async function getRegulatoryImpact(): Promise<RegulatoryImpactStats> {
+  return fetchAPI('/api/analytics/regulatory-impact');
+}
+
+export async function getRecoveryMetrics(): Promise<RecoveryEffectiveness> {
+  return fetchAPI('/api/analytics/recovery-metrics');
+}
+
+export async function getTransparencyMetrics(): Promise<TransparencyStats> {
+  return fetchAPI('/api/analytics/transparency-metrics');
+}
+
+export async function getUserImpact(): Promise<UserImpactTotals> {
+  return fetchAPI('/api/analytics/user-impact');
+}
+

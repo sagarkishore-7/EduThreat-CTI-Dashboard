@@ -2,6 +2,29 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 2.2.0 (2026-03-15)
+
+**Focus**: Analytics Dashboard Redesign — World-Class CTI Visualizations
+
+### Key Features
+- Complete redesign of all 4 analytics pages (Attack Intelligence, Ransomware Intel, Threat Actors, Impact Analytics)
+- 17 new chart components using Recharts (AreaChart, BarChart, PieChart, RadarChart, ScatterChart) and custom CSS grids
+- 20+ new TypeScript interfaces and API fetch functions for advanced analytics endpoints
+- Attack Intelligence: stacked area trends, vector donut, MITRE ATT&CK heatmap, initial access, system impact
+- Ransomware Intelligence: family timeline, exfiltration chart, ransom economics panel, recovery radar, geo grid
+- Threat Actor Intelligence: category/motivation charts, activity timeline, actor-ransomware matrix, targeting, profile cards
+- Impact Analytics: institution types, operational radar, financial stacked bars, data/regulatory/recovery/transparency metrics, user impact
+- EmptyState component for graceful sparse data handling
+- Updated sidebar navigation labels
+
+### Breaking Changes
+- Requires backend v2.4.0+ for new analytics endpoints
+
+### Migration Notes
+- 20+ new API endpoints consumed: `/api/analytics/attack-trends`, `/api/analytics/attack-vectors`, `/api/analytics/mitre-tactics`, etc.
+
+---
+
 ## Version 2.1.0 (2026-03-15)
 
 **Focus**: Real-Time Intelligence Pipeline, Re-Enrichment UI & Interactivity Fixes
