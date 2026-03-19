@@ -727,3 +727,78 @@ export async function getBreachByInstitutionType(): Promise<BreachByInstitutionI
   return fetchAPI('/api/analytics/breach-by-institution-type');
 }
 
+// ============================================================
+// Interactive Nivo Visualization Types & Fetchers
+// ============================================================
+
+export interface SankeyNode {
+  id: string;
+}
+
+export interface SankeyLink {
+  source: string;
+  target: string;
+  value: number;
+}
+
+export interface AttackFlowResponse {
+  nodes: SankeyNode[];
+  links: SankeyLink[];
+}
+
+export interface MitreSunburstNode {
+  id: string;
+  value?: number;
+  children?: MitreSunburstNode[];
+}
+
+export interface ActorNetworkNode {
+  id: string;
+  radius: number;
+  count: number;
+  families: string[];
+}
+
+export interface ActorNetworkLink {
+  source: string;
+  target: string;
+  distance: number;
+  shared_families: string[];
+}
+
+export interface ActorNetworkResponse {
+  nodes: ActorNetworkNode[];
+  links: ActorNetworkLink[];
+}
+
+export interface RansomFlowResponse {
+  nodes: SankeyNode[];
+  links_by_count: SankeyLink[];
+  links_by_amount: SankeyLink[];
+}
+
+export interface CountryAttackMatrixResponse {
+  keys: string[];
+  matrix: number[][];
+}
+
+export async function getAttackFlow(): Promise<AttackFlowResponse> {
+  return fetchAPI('/api/analytics/attack-flow');
+}
+
+export async function getMitreSunburst(): Promise<MitreSunburstNode> {
+  return fetchAPI('/api/analytics/mitre-sunburst');
+}
+
+export async function getActorNetwork(): Promise<ActorNetworkResponse> {
+  return fetchAPI('/api/analytics/actor-network');
+}
+
+export async function getRansomFlow(): Promise<RansomFlowResponse> {
+  return fetchAPI('/api/analytics/ransom-flow');
+}
+
+export async function getCountryAttackMatrix(): Promise<CountryAttackMatrixResponse> {
+  return fetchAPI('/api/analytics/country-attack-matrix');
+}
+

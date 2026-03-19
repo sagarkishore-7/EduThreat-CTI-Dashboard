@@ -11,6 +11,7 @@ import {
   getRansomwareGeo,
   getRansomPaymentByYear,
   getRansomwareFamilyTrend,
+  getRansomFlow,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { RansomwareChart } from "@/components/charts/RansomwareChart";
@@ -21,6 +22,7 @@ import { RecoveryRadarChart } from "@/components/charts/RecoveryRadarChart";
 import { RansomwareGeoGrid } from "@/components/charts/RansomwareGeoGrid";
 import { RansomPaymentByYearChart } from "@/components/charts/RansomPaymentByYearChart";
 import { RansomwareFamilyTrend } from "@/components/charts/RansomwareFamilyTrend";
+import { RansomFlowSankey } from "@/components/charts/RansomFlowSankey";
 import {
   Lock,
   Target,
@@ -39,8 +41,9 @@ export default function RansomwareIntelligencePage() {
   const { data: geoData, isLoading: l6 } = useQuery({ queryKey: ["ransomware-geo"], queryFn: getRansomwareGeo });
   const { data: paymentByYear, isLoading: l7 } = useQuery({ queryKey: ["ransom-payment-by-year"], queryFn: getRansomPaymentByYear });
   const { data: familyTrend, isLoading: l8 } = useQuery({ queryKey: ["ransomware-family-trend"], queryFn: () => getRansomwareFamilyTrend() });
+  const { data: ransomFlow, isLoading: l9 } = useQuery({ queryKey: ["ransom-flow"], queryFn: getRansomFlow });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
   if (isLoading) {
     return (
@@ -95,6 +98,9 @@ export default function RansomwareIntelligencePage() {
 
       {/* Payment By Year - Full Width */}
       {paymentByYear && <RansomPaymentByYearChart data={paymentByYear} />}
+
+      {/* Ransomware Payment Flow Sankey - Full Width */}
+      <RansomFlowSankey data={ransomFlow} />
 
       {/* Recovery Comparison + Family Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

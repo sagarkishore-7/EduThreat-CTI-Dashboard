@@ -15,6 +15,7 @@ import {
   getUserImpact,
   getDisclosureTimeline,
   getBreachByInstitutionType,
+  getCountryAttackMatrix,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
@@ -28,6 +29,7 @@ import { DisclosureTimelineScatter } from "@/components/charts/DisclosureTimelin
 import { DataBreachByInstitutionChart } from "@/components/charts/DataBreachByInstitutionChart";
 import { TransparencyPanel } from "@/components/charts/TransparencyPanel";
 import { UserImpactChart } from "@/components/charts/UserImpactChart";
+import { CountryAttackChord } from "@/components/charts/CountryAttackChord";
 import { formatCurrency, formatNumber, getCountryFlag, cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -53,8 +55,9 @@ export default function ImpactAnalyticsPage() {
   const { data: userImpact, isLoading: l10 } = useQuery({ queryKey: ["user-impact"], queryFn: getUserImpact });
   const { data: disclosureTimeline, isLoading: l11 } = useQuery({ queryKey: ["disclosure-timeline"], queryFn: getDisclosureTimeline });
   const { data: breachByInstitution, isLoading: l12 } = useQuery({ queryKey: ["breach-by-institution"], queryFn: getBreachByInstitutionType });
+  const { data: countryAttackMatrix, isLoading: l13 } = useQuery({ queryKey: ["country-attack-matrix"], queryFn: getCountryAttackMatrix });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10 || l11 || l12;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10 || l11 || l12 || l13;
 
   if (isLoading) {
     return (
@@ -157,6 +160,9 @@ export default function ImpactAnalyticsPage() {
 
       {/* User Impact - Full Width */}
       {userImpact && <UserImpactChart data={userImpact} />}
+
+      {/* Country-Attack Chord Diagram - Full Width */}
+      <CountryAttackChord data={countryAttackMatrix} />
 
       {/* Country Table */}
       {countryData && (

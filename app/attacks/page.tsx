@@ -11,6 +11,8 @@ import {
   getSystemImpact,
   getAttackVectorByInstitution,
   getBreachSeverityTimeline,
+  getAttackFlow,
+  getMitreSunburst,
 } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { AttackTrendChart } from "@/components/charts/AttackTrendChart";
@@ -21,6 +23,8 @@ import { InitialAccessTreemap } from "@/components/charts/InitialAccessTreemap";
 import { SystemImpactChart } from "@/components/charts/SystemImpactChart";
 import { AttackVectorByInstitution } from "@/components/charts/AttackVectorByInstitution";
 import { BreachSeverityTimeline } from "@/components/charts/BreachSeverityTimeline";
+import { AttackFlowSankey } from "@/components/charts/AttackFlowSankey";
+import { MitreSunburst } from "@/components/charts/MitreSunburst";
 import {
   Shield,
   Lock,
@@ -40,8 +44,10 @@ export default function AttackIntelligencePage() {
   const { data: systemImpact, isLoading: l6 } = useQuery({ queryKey: ["system-impact"], queryFn: getSystemImpact });
   const { data: attackVectorByInst, isLoading: l7 } = useQuery({ queryKey: ["attack-vector-by-institution"], queryFn: () => getAttackVectorByInstitution(8) });
   const { data: breachSeverity, isLoading: l8 } = useQuery({ queryKey: ["breach-severity-timeline"], queryFn: () => getBreachSeverityTimeline(60) });
+  const { data: attackFlow, isLoading: l9 } = useQuery({ queryKey: ["attack-flow"], queryFn: getAttackFlow });
+  const { data: mitreSunburst, isLoading: l10 } = useQuery({ queryKey: ["mitre-sunburst"], queryFn: getMitreSunburst });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
 
   // Loading skeleton
   if (isLoading) {
@@ -87,6 +93,9 @@ export default function AttackIntelligencePage() {
       {/* Attack Trends - Full Width */}
       {attackTrends && <AttackTrendChart data={attackTrends.data} />}
 
+      {/* Attack Flow Sankey - Full Width */}
+      <AttackFlowSankey data={attackFlow} />
+
       {/* Attack Category + Attack Vector side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {attackTypes && <AttackTypeChart data={attackTypes.data} />}
@@ -95,6 +104,9 @@ export default function AttackIntelligencePage() {
 
       {/* MITRE Heatmap - Full Width */}
       {mitreTactics && <MitreHeatmap data={mitreTactics.data} />}
+
+      {/* MITRE Sunburst - Full Width */}
+      <MitreSunburst data={mitreSunburst} />
 
       {/* Breach Severity Timeline - Full Width */}
       {breachSeverity && <BreachSeverityTimeline data={breachSeverity} />}

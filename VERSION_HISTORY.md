@@ -2,6 +2,21 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 2.4.0 (2026-03-19)
+
+**Focus**: Interactive Nivo Visualizations — Sankey, Sunburst, Chord, Network
+
+### Key Features
+- 6 new interactive Nivo chart components: Sankey flows, sunburst drill-down, chord diagrams, force-directed network graph
+- Attack Flow Sankey: traces attack vector → category → impact outcome with hover path highlighting
+- MITRE Sunburst: click-to-drill-down hierarchy with breadcrumb navigation
+- Actor Network Graph: force-directed physics simulation of threat actor ecosystems
+- Ransom Payment Flow: institution → family → outcome with count/amount toggle
+- Chord diagrams: actor–ransomware and country–attack relationship webs
+- Fixed Nivo theme compatibility for v0.99 (PartialTheme from @nivo/theming)
+
+---
+
 ## Version 2.3.0 (2026-03-17)
 
 **Focus**: Cross-Dimensional Intelligence Visualizations — 10 New Charts

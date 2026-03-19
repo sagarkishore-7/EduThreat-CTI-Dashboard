@@ -11,8 +11,11 @@ import {
   getActorTargeting,
   getActorInstitutionTargeting,
   getActorTTPProfile,
+  getActorNetwork,
 } from "@/lib/api";
 import type { ActorInstitutionResponse, ActorTTPResponse } from "@/lib/api";
+import { ActorRansomwareChord } from "@/components/charts/ActorRansomwareChord";
+import { ActorNetworkGraph } from "@/components/charts/ActorNetworkGraph";
 import { ActorInstitutionMatrix } from "@/components/charts/ActorInstitutionMatrix";
 import { ActorTTPProfile } from "@/components/charts/ActorTTPProfile";
 import { StatCard } from "@/components/StatCard";
@@ -61,8 +64,9 @@ export default function ThreatActorIntelligencePage() {
   const { data: targeting, isLoading: l6 } = useQuery({ queryKey: ["actor-targeting"], queryFn: () => getActorTargeting(10) });
   const { data: actorInstitution, isLoading: l7 } = useQuery({ queryKey: ["actor-institution-targeting"], queryFn: () => getActorInstitutionTargeting(12) });
   const { data: actorTTP, isLoading: l8 } = useQuery({ queryKey: ["actor-ttp-profile"], queryFn: () => getActorTTPProfile(8) });
+  const { data: actorNetwork, isLoading: l9 } = useQuery({ queryKey: ["actor-network"], queryFn: getActorNetwork });
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8;
+  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
   if (isLoading) {
     return (
@@ -185,8 +189,14 @@ export default function ThreatActorIntelligencePage() {
         )}
       </div>
 
+      {/* Actor Network Graph - Full Width */}
+      <ActorNetworkGraph data={actorNetwork} />
+
       {/* Actor TTP Profile - Full Width */}
       {actorTTP && <ActorTTPProfile data={actorTTP} />}
+
+      {/* Actor-Ransomware Chord Diagram - Full Width */}
+      <ActorRansomwareChord data={matrix} />
 
       {/* Actor-Ransomware Matrix */}
       {matrix && matrix.actors.length > 0 && matrix.families.length > 0 && (

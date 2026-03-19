@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-03-19
+
+### Interactive Nivo Visualizations
+
+#### Added
+- **6 new interactive Nivo chart components** using trending 2026 visualization patterns:
+  - `AttackFlowSankey` — 3-column Sankey flow (attack vector → category → impact) with hover path tracing
+  - `ActorRansomwareChord` — Chord diagram showing actor–ransomware family relationships with arc highlighting
+  - `MitreSunburst` — Drill-down sunburst of MITRE ATT&CK hierarchy with breadcrumb navigation
+  - `ActorNetworkGraph` — Force-directed network graph of actors connected by shared ransomware families
+  - `RansomFlowSankey` — Sankey flow (institution → family → payment outcome) with count/amount toggle
+  - `CountryAttackChord` — Chord diagram showing country–attack type geographic specialization
+- **5 new TypeScript interfaces** and fetch functions in `lib/api.ts`
+- Charts wired into all 4 analytics pages:
+  - `/attacks` — AttackFlowSankey, MitreSunburst
+  - `/ransomware` — RansomFlowSankey
+  - `/threat-actors` — ActorRansomwareChord, ActorNetworkGraph
+  - `/analytics` — CountryAttackChord
+
+#### Fixed
+- Nivo theme type: updated `Theme` import from `@nivo/core` to `PartialTheme` from `@nivo/theming` for v0.99 compatibility
+
+---
+
 ## [2.3.0] - 2026-03-17
 
 ### Cross-Dimensional Intelligence Visualizations
