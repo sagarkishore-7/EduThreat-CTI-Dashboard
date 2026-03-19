@@ -10,6 +10,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@nivo/chord": "^0.99.0",
+    "@nivo/core": "^0.99.0",
+    "@nivo/network": "^0.99.0",
+    "@nivo/sankey": "^0.99.0",
+    "@nivo/sunburst": "^0.99.0",
+    "@nivo/treemap": "^0.99.0",
     "@tanstack/react-query": "^5.62.11",
     "@types/react-simple-maps": "^3.0.6",
     "clsx": "^2.1.1",
