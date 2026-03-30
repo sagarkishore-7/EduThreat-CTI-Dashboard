@@ -171,6 +171,10 @@ export default function AdminPage() {
   const [phantomResetLoading, setPhantomResetLoading] = useState(false);
   const [phantomResetResult, setPhantomResetResult] = useState<{ reset_count: number } | null>(null);
 
+  // Purge non-education state
+  const [purgeLoading, setPurgeLoading] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<{ non_education_purged: number; orphan_purged: number; total_purged: number } | null>(null);
+
   // ------------------------------------------------------------------
   // Auth helpers
   // ------------------------------------------------------------------
@@ -614,6 +618,36 @@ export default function AdminPage() {
       setError("Failed to reset phantom enrichments");
     } finally {
       setPhantomResetLoading(false);
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Purge non-education incidents
+  // ------------------------------------------------------------------
+
+  const handlePurgeNonEducation = async () => {
+    if (!sessionToken) return;
+    if (!confirm("This will permanently DELETE all incidents that the LLM classified as not education-related. This cannot be undone. Continue?")) return;
+    setPurgeLoading(true);
+    setError(null);
+    setPurgeResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/purge-non-education`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPurgeResult({ non_education_purged: data.non_education_purged, orphan_purged: data.orphan_purged, total_purged: data.total_purged });
+        setSuccess(data.message);
+        fetchStats(sessionToken);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Purge failed");
+      }
+    } catch {
+      setError("Failed to purge non-education incidents");
+    } finally {
+      setPurgeLoading(false);
     }
   };
 
@@ -1354,6 +1388,57 @@ export default function AdminPage() {
               </>
             ) : (
               <span className="text-green-400">No phantom enrichments found — all enriched incidents have valid LLM data.</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* PURGE NON-EDUCATION INCIDENTS */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+          <Shield className="w-5 h-5 text-orange-400" />
+          Purge Non-Education Incidents
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Permanently delete all incidents that the LLM classified as not related to cyberattacks
+          on educational institutions. These were collected by broad news scrapers and waste storage and query time.
+        </p>
+
+        <button
+          onClick={handlePurgeNonEducation}
+          disabled={purgeLoading}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+            "bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30",
+            purgeLoading && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {purgeLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Shield className="w-4 h-4" />
+          )}
+          Purge Non-Education Incidents
+        </button>
+
+        {purgeResult && (
+          <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-sm">
+            {purgeResult.total_purged > 0 ? (
+              <>
+                Purged <span className="font-medium text-orange-400">{purgeResult.total_purged}</span> incidents
+                {purgeResult.non_education_purged > 0 && (
+                  <> ({purgeResult.non_education_purged} non-education</>
+                )}
+                {purgeResult.orphan_purged > 0 && (
+                  <>, {purgeResult.orphan_purged} orphans</>
+                )}
+                {(purgeResult.non_education_purged > 0 || purgeResult.orphan_purged > 0) && <>)</>}.
+                <span className="text-muted-foreground"> Database cleaned up.</span>
+              </>
+            ) : (
+              <span className="text-green-400">No non-education incidents found — database is clean.</span>
             )}
           </div>
         )}
