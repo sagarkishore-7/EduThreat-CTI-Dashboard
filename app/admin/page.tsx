@@ -167,6 +167,10 @@ export default function AdminPage() {
   const [reEnrichLoading, setReEnrichLoading] = useState(false);
   const [reEnrichResult, setReEnrichResult] = useState<{ reverted_count: number; before_date: string } | null>(null);
 
+  // Phantom enrichment reset state
+  const [phantomResetLoading, setPhantomResetLoading] = useState(false);
+  const [phantomResetResult, setPhantomResetResult] = useState<{ reset_count: number } | null>(null);
+
   // ------------------------------------------------------------------
   // Auth helpers
   // ------------------------------------------------------------------
@@ -580,6 +584,36 @@ export default function AdminPage() {
       setError("Failed to reset enrichment");
     } finally {
       setReEnrichLoading(false);
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Phantom enrichment reset
+  // ------------------------------------------------------------------
+
+  const handlePhantomReset = async () => {
+    if (!sessionToken) return;
+    if (!confirm("Reset all phantom enriched incidents (marked enriched but with no LLM data)? They will be re-fetched and re-enriched on the next pipeline run.")) return;
+    setPhantomResetLoading(true);
+    setError(null);
+    setPhantomResetResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/reset-phantom-enrichments`, {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPhantomResetResult({ reset_count: data.reset_count });
+        setSuccess(data.message);
+        fetchStats(sessionToken);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Phantom reset failed");
+      }
+    } catch {
+      setError("Failed to reset phantom enrichments");
+    } finally {
+      setPhantomResetLoading(false);
     }
   };
 
@@ -1273,6 +1307,53 @@ export default function AdminPage() {
               <span className="text-muted-foreground">
                 {" "}Run the <span className="text-foreground">Enrichment</span> phase to re-process them.
               </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* RESET PHANTOM ENRICHMENTS */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+          <AlertTriangle className="w-5 h-5 text-red-400" />
+          Reset Phantom Enrichments
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Find and reset incidents that are marked as enriched but have no actual LLM data
+          (e.g. article fetch failed silently). They will be re-fetched and re-enriched on the next pipeline run.
+        </p>
+
+        <button
+          onClick={handlePhantomReset}
+          disabled={phantomResetLoading}
+          className={cn(
+            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+            "bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30",
+            phantomResetLoading && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          {phantomResetLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <AlertTriangle className="w-4 h-4" />
+          )}
+          Reset Phantom Enrichments
+        </button>
+
+        {phantomResetResult && (
+          <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm">
+            {phantomResetResult.reset_count > 0 ? (
+              <>
+                <span className="font-medium text-red-400">{phantomResetResult.reset_count}</span>{" "}
+                phantom enriched incident{phantomResetResult.reset_count !== 1 ? "s" : ""} have been reset.
+                <span className="text-muted-foreground">
+                  {" "}Run the <span className="text-foreground">Enrichment</span> phase to re-process them.
+                </span>
+              </>
+            ) : (
+              <span className="text-green-400">No phantom enrichments found — all enriched incidents have valid LLM data.</span>
             )}
           </div>
         )}
