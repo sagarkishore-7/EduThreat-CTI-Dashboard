@@ -174,6 +174,9 @@ export default function AdminPage() {
   // Purge non-education state
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeResult, setPurgeResult] = useState<{ non_education_purged: number; orphan_purged: number; total_purged: number } | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [diagResult, setDiagResult] = useState<Record<string, any> | null>(null);
 
   // ------------------------------------------------------------------
   // Auth helpers
@@ -648,6 +651,28 @@ export default function AdminPage() {
       setError("Failed to purge non-education incidents");
     } finally {
       setPurgeLoading(false);
+    }
+  };
+
+  // Diagnostic preview for purge
+  const handleDiagnosticPreview = async () => {
+    if (!sessionToken) return;
+    setDiagLoading(true);
+    setDiagResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/purge-non-education/preview`, {
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDiagResult(data);
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Diagnostic failed");
+      }
+    } catch {
+      setError("Failed to fetch diagnostic data");
+    } finally {
+      setDiagLoading(false);
     }
   };
 
@@ -1406,22 +1431,99 @@ export default function AdminPage() {
           on educational institutions. These were collected by broad news scrapers and waste storage and query time.
         </p>
 
-        <button
-          onClick={handlePurgeNonEducation}
-          disabled={purgeLoading}
-          className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
-            "bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30",
-            purgeLoading && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          {purgeLoading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Shield className="w-4 h-4" />
-          )}
-          Purge Non-Education Incidents
-        </button>
+        <div className="flex gap-3 mb-4">
+          <button
+            onClick={handleDiagnosticPreview}
+            disabled={diagLoading}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+              "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30",
+              diagLoading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {diagLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Eye className="w-4 h-4" />
+            )}
+            Diagnostic Preview
+          </button>
+
+          <button
+            onClick={handlePurgeNonEducation}
+            disabled={purgeLoading}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
+              "bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 border border-orange-500/30",
+              purgeLoading && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            {purgeLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Shield className="w-4 h-4" />
+            )}
+            Purge Non-Education Incidents
+          </button>
+        </div>
+
+        {diagResult && (
+          <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm font-mono space-y-2">
+            <h3 className="font-semibold text-blue-400 mb-2">DB Diagnostic</h3>
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <span className="text-muted-foreground">Incidents total:</span>
+              <span>{diagResult.incidents_total}</span>
+              <span className="text-muted-foreground">Incidents enriched:</span>
+              <span>{diagResult.incidents_enriched}</span>
+              <span className="text-muted-foreground">Incidents unenriched:</span>
+              <span>{diagResult.incidents_unenriched}</span>
+              <span className="text-muted-foreground">With LLM summary:</span>
+              <span>{diagResult.incidents_with_llm_summary}</span>
+              <span className="text-muted-foreground">Without LLM summary:</span>
+              <span>{diagResult.incidents_without_llm_summary}</span>
+            </div>
+            <hr className="border-border my-2" />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <span className="text-muted-foreground">Enrichments flat total:</span>
+              <span>{diagResult.enrichments_flat_total}</span>
+              <span className="text-muted-foreground">is_education_related = 1:</span>
+              <span className="text-green-400">{diagResult.enrichments_flat_edu_1}</span>
+              <span className="text-muted-foreground">is_education_related = 0:</span>
+              <span className="text-red-400">{diagResult.enrichments_flat_edu_0}</span>
+              <span className="text-muted-foreground">is_education_related = NULL:</span>
+              <span className="text-yellow-400">{diagResult.enrichments_flat_edu_null}</span>
+            </div>
+            <hr className="border-border my-2" />
+            <div className="grid grid-cols-2 gap-x-6 gap-y-1">
+              <span className="text-muted-foreground">Orphan enriched:</span>
+              <span>{diagResult.orphan_enriched}</span>
+              <span className="text-muted-foreground">Articles total:</span>
+              <span>{diagResult.articles_total}</span>
+              <span className="text-muted-foreground">Articles successful:</span>
+              <span>{diagResult.articles_successful}</span>
+              <span className="text-muted-foreground">Articles failed:</span>
+              <span>{diagResult.articles_failed}</span>
+            </div>
+            {diagResult.non_edu_samples?.length > 0 && (
+              <>
+                <hr className="border-border my-2" />
+                <div>
+                  <span className="text-muted-foreground">Non-edu samples:</span>
+                  <pre className="mt-1 text-xs overflow-x-auto">{JSON.stringify(diagResult.non_edu_samples, null, 2)}</pre>
+                </div>
+              </>
+            )}
+            {diagResult.orphan_samples?.length > 0 && (
+              <>
+                <hr className="border-border my-2" />
+                <div>
+                  <span className="text-muted-foreground">Orphan samples:</span>
+                  <pre className="mt-1 text-xs overflow-x-auto">{JSON.stringify(diagResult.orphan_samples, null, 2)}</pre>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {purgeResult && (
           <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg text-sm">
