@@ -353,7 +353,7 @@ export default function AdminPage() {
           fetchStats(sessionToken);
           fetchRunHistory(sessionToken);
         }
-      }, 1500);
+      }, 10000);
     },
     [sessionToken, logOffset]
   );
@@ -497,7 +497,7 @@ export default function AdminPage() {
         setSchedulerStatus(data);
         // Start/stop polling based on scheduler state
         if (data.running && !schedulerPollRef.current) {
-          schedulerPollRef.current = setInterval(() => fetchSchedulerStatus(t), 5000);
+          schedulerPollRef.current = setInterval(() => fetchSchedulerStatus(t), 30000);
         } else if (!data.running && schedulerPollRef.current) {
           clearInterval(schedulerPollRef.current);
           schedulerPollRef.current = null;
