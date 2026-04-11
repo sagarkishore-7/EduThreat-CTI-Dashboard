@@ -30,6 +30,7 @@ import {
   Search,
   Eye,
   Copy,
+  GitMerge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API_BASE, getRawIncidents, RawIncidentFilters } from "@/lib/api";
@@ -170,6 +171,19 @@ export default function AdminPage() {
   // Phantom enrichment reset state
   const [phantomResetLoading, setPhantomResetLoading] = useState(false);
   const [phantomResetResult, setPhantomResetResult] = useState<{ reset_count: number } | null>(null);
+
+  // Deduplication state
+  const [dedupWindowDays, setDedupWindowDays] = useState(14);
+  const [dedupLoading, setDedupLoading] = useState(false);
+  const [dedupResult, setDedupResult] = useState<{
+    groups_merged: number;
+    incidents_removed: number;
+    date_window_days: number;
+    dry_run: boolean;
+    groups_found?: number;
+    incidents_to_remove?: number;
+    preview?: { keep: string; keep_name: string; keep_date: string; merge_count: number; duplicates: { id: string; date: string }[] }[];
+  } | null>(null);
 
   // Purge non-education state
   const [purgeLoading, setPurgeLoading] = useState(false);
@@ -591,6 +605,39 @@ export default function AdminPage() {
       setError("Failed to reset enrichment");
     } finally {
       setReEnrichLoading(false);
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Deduplication
+  // ------------------------------------------------------------------
+
+  const handleDedup = async (dryRun: boolean) => {
+    if (!sessionToken) return;
+    if (!dryRun && !confirm(`This will permanently merge duplicate incidents within a ${dedupWindowDays}-day window. Continue?`)) return;
+    setDedupLoading(true);
+    setError(null);
+    setDedupResult(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/deduplicate`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ date_window_days: dedupWindowDays, name_threshold: 85, dry_run: dryRun }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDedupResult(data);
+        if (!dryRun) {
+          setSuccess(`Merged ${data.groups_merged} duplicate groups, removed ${data.incidents_removed} incidents.`);
+          fetchStats(sessionToken);
+        }
+      } else {
+        setError(typeof data.detail === "string" ? data.detail : "Deduplication failed");
+      }
+    } catch {
+      setError("Deduplication request failed");
+    } finally {
+      setDedupLoading(false);
     }
   };
 
@@ -1366,6 +1413,92 @@ export default function AdminPage() {
               <span className="text-muted-foreground">
                 {" "}Run the <span className="text-foreground">Enrichment</span> phase to re-process them.
               </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ============================================================ */}
+      {/* DEDUPLICATE INCIDENTS */}
+      {/* ============================================================ */}
+      <div className="bg-card border border-border rounded-xl p-6">
+        <h2 className="text-lg font-semibold flex items-center gap-2 mb-1">
+          <GitMerge className="w-5 h-5 text-blue-400" />
+          Deduplicate Incidents
+        </h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Merge incidents from different sources that describe the same attack on the same victim.
+          Two incidents are merged if their victim names match (fuzzy) and their dates are within
+          the window. Dates more than the window apart are kept as separate re-attacks.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 mb-4">
+          <div className="flex-1 max-w-xs">
+            <label className="block text-sm font-medium mb-1.5">
+              Date window (days)
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={dedupWindowDays}
+              onChange={(e) => { setDedupWindowDays(Number(e.target.value)); setDedupResult(null); }}
+              className="w-full px-3 py-2 bg-secondary border border-border rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleDedup(true)}
+              disabled={dedupLoading}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30",
+                dedupLoading && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {dedupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              Preview
+            </button>
+            <button
+              onClick={() => handleDedup(false)}
+              disabled={dedupLoading}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all",
+                "bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/30",
+                dedupLoading && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {dedupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitMerge className="w-4 h-4" />}
+              Merge Duplicates
+            </button>
+          </div>
+        </div>
+
+        {dedupResult && (
+          <div className="mt-2 space-y-3">
+            {dedupResult.dry_run ? (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm">
+                <p className="font-medium text-blue-400 mb-1">
+                  Preview: {dedupResult.groups_found} duplicate groups found,{" "}
+                  {dedupResult.incidents_to_remove} incidents would be removed
+                </p>
+                {dedupResult.preview && dedupResult.preview.length > 0 && (
+                  <div className="mt-2 space-y-1 max-h-48 overflow-y-auto text-xs text-muted-foreground">
+                    {dedupResult.preview.map((g, i) => (
+                      <div key={i} className="border-b border-border pb-1">
+                        <span className="text-foreground font-medium">{g.keep_name}</span>
+                        {" "}({g.keep_date}) ← merging {g.merge_count} duplicate{g.merge_count !== 1 ? "s" : ""}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm">
+                <span className="font-medium text-blue-400">{dedupResult.groups_merged}</span> duplicate groups merged,{" "}
+                <span className="font-medium text-blue-400">{dedupResult.incidents_removed}</span> incidents removed
+                {" "}(window: {dedupResult.date_window_days} days)
+              </div>
             )}
           </div>
         )}
