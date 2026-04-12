@@ -36,6 +36,7 @@ export function AttackFlowChart({ data }: AttackFlowChartProps) {
       margin={{ top: 8, right: 100, bottom: 8, left: 100 }}
       align="justify"
       colors={{ scheme: "set2" }}
+      label={(node) => String(node.id).replace(/^(vec|cat|out):/, "")}
       nodeOpacity={1}
       nodeHoverOthersOpacity={0.35}
       nodeThickness={14}
