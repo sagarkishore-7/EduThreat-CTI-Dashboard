@@ -97,9 +97,14 @@ export function WorldHeatmap({ data, onCountryClick }: WorldHeatmapProps) {
   }
 
   return (
-    <div className="bg-card border border-border rounded-xl p-5">
+    <div className="bg-[#0c0c18] border border-zinc-800 rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold">Global Threat Heatmap</h3>
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-0.5">
+            Global Threat Map
+          </p>
+          <h3 className="text-sm font-semibold text-zinc-200">Education Sector — Incident Heatmap</h3>
+        </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded-sm" style={{ background: "#1a1a2e" }} />

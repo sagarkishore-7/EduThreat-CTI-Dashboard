@@ -14,43 +14,65 @@ interface StatCardProps {
   variant?: "default" | "primary" | "danger" | "warning" | "success" | "purple" | "pink";
   href?: string;
   onClick?: () => void;
+  size?: "default" | "compact";
 }
 
 const variantStyles = {
   default: {
-    icon: "bg-secondary text-muted-foreground",
+    strip: "bg-zinc-600",
+    icon: "text-zinc-400",
+    iconBg: "bg-zinc-800/60",
     glow: "",
-    accent: "group-hover:border-primary/30",
+    border: "border-zinc-800 hover:border-zinc-600",
+    valueColor: "text-zinc-100",
   },
   primary: {
-    icon: "bg-cyan-500/10 text-cyan-500",
-    glow: "hover:shadow-[0_0_20px_rgba(6,182,212,0.15)]",
-    accent: "group-hover:border-cyan-500/40",
+    strip: "bg-cyan-500",
+    icon: "text-cyan-400",
+    iconBg: "bg-cyan-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(6,182,212,0.12)]",
+    border: "border-zinc-800 hover:border-cyan-500/50",
+    valueColor: "text-cyan-300",
   },
   danger: {
-    icon: "bg-red-500/10 text-red-500",
-    glow: "hover:shadow-[0_0_20px_rgba(239,68,68,0.15)]",
-    accent: "group-hover:border-red-500/40",
+    strip: "bg-red-500",
+    icon: "text-red-400",
+    iconBg: "bg-red-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(239,68,68,0.12)]",
+    border: "border-zinc-800 hover:border-red-500/50",
+    valueColor: "text-red-300",
   },
   warning: {
-    icon: "bg-yellow-500/10 text-yellow-500",
-    glow: "hover:shadow-[0_0_20px_rgba(234,179,8,0.15)]",
-    accent: "group-hover:border-yellow-500/40",
+    strip: "bg-amber-500",
+    icon: "text-amber-400",
+    iconBg: "bg-amber-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(245,158,11,0.12)]",
+    border: "border-zinc-800 hover:border-amber-500/50",
+    valueColor: "text-amber-300",
   },
   success: {
-    icon: "bg-green-500/10 text-green-500",
-    glow: "hover:shadow-[0_0_20px_rgba(34,197,94,0.15)]",
-    accent: "group-hover:border-green-500/40",
+    strip: "bg-emerald-500",
+    icon: "text-emerald-400",
+    iconBg: "bg-emerald-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(16,185,129,0.12)]",
+    border: "border-zinc-800 hover:border-emerald-500/50",
+    valueColor: "text-emerald-300",
   },
   purple: {
-    icon: "bg-purple-500/10 text-purple-500",
-    glow: "hover:shadow-[0_0_20px_rgba(139,92,246,0.15)]",
-    accent: "group-hover:border-purple-500/40",
+    strip: "bg-violet-500",
+    icon: "text-violet-400",
+    iconBg: "bg-violet-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(139,92,246,0.12)]",
+    border: "border-zinc-800 hover:border-violet-500/50",
+    valueColor: "text-violet-300",
   },
   pink: {
-    icon: "bg-pink-500/10 text-pink-500",
-    glow: "hover:shadow-[0_0_20px_rgba(236,72,153,0.15)]",
-    accent: "group-hover:border-pink-500/40",
+    strip: "bg-pink-500",
+    icon: "text-pink-400",
+    iconBg: "bg-pink-500/10",
+    glow: "hover:shadow-[0_0_24px_rgba(236,72,153,0.12)]",
+    border: "border-zinc-800 hover:border-pink-500/50",
+    valueColor: "text-pink-300",
   },
 };
 
@@ -64,6 +86,7 @@ export function StatCard({
   variant = "default",
   href,
   onClick,
+  size = "default",
 }: StatCardProps) {
   const styles = variantStyles[variant];
   const displayValue = typeof value === "number" ? formatNumber(value) : value;
@@ -72,38 +95,68 @@ export function StatCard({
   const content = (
     <div
       className={cn(
-        "group stat-card bg-card border border-border rounded-xl p-5 transition-all duration-300",
+        "group relative overflow-hidden rounded-lg border bg-[#0c0c18] transition-all duration-200",
         styles.glow,
-        styles.accent,
-        isClickable && "cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+        styles.border,
+        isClickable && "cursor-pointer active:scale-[0.99]",
+        size === "compact" ? "p-3" : "p-4"
       )}
       onClick={onClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-muted-foreground mb-1">{title}</p>
-          <p className="text-3xl font-bold tracking-tight">{displayValue}</p>
-          {description && (
-            <p className="text-xs text-muted-foreground mt-1.5 truncate">{description}</p>
-          )}
-          {change !== undefined && (
-            <p
-              className={cn(
-                "text-xs mt-2 flex items-center gap-1",
-                change >= 0 ? "text-green-500" : "text-red-500"
-              )}
-            >
-              {change >= 0 ? "↑" : "↓"} {Math.abs(change)}%
-              {changeLabel && (
-                <span className="text-muted-foreground">{changeLabel}</span>
-              )}
+      {/* Left accent strip */}
+      <div className={cn("absolute left-0 top-0 bottom-0 w-[3px]", styles.strip)} />
+
+      <div className="pl-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className={cn(
+              "uppercase tracking-widest font-medium text-zinc-500",
+              size === "compact" ? "text-[9px] mb-1" : "text-[10px] mb-2"
+            )}>
+              {title}
             </p>
-          )}
-        </div>
-        <div className={cn("p-3 rounded-lg shrink-0", styles.icon)}>
-          <Icon className="w-6 h-6" />
+            <p className={cn(
+              "font-mono font-bold tracking-tight leading-none",
+              styles.valueColor,
+              size === "compact" ? "text-2xl" : "text-3xl"
+            )}>
+              {displayValue}
+            </p>
+            {description && size !== "compact" && (
+              <p className="text-[11px] text-zinc-600 mt-2 truncate">
+                {description}
+              </p>
+            )}
+            {change !== undefined && (
+              <p className={cn(
+                "text-[11px] mt-2 flex items-center gap-1 font-mono",
+                change >= 0 ? "text-emerald-500" : "text-red-500"
+              )}>
+                {change >= 0 ? "▲" : "▼"} {Math.abs(change)}%
+                {changeLabel && (
+                  <span className="text-zinc-600">{changeLabel}</span>
+                )}
+              </p>
+            )}
+          </div>
+          <div className={cn(
+            "rounded-md shrink-0 flex items-center justify-center",
+            styles.iconBg,
+            size === "compact" ? "p-2" : "p-2.5"
+          )}>
+            <Icon className={cn(styles.icon, size === "compact" ? "w-4 h-4" : "w-5 h-5")} />
+          </div>
         </div>
       </div>
+
+      {/* Subtle dot-grid overlay for cyber texture */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+        }}
+      />
     </div>
   );
 
