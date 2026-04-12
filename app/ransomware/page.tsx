@@ -23,6 +23,7 @@ import { RansomwareGeoGrid } from "@/components/charts/RansomwareGeoGrid";
 import { RansomPaymentByYearChart } from "@/components/charts/RansomPaymentByYearChart";
 import { RansomwareFamilyTrend } from "@/components/charts/RansomwareFamilyTrend";
 import { RansomFlowSankey } from "@/components/charts/RansomFlowSankey";
+import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import {
   Lock,
   Target,
@@ -45,16 +46,7 @@ export default function RansomwareIntelligencePage() {
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-28 skeleton rounded-xl" />)}
-        </div>
-        {[...Array(3)].map((_, i) => <div key={i} className="h-[380px] skeleton rounded-xl" />)}
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton rows={4} />;
 
   const ransomwareIncidents = stats?.incidents_with_ransomware || 0;
   const activeFamilies = ransomwareData?.data.length || 0;
@@ -64,19 +56,16 @@ export default function RansomwareIntelligencePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Lock className="w-6 h-6 text-red-500" />
-          <h1 className="text-xl font-semibold">Ransomware Intelligence</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Deep analysis of ransomware campaigns targeting education institutions
-        </p>
-      </div>
+      <PageHeader
+        icon={Lock}
+        iconColor="text-red-400"
+        label="Ransomware Intelligence"
+        title="Ransomware Intelligence"
+        description={`Deep analysis of ${ransomwareIncidents} ransomware campaigns targeting education institutions — families, economics & recovery`}
+      />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard title="Ransomware Incidents" value={ransomwareIncidents} icon={Lock} variant="danger" />
         <StatCard title="Active Families" value={activeFamilies} icon={Target} variant="purple" />
         <StatCard title="Ransom Demanded" value={demandedCount} icon={AlertTriangle} variant="warning" />

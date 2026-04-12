@@ -21,6 +21,7 @@ import { ActorTTPProfile } from "@/components/charts/ActorTTPProfile";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { formatDate, getCountryFlag, cn, formatAttackCategory } from "@/lib/utils";
+import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import {
   Users,
   Target,
@@ -68,18 +69,7 @@ export default function ThreatActorIntelligencePage() {
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-28 skeleton rounded-xl" />)}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(9)].map((_, i) => <div key={i} className="h-48 skeleton rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton rows={4} />;
 
   const trackedActors = actors?.total || 0;
   const mostActive = actors?.threat_actors[0]?.name || "N/A";
@@ -88,19 +78,15 @@ export default function ThreatActorIntelligencePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Users className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold">Threat Actor Intelligence</h1>
-        </div>
-        <p className="text-muted-foreground">
-          {trackedActors} threat actors tracked across education sector incidents
-        </p>
-      </div>
+      <PageHeader
+        icon={Users}
+        label="Threat Actor Intelligence"
+        title="Threat Actor Intelligence"
+        description={`${trackedActors} threat actors tracked across education sector incidents — profiling, targeting & attribution`}
+      />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard title="Tracked Actors" value={trackedActors} icon={Users} variant="primary" />
         <StatCard title="Most Active" value={mostActive} icon={Target} variant="danger" />
         <StatCard title="Countries Targeted" value={countriesTargeted} icon={Globe2} variant="warning" />

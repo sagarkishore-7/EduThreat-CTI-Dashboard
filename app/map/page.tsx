@@ -7,6 +7,7 @@ import { getCountryAnalytics, getStats } from "@/lib/api";
 import { getCountryFlag, formatNumber, cn } from "@/lib/utils";
 import { Globe2, MapPin } from "lucide-react";
 import Link from "next/link";
+import { PageHeader } from "@/components/PageHeader";
 
 const WorldHeatmap = dynamic(
   () => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap),
@@ -28,9 +29,12 @@ export default function MapPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="h-32 skeleton rounded-xl" />
-        <div className="h-[500px] skeleton rounded-xl" />
+      <div className="space-y-4 animate-pulse">
+        <div className="h-[100px] bg-zinc-900 border border-zinc-800 rounded-lg" />
+        <div className="h-[500px] bg-zinc-900 border border-zinc-800 rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-[300px] bg-zinc-900 border border-zinc-800 rounded-lg" />)}
+        </div>
       </div>
     );
   }
@@ -63,28 +67,26 @@ export default function MapPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Globe2 className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold">Global Threat Map</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Geographic distribution of cyber incidents targeting educational institutions
-        </p>
+      <PageHeader
+        icon={Globe2}
+        label="Global Threat Map"
+        title="Global Threat Map"
+        description={`Geographic distribution of cyber incidents across ${stats?.countries_affected || 0} countries targeting educational institutions`}
+      >
         {stats && (
-          <div className="mt-4 flex items-center gap-6">
+          <div className="flex items-center gap-8">
             <div>
-              <span className="text-3xl font-bold">{stats.countries_affected}</span>
-              <span className="text-muted-foreground ml-2">countries affected</span>
+              <span className="text-2xl font-bold font-mono text-zinc-100">{stats.countries_affected}</span>
+              <span className="text-zinc-500 ml-2 text-sm">countries affected</span>
             </div>
+            <div className="w-px h-6 bg-zinc-800" />
             <div>
-              <span className="text-3xl font-bold">{stats.education_incidents}</span>
-              <span className="text-muted-foreground ml-2">education incidents</span>
+              <span className="text-2xl font-bold font-mono text-zinc-100">{stats.education_incidents.toLocaleString()}</span>
+              <span className="text-zinc-500 ml-2 text-sm">total incidents</span>
             </div>
           </div>
         )}
-      </div>
+      </PageHeader>
 
       {/* Interactive World Map */}
       {countryData?.data && (
@@ -97,7 +99,7 @@ export default function MapPage() {
       )}
 
       {/* Region Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(groupedByRegion)
           .sort((a, b) => {
             const totalA = a[1].reduce((sum, c) => sum + c.count, 0);
@@ -110,40 +112,34 @@ export default function MapPage() {
             return (
               <div
                 key={region}
-                className={cn(
-                  "bg-card border border-border rounded-xl p-5",
-                  "animate-slide-up"
-                )}
+                className="bg-[#0d0d1a] border border-zinc-800 rounded-xl p-5 animate-slide-up"
                 style={{ animationDelay: `${regionIndex * 100}ms` }}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary" />
+                  <h2 className="text-sm font-semibold flex items-center gap-2 text-zinc-100">
+                    <MapPin className="w-3.5 h-3.5 text-cyan-400" />
                     {region}
                   </h2>
-                  <span className="text-sm text-muted-foreground">
-                    {formatNumber(totalIncidents)} incidents
+                  <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                    {formatNumber(totalIncidents)}
                   </span>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {countries.slice(0, 8).map((country) => (
                     <Link
                       key={country.category}
                       href={`/incidents?country=${country.category}`}
-                      className={cn(
-                        "flex items-center justify-between p-2 rounded-lg",
-                        "hover:bg-secondary transition-colors"
-                      )}
+                      className="flex items-center justify-between p-2 rounded-lg hover:bg-zinc-800/50 transition-colors group"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-xl">{getCountryFlag(country.category, country.flag_emoji)}</span>
-                        <span className="text-sm">{country.category}</span>
+                        <span className="text-base">{getCountryFlag(country.category, country.flag_emoji)}</span>
+                        <span className="text-[13px] text-zinc-300 group-hover:text-zinc-100 transition-colors">{country.category}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{country.count}</span>
-                        <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <span className="text-[13px] font-mono font-medium text-zinc-400">{country.count}</span>
+                        <div className="w-14 h-1 bg-zinc-800 rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-primary rounded-full"
+                            className="h-full bg-cyan-500/60 rounded-full"
                             style={{ width: `${(country.count / countries[0].count) * 100}%` }}
                           />
                         </div>
@@ -151,7 +147,7 @@ export default function MapPage() {
                     </Link>
                   ))}
                   {countries.length > 8 && (
-                    <p className="text-xs text-muted-foreground text-center pt-2">
+                    <p className="text-xs text-zinc-600 text-center pt-2">
                       +{countries.length - 8} more countries
                     </p>
                   )}
@@ -162,24 +158,20 @@ export default function MapPage() {
       </div>
 
       {/* Full Country List */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">All Countries</h2>
+      <div className="bg-[#0d0d1a] border border-zinc-800 rounded-xl p-6">
+        <p className="section-label mb-4">All Countries</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {countryData?.data.map((country, index) => (
             <Link
               key={country.category}
               href={`/incidents?country=${country.category}`}
-              className={cn(
-                "flex items-center gap-2 p-3 bg-secondary/50 rounded-lg border border-border",
-                "hover:border-primary/30 transition-all",
-                "animate-slide-up"
-              )}
+              className="flex items-center gap-2 p-3 bg-zinc-900/40 rounded-lg border border-zinc-800 hover:border-cyan-500/30 hover:bg-zinc-800/50 transition-all animate-slide-up group"
               style={{ animationDelay: `${index * 20}ms` }}
             >
               <span className="text-xl">{getCountryFlag(country.category, country.flag_emoji)}</span>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium block truncate">{country.category}</span>
-                <span className="text-xs text-muted-foreground">{country.count} incidents</span>
+                <span className="text-[13px] font-medium block truncate text-zinc-300 group-hover:text-zinc-100 transition-colors">{country.category}</span>
+                <span className="text-xs text-zinc-600 font-mono">{country.count}</span>
               </div>
             </Link>
           ))}

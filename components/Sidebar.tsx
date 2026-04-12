@@ -11,19 +11,20 @@ import {
   Users,
   BarChart3,
   AlertTriangle,
-  Database,
   X,
   Settings,
+  Lock,
+  Radio,
 } from "lucide-react";
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Incidents", href: "/incidents", icon: FileText },
-  { name: "Map View", href: "/map", icon: Globe2 },
-  { name: "Attack Intelligence", href: "/attacks", icon: AlertTriangle },
-  { name: "Ransomware Intel", href: "/ransomware", icon: Shield },
-  { name: "Threat Actors", href: "/threat-actors", icon: Users },
-  { name: "Impact Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Dashboard",          href: "/",              icon: LayoutDashboard, group: "main" },
+  { name: "Incidents",          href: "/incidents",     icon: FileText,        group: "main" },
+  { name: "Global Map",         href: "/map",           icon: Globe2,          group: "main" },
+  { name: "Attack Intel",       href: "/attacks",       icon: AlertTriangle,   group: "intel" },
+  { name: "Ransomware",         href: "/ransomware",    icon: Lock,            group: "intel" },
+  { name: "Threat Actors",      href: "/threat-actors", icon: Users,           group: "intel" },
+  { name: "Impact Analytics",   href: "/analytics",     icon: BarChart3,       group: "intel" },
 ];
 
 const adminNav = [
@@ -39,118 +40,113 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
 
   const handleNavClick = () => {
-    // Close sidebar on mobile when navigating
-    if (onClose && window.innerWidth < 1024) {
-      onClose();
-    }
+    if (onClose && window.innerWidth < 1024) onClose();
   };
+
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
     <>
       {/* Mobile overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden"
           onClick={onClose}
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50",
-          "w-64 bg-card border-r border-border flex flex-col",
-          "transform transition-transform duration-300 ease-in-out",
-          "lg:transform-none lg:translate-x-0",
+          "fixed lg:static inset-y-0 left-0 z-50 flex flex-col",
+          "w-56 border-r border-zinc-800/80 bg-[#09091a]",
+          "transform transition-transform duration-300 ease-in-out lg:transform-none lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo */}
-        <div className="h-16 flex items-center justify-between px-6 border-b border-border">
-          <Link href="/" className="flex items-center gap-3" onClick={handleNavClick}>
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center">
-              <Database className="w-4 h-4 text-white" />
+        <div className="h-14 flex items-center justify-between px-4 border-b border-zinc-800/80 shrink-0">
+          <Link href="/" className="flex items-center gap-2.5" onClick={handleNavClick}>
+            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center shrink-0">
+              <Shield className="w-3.5 h-3.5 text-white" />
             </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight">EduThreat</span>
-              <span className="text-primary font-bold">-CTI</span>
+            <div className="leading-tight">
+              <span className="font-bold text-[13px] tracking-tight text-zinc-100">EduThreat</span>
+              <span className="font-bold text-[13px] text-cyan-400">-CTI</span>
             </div>
           </Link>
-          
-          {/* Mobile close button */}
           <button
             onClick={onClose}
-            className="lg:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
-            aria-label="Close menu"
+            className="lg:hidden p-1.5 rounded hover:bg-zinc-800 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4 text-zinc-400" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navigation.map((item) => {
-            const isActive = pathname === item.href || 
-              (item.href !== "/" && pathname.startsWith(item.href));
-            
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={handleNavClick}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-primary/10 text-primary border border-primary/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                )}
-              >
-                <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
-                {item.name}
-              </Link>
-            );
-          })}
-          
-          {/* Admin Section */}
-          <div className="pt-4 mt-4 border-t border-border">
-            <p className="px-3 py-1 text-xs text-muted-foreground uppercase tracking-wider">
-              Management
-            </p>
-            {adminNav.map((item) => {
-              const isActive = pathname === item.href || 
-                (item.href !== "/" && pathname.startsWith(item.href));
-              
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={handleNavClick}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    isActive
-                      ? "bg-primary/10 text-primary border border-primary/20"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary"
-                  )}
-                >
-                  <item.icon className={cn("w-5 h-5", isActive && "text-primary")} />
-                  {item.name}
-                </Link>
-              );
-            })}
-          </div>
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+          {/* Main */}
+          <p className="px-2 pb-1.5 text-[9px] uppercase tracking-widest font-semibold text-zinc-600">
+            Overview
+          </p>
+          {navigation.filter(n => n.group === "main").map((item) => (
+            <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
+          ))}
+
+          {/* Intelligence */}
+          <p className="px-2 pt-4 pb-1.5 text-[9px] uppercase tracking-widest font-semibold text-zinc-600">
+            Intelligence
+          </p>
+          {navigation.filter(n => n.group === "intel").map((item) => (
+            <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
+          ))}
+
+          {/* Admin */}
+          <p className="px-2 pt-4 pb-1.5 text-[9px] uppercase tracking-widest font-semibold text-zinc-600">
+            Management
+          </p>
+          {adminNav.map((item) => (
+            <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
+          ))}
         </nav>
 
-        {/* Status */}
-        <div className="p-4 border-t border-border">
-          <div className="bg-secondary rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 rounded-full bg-green-500 status-pulse" />
-              <span className="text-xs text-muted-foreground">System Status</span>
+        {/* Status footer */}
+        <div className="px-3 pb-4 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
+            <Radio className="w-3 h-3 text-emerald-400 animate-pulse shrink-0" />
+            <div className="min-w-0">
+              <p className="text-[10px] text-emerald-400 font-mono font-semibold">LIVE</p>
+              <p className="text-[9px] text-zinc-600 truncate">All systems operational</p>
             </div>
-            <p className="text-xs text-green-400">All systems operational</p>
           </div>
         </div>
       </aside>
     </>
+  );
+}
+
+function NavItem({
+  item,
+  active,
+  onClick,
+}: {
+  item: { name: string; href: string; icon: React.ComponentType<{ className?: string }> };
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-all",
+        active
+          ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
+          : "text-zinc-500 hover:text-zinc-200 hover:bg-white/[0.04] border border-transparent"
+      )}
+    >
+      <item.icon className={cn("w-4 h-4 shrink-0", active ? "text-cyan-400" : "text-zinc-600")} />
+      {item.name}
+    </Link>
   );
 }

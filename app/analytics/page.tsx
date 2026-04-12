@@ -30,6 +30,7 @@ import { DataBreachByInstitutionChart } from "@/components/charts/DataBreachByIn
 import { TransparencyPanel } from "@/components/charts/TransparencyPanel";
 import { UserImpactChart } from "@/components/charts/UserImpactChart";
 import { CountryAttackChord } from "@/components/charts/CountryAttackChord";
+import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { formatCurrency, formatNumber, getCountryFlag, cn } from "@/lib/utils";
 import {
   BarChart3,
@@ -59,18 +60,7 @@ export default function ImpactAnalyticsPage() {
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10 || l11 || l12 || l13;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-28 skeleton rounded-xl" />)}
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-[380px] skeleton rounded-xl" />)}
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton rows={4} />;
 
   const eduIncidents = stats?.education_incidents || 0;
   const totalFinancial = stats?.total_financial_impact || 0;
@@ -80,19 +70,15 @@ export default function ImpactAnalyticsPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <BarChart3 className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold">Impact Analytics</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Comprehensive impact analysis across {eduIncidents} verified education sector incidents
-        </p>
-      </div>
+      <PageHeader
+        icon={BarChart3}
+        label="Impact Analytics"
+        title="Impact Analytics"
+        description={`Comprehensive impact analysis across ${eduIncidents} verified education sector incidents — financial, regulatory & recovery`}
+      />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard title="Institutions Affected" value={eduIncidents} icon={Building2} variant="primary" />
         <StatCard title="Financial Impact" value={formatCurrency(totalFinancial)} icon={DollarSign} variant="danger" />
         <StatCard title="Avg Recovery" value={avgRecovery ? `${avgRecovery}d` : "N/A"} icon={Clock} variant="warning" />
@@ -115,29 +101,29 @@ export default function ImpactAnalyticsPage() {
       {/* Data Impact + Regulatory */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Data Impact Panel */}
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="text-lg font-semibold mb-4">Data Impact Analysis</h3>
+        <div className="bg-[#0d0d1a] border border-zinc-800 rounded-xl p-5">
+          <p className="section-label mb-4">Data Impact Analysis</p>
           {dataImpact ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Breach Rate</p>
-                <p className="text-2xl font-bold text-red-400">{dataImpact.breach_rate}%</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Breach Rate</p>
+                <p className="text-2xl font-bold font-mono text-red-400">{dataImpact.breach_rate}%</p>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Exfiltration Rate</p>
-                <p className="text-2xl font-bold text-purple-400">{dataImpact.exfiltration_rate}%</p>
+              <div className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Exfiltration Rate</p>
+                <p className="text-2xl font-bold font-mono text-purple-400">{dataImpact.exfiltration_rate}%</p>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Total Records Affected</p>
-                <p className="text-2xl font-bold">{dataImpact.total_records ? formatNumber(dataImpact.total_records) : "N/A"}</p>
+              <div className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Total Records</p>
+                <p className="text-2xl font-bold font-mono">{dataImpact.total_records ? formatNumber(dataImpact.total_records) : "N/A"}</p>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-lg">
-                <p className="text-xs text-muted-foreground">Max Records (Single)</p>
-                <p className="text-2xl font-bold">{dataImpact.max_records ? formatNumber(dataImpact.max_records) : "N/A"}</p>
+              <div className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Max Single Breach</p>
+                <p className="text-2xl font-bold font-mono">{dataImpact.max_records ? formatNumber(dataImpact.max_records) : "N/A"}</p>
               </div>
-              <div className="p-3 bg-secondary/50 rounded-lg col-span-2">
-                <p className="text-xs text-muted-foreground">PII Records Leaked</p>
-                <p className="text-2xl font-bold text-orange-400">{dataImpact.total_pii_leaked ? formatNumber(dataImpact.total_pii_leaked) : "N/A"}</p>
+              <div className="p-3 bg-zinc-900/40 rounded-lg border border-zinc-800 col-span-2">
+                <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">PII Records Leaked</p>
+                <p className="text-2xl font-bold font-mono text-orange-400">{dataImpact.total_pii_leaked ? formatNumber(dataImpact.total_pii_leaked) : "N/A"}</p>
               </div>
             </div>
           ) : null}
@@ -166,21 +152,25 @@ export default function ImpactAnalyticsPage() {
 
       {/* Country Table */}
       {countryData && (
-        <div className="bg-card border border-border rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Globe2 className="w-5 h-5 text-primary" />
+        <div className="bg-[#0d0d1a] border border-zinc-800 rounded-xl p-6">
+          <p className="section-label mb-4 flex items-center gap-1.5">
+            <Globe2 className="w-3.5 h-3.5 text-cyan-400" />
             Incidents by Country
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {countryData.data.map((item, index) => (
-              <div key={item.category} className={cn("p-4 bg-secondary/50 rounded-lg border border-border animate-slide-up")} style={{ animationDelay: `${index * 30}ms` }}>
+              <div
+                key={item.category}
+                className="p-4 bg-zinc-900/40 rounded-lg border border-zinc-800 animate-slide-up hover:border-zinc-700 transition-colors"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-2xl">{getCountryFlag(item.category, item.flag_emoji)}</span>
-                  <span className="font-medium">{item.category}</span>
+                  <span className="text-xl">{getCountryFlag(item.category, item.flag_emoji)}</span>
+                  <span className="text-[13px] font-medium text-zinc-300 truncate">{item.category}</span>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold">{formatNumber(item.count)}</span>
-                  <span className="text-sm text-muted-foreground">({item.percentage}%)</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold font-mono text-zinc-100">{formatNumber(item.count)}</span>
+                  <span className="text-xs text-zinc-600">({item.percentage}%)</span>
                 </div>
               </div>
             ))}

@@ -25,6 +25,7 @@ import { AttackVectorByInstitution } from "@/components/charts/AttackVectorByIns
 import { BreachSeverityTimeline } from "@/components/charts/BreachSeverityTimeline";
 import { AttackFlowSankey } from "@/components/charts/AttackFlowSankey";
 import { MitreSunburst } from "@/components/charts/MitreSunburst";
+import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import {
   Shield,
   Lock,
@@ -49,17 +50,7 @@ export default function AttackIntelligencePage() {
 
   const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
 
-  // Loading skeleton
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => <div key={i} className="h-28 skeleton rounded-xl" />)}
-        </div>
-        {[...Array(3)].map((_, i) => <div key={i} className="h-[380px] skeleton rounded-xl" />)}
-      </div>
-    );
-  }
+  if (isLoading) return <PageSkeleton rows={4} />;
 
   // Calculate stat values from stats
   const eduIncidents = stats?.education_incidents || 0;
@@ -70,19 +61,15 @@ export default function AttackIntelligencePage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Shield className="w-6 h-6 text-primary" />
-          <h1 className="text-xl font-semibold">Attack Intelligence</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Comprehensive analysis of attack vectors, techniques, and system impact across {eduIncidents} verified education incidents
-        </p>
-      </div>
+      <PageHeader
+        icon={Shield}
+        label="Attack Intelligence"
+        title="Attack Intelligence"
+        description={`Comprehensive analysis of attack vectors, TTPs, and system impact across ${eduIncidents} verified education incidents`}
+      />
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard title="Verified Incidents" value={eduIncidents} icon={Shield} variant="primary" />
         <StatCard title="Ransomware Rate" value={`${ransomwareRate}%`} icon={Lock} variant="danger" />
         <StatCard title="Data Breach Rate" value={`${breachRate}%`} icon={Database} variant="warning" />
