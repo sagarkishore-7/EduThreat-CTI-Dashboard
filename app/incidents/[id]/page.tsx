@@ -15,7 +15,7 @@ import {
   BookOpen, Bookmark, Copy, CheckCircle2, Link2, Layers, Download,
   ChevronRight, Fingerprint, Terminal,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Tab = "overview" | "timeline" | "mitre" | "impact" | "intelligence" | "sources";
 
@@ -35,6 +35,19 @@ export default function IncidentDetailPage() {
   const id = params.id as string;
   const [tab, setTab] = useState<Tab>("overview");
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Mark this incident as visited so the list can highlight it
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const raw = localStorage.getItem("visitedIncidents");
+      const visited: string[] = raw ? JSON.parse(raw) : [];
+      if (!visited.includes(id)) {
+        const updated = [id, ...visited].slice(0, 500); // cap at 500
+        localStorage.setItem("visitedIncidents", JSON.stringify(updated));
+      }
+    } catch { /* ignore storage errors */ }
+  }, [id]);
 
   const { data: incident, isLoading, error } = useQuery({
     queryKey: ["incident", id],
@@ -57,8 +70,9 @@ export default function IncidentDetailPage() {
     </button>
   );
 
-  // Build back URL preserving list state
-  const listHref = "/incidents" + (searchParams.toString() ? "" : "");
+  // Restore the list URL the user came from (passed as ?from=...)
+  const fromParam = searchParams.get("from");
+  const listHref = fromParam ? `/incidents?${fromParam}` : "/incidents";
 
   if (isLoading) return <DetailSkeleton />;
 
@@ -83,7 +97,7 @@ export default function IncidentDetailPage() {
   const hasMitre     = (incident.mitre_attack_techniques?.length ?? 0) > 0;
   const hasImpact    = !!(incident.data_impact || incident.user_impact || incident.system_impact || incident.financial_impact || incident.regulatory_impact || incident.transparency_metrics);
   const hasIntel     = !!(incident.threat_actor_name || incident.attack_dynamics);
-  const hasSources   = (incident.all_urls?.length ?? 0) > 0 || (incident.sources?.length ?? 0) > 0;
+  const hasSources   = (incident.all_urls?.length ?? 0) > 0 || (incident.sources?.length ?? 0) > 0 || !!incident.primary_url;
 
   const tabEnabled: Record<Tab, boolean> = {
     overview: true,
@@ -99,7 +113,7 @@ export default function IncidentDetailPage() {
 
       {/* ── Breadcrumb nav ───────────────────────────────────── */}
       <div className="flex items-center gap-1.5 text-[12px]">
-        <Link href="/incidents" className="text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-1">
+        <Link href={listHref} className="text-zinc-500 hover:text-cyan-400 transition-colors flex items-center gap-1">
           <ArrowLeft className="w-3.5 h-3.5" /> Incidents
         </Link>
         <ChevronRight className="w-3 h-3 text-zinc-700" />
@@ -471,20 +485,29 @@ export default function IncidentDetailPage() {
 
       {tab === "sources" && (
         <div className="space-y-4">
-          {incident.all_urls && incident.all_urls.length > 0 && (
-            <Section icon={Globe} label="Source URLs" count={incident.all_urls.length}>
-              <div className="space-y-1.5">
-                {incident.all_urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2.5 bg-zinc-900/40 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors group">
-                    <Globe className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
-                    <span className="text-[12px] font-mono text-cyan-400 truncate group-hover:underline flex-1">{url}</span>
-                    <ExternalLink className="w-3 h-3 text-zinc-700 shrink-0" />
-                  </a>
-                ))}
-              </div>
-            </Section>
-          )}
+          {(() => {
+            // Merge primary_url into all_urls, deduplicating
+            const urlSet = new Set<string>(incident.all_urls ?? []);
+            if (incident.primary_url) urlSet.add(incident.primary_url);
+            const allUrls = Array.from(urlSet);
+            return allUrls.length > 0 ? (
+              <Section icon={Globe} label="Source URLs" count={allUrls.length}>
+                <div className="space-y-1.5">
+                  {allUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2.5 bg-zinc-900/40 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors group">
+                      <Globe className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                      <span className="text-[12px] font-mono text-cyan-400 truncate group-hover:underline flex-1">{url}</span>
+                      {url === incident.primary_url && (
+                        <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shrink-0">primary</span>
+                      )}
+                      <ExternalLink className="w-3 h-3 text-zinc-700 shrink-0" />
+                    </a>
+                  ))}
+                </div>
+              </Section>
+            ) : null;
+          })()}
 
           {incident.sources && incident.sources.length > 0 && (
             <Section icon={Layers} label="Data Provenance">

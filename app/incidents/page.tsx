@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -49,9 +49,18 @@ function IncidentsContent() {
   const showFilters   = searchParams.get("filters") !== "0";
 
   const [localSearch, setLocalSearch] = useState(search);
+  const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set());
 
   // keep localSearch in sync if URL changes externally
   useEffect(() => { setLocalSearch(search); }, [search]);
+
+  // Load visited incident IDs from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("visitedIncidents");
+      if (raw) setVisitedIds(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
 
   // ── URL updater ────────────────────────────────────────────
   const push = useCallback(
@@ -315,21 +324,24 @@ function IncidentsContent() {
               ) : (
                 data?.incidents.map((incident) => {
                   const attackType = incident.attack_category || incident.attack_type_hint;
+                  const visited = visitedIds.has(incident.incident_id);
+                  const fromParam = searchParams.toString();
+                  const detailHref = `/incidents/${incident.incident_id}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`;
                   return (
                     <tr
                       key={incident.incident_id}
-                      className="hover:bg-white/[0.02] transition-colors group"
+                      className={cn("hover:bg-white/[0.02] transition-colors group", visited && "opacity-60")}
                     >
                       {/* Severity dot */}
                       <td className="px-3 py-3 w-6">
-                        <div className={cn("w-1.5 h-1.5 rounded-full", severityDot(attackType))} />
+                        <div className={cn("w-1.5 h-1.5 rounded-full", visited ? "bg-zinc-700" : severityDot(attackType))} />
                       </td>
 
                       {/* Institution */}
                       <td className="px-3 py-3 max-w-[240px]">
                         <Link
-                          href={`/incidents/${incident.incident_id}`}
-                          className="font-medium text-[13px] text-zinc-200 hover:text-cyan-300 transition-colors block truncate"
+                          href={detailHref}
+                          className={cn("font-medium text-[13px] hover:text-cyan-300 transition-colors block truncate", visited ? "text-zinc-500" : "text-zinc-200")}
                         >
                           {incident.university_name}
                         </Link>
