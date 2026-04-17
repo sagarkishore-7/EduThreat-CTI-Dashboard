@@ -26,7 +26,7 @@ export default function IncidentsPage() {
   );
 }
 
-type SortField = "incident_date" | "university_name" | "country" | "attack_category";
+type SortField = "incident_date" | "institution_name" | "country" | "attack_category";
 type SortOrder = "asc" | "desc";
 
 function IncidentsContent() {
@@ -296,7 +296,7 @@ function IncidentsContent() {
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-zinc-800 bg-zinc-900/40">
                 <th className="w-6 px-3 py-2.5" />
-                <ThSortable field="university_name">Institution</ThSortable>
+                <ThSortable field="institution_name">Institution</ThSortable>
                 <ThSortable field="incident_date">Date</ThSortable>
                 <ThSortable field="attack_category">Attack</ThSortable>
                 <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-widest font-semibold text-zinc-500">Actor</th>
@@ -343,7 +343,7 @@ function IncidentsContent() {
                           href={detailHref}
                           className={cn("font-medium text-[13px] hover:text-cyan-300 transition-colors block truncate", visited ? "text-zinc-500" : "text-zinc-200")}
                         >
-                          {incident.university_name}
+                          {incident.institution_name}
                         </Link>
                         {incident.title && (
                           <p className="text-[11px] text-zinc-600 truncate mt-0.5">{incident.title}</p>

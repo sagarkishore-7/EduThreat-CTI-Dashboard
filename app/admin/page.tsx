@@ -2467,8 +2467,8 @@ function IncidentTable({
                 className="rounded border-border"
               />
             </td>
-            <td className="px-3 py-2 max-w-[200px] truncate" title={inc.title || inc.university_name}>
-              <div className="font-medium text-xs">{inc.university_name || "Unknown"}</div>
+            <td className="px-3 py-2 max-w-[200px] truncate" title={inc.title || inc.institution_name}>
+              <div className="font-medium text-xs">{inc.institution_name || "Unknown"}</div>
               {inc.title && (
                 <div className="text-xs text-muted-foreground truncate">{inc.title}</div>
               )}
@@ -2705,7 +2705,7 @@ function RawDataViewer() {
                     // Extract key fields for the summary row
                     const keyFields: Record<string, unknown> = {
                       incident_id: incident.incident_id,
-                      university_name: incident.university_name,
+                      institution_name: incident.institution_name,
                       country: incident.country,
                       attack_category: incident.attack_category,
                       incident_date: incident.incident_date,
@@ -2727,7 +2727,7 @@ function RawDataViewer() {
                                 {incidentId}
                               </span>
                               <span className="text-sm font-medium truncate max-w-[200px]">
-                                {String(incident.university_name || "Unknown")}
+                                {String(incident.institution_name || "Unknown")}
                               </span>
                               <span className="text-xs text-muted-foreground">
                                 {String(incident.country || "-")}

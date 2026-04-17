@@ -88,8 +88,8 @@ export default function IncidentDetailPage() {
     );
   }
 
-  const name = (incident.university_name && incident.university_name !== "Unknown")
-    ? incident.university_name
+  const name = (incident.institution_name && incident.institution_name !== "Unknown")
+    ? incident.institution_name
     : "Unknown Institution";
 
   const attackType = incident.attack_category || incident.attack_type_hint;

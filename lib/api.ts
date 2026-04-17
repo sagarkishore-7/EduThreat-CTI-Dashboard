@@ -15,7 +15,7 @@ export interface PaginationMeta {
 
 export interface IncidentSummary {
   incident_id: string;
-  university_name: string;
+  institution_name: string;
   institution_type?: string;
   country?: string;
   region?: string;
@@ -75,7 +75,7 @@ export interface IncidentSource {
 
 export interface IncidentDetail {
   incident_id: string;
-  university_name: string;
+  institution_name: string;
   institution_type?: string;
   institution_size?: string;
   country?: string;
@@ -201,7 +201,7 @@ export interface DashboardStats {
 
 export interface RecentIncident {
   incident_id: string;
-  university_name: string;
+  institution_name: string;
   country?: string;
   attack_category?: string;
   ransomware_family?: string;

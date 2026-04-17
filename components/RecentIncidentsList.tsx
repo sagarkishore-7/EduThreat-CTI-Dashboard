@@ -74,7 +74,7 @@ export function RecentIncidentsList({ incidents }: RecentIncidentsListProps) {
                     </span>
                   )}
                   <span className="text-[12px] font-medium text-zinc-200 truncate group-hover:text-cyan-300 transition-colors">
-                    {incident.university_name}
+                    {incident.institution_name}
                   </span>
                 </div>
 
