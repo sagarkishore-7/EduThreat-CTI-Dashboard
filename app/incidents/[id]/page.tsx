@@ -93,14 +93,13 @@ export default function IncidentDetailPage() {
     : "Unknown Institution";
 
   const attackType = incident.attack_category || incident.attack_type_hint;
-  const hasTimeline  = (incident.timeline?.length ?? 0) > 0;
+  const hasTimeline  = (incident.timeline?.length ?? 0) > 0 || !!incident.incident_date || !!incident.discovery_date;
   const hasMitre     = (incident.mitre_attack_techniques?.length ?? 0) > 0;
   const hasImpact    = !!(incident.data_impact || incident.user_impact || incident.system_impact || incident.financial_impact || incident.regulatory_impact || incident.transparency_metrics);
   const hasIntel     = !!(incident.threat_actor_name || incident.attack_dynamics);
   const hasSources   = (incident.all_urls?.length ?? 0) > 0 || (incident.sources?.length ?? 0) > 0 || !!incident.primary_url;
   const sourceDescription =
     incident.subtitle &&
-    incident.subtitle !== incident.enriched_summary &&
     !/(?:news\.google\.com\/rss|<a\s+href="https?:\/\/news\.google\.com\/rss)/i.test(incident.subtitle)
       ? incident.subtitle
       : null;
@@ -253,14 +252,14 @@ export default function IncidentDetailPage() {
       {/* ── Tab content ──────────────────────────────────────── */}
       {tab === "overview" && (
         <div className="space-y-4">
-          {incident.enriched_summary && (
-            <Section icon={FileText} label="Executive Summary" badge="AI Generated">
-              <p className="text-[14px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{incident.enriched_summary}</p>
-            </Section>
-          )}
           {sourceDescription && (
             <Section icon={BookOpen} label="Source Description">
               <p className="text-[14px] text-zinc-400 leading-relaxed">{sourceDescription}</p>
+            </Section>
+          )}
+          {incident.enriched_summary && (
+            <Section icon={FileText} label="AI Summary" badge="AI Generated">
+              <p className="text-[14px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{incident.enriched_summary}</p>
             </Section>
           )}
           {incident.initial_access_description && (
@@ -274,43 +273,99 @@ export default function IncidentDetailPage() {
         </div>
       )}
 
-      {tab === "timeline" && (
-        <Section icon={Clock} label="Attack Timeline" count={incident.timeline?.length}>
-          <div className="space-y-3">
-            {incident.timeline?.map((event, i) => (
-              <div key={i} className="relative pl-7">
-                {i < (incident.timeline!.length - 1) && (
-                  <div className="absolute left-[10px] top-5 bottom-0 w-px bg-zinc-800" />
-                )}
-                <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+      {tab === "timeline" && (() => {
+        // Build labeled key-dates from incident fields to prepend to timeline
+        const keyDates: { date: string; label: string; cls: string }[] = [];
+        if (incident.incident_date) keyDates.push({ date: incident.incident_date, label: "Incident Date", cls: "text-red-400" });
+        if (incident.discovery_date) keyDates.push({ date: incident.discovery_date, label: "Discovery Date", cls: "text-amber-400" });
+        if (incident.transparency_metrics?.public_disclosure_date) keyDates.push({ date: incident.transparency_metrics.public_disclosure_date, label: "Public Disclosure", cls: "text-sky-400" });
+        if (incident.source_published_date) keyDates.push({ date: incident.source_published_date, label: "Source Published", cls: "text-violet-400" });
+
+        const timelineEvents = incident.timeline ?? [];
+
+        const eventTypeColorMap: Record<string, string> = {
+          initial_access: "bg-red-500/10 text-red-400 border-red-500/20",
+          discovery: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+          containment: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+          eradication: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+          recovery: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+          disclosure: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+          exfiltration: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+          encryption: "bg-red-500/10 text-red-400 border-red-500/20",
+          ransom: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+          notification: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        };
+        const getEventTypeStyle = (type?: string) => {
+          if (!type) return "bg-zinc-800 text-zinc-400 border-zinc-700";
+          const key = type.toLowerCase().replace(/[_\s]+/g, "_");
+          for (const [k, v] of Object.entries(eventTypeColorMap)) {
+            if (key.includes(k)) return v;
+          }
+          return "bg-zinc-800 text-zinc-400 border-zinc-700";
+        };
+
+        return (
+          <div className="space-y-4">
+            {keyDates.length > 0 && (
+              <div className="bg-[#0d0d1a] border border-zinc-800 rounded-lg p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Calendar className="w-4 h-4 text-cyan-500" />
+                  <h2 className="text-[13px] font-semibold text-zinc-200">Key Dates</h2>
                 </div>
-                <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3">
-                  <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    {event.date && (
-                      <span className="text-[12px] font-mono text-cyan-400 font-semibold">{formatDate(event.date)}</span>
-                    )}
-                    {event.event_type && (
-                      <span className="tag bg-zinc-800 text-zinc-400 border-zinc-700">{formatAttackCategory(event.event_type)}</span>
-                    )}
-                    {event.actor_attribution && (
-                      <span className="tag bg-violet-500/10 text-violet-400 border-violet-500/20">{event.actor_attribution}</span>
-                    )}
-                  </div>
-                  <p className="text-[13px] text-zinc-400">{event.event_description}</p>
-                  {event.indicators && event.indicators.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {event.indicators.map((ioc, j) => (
-                        <code key={j} className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-500">{ioc}</code>
-                      ))}
+                <div className="flex flex-wrap gap-3">
+                  {keyDates.map(({ date, label, cls }, i) => (
+                    <div key={i} className="flex flex-col gap-0.5 bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 min-w-[140px]">
+                      <span className="text-[10px] uppercase tracking-widest text-zinc-600">{label}</span>
+                      <span className={cn("text-[13px] font-mono font-semibold", cls)}>{formatDate(date)}</span>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
+
+            {timelineEvents.length > 0 && (
+              <Section icon={Clock} label="Attack Timeline" count={timelineEvents.length}>
+                <div className="space-y-3">
+                  {timelineEvents.map((event, i) => (
+                    <div key={i} className="relative pl-7">
+                      {i < (timelineEvents.length - 1) && (
+                        <div className="absolute left-[10px] top-5 bottom-0 w-px bg-zinc-800" />
+                      )}
+                      <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      </div>
+                      <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          {event.date && (
+                            <span className="text-[12px] font-mono text-cyan-400 font-semibold">{formatDate(event.date)}</span>
+                          )}
+                          <span className={`tag ${getEventTypeStyle(event.event_type)}`}>
+                            {event.event_type ? formatAttackCategory(event.event_type) : "Event"}
+                          </span>
+                          {event.date_precision && event.date_precision !== "exact" && (
+                            <span className="text-[9px] font-mono text-zinc-600">({event.date_precision})</span>
+                          )}
+                          {event.actor_attribution && (
+                            <span className="tag bg-violet-500/10 text-violet-400 border-violet-500/20">{event.actor_attribution}</span>
+                          )}
+                        </div>
+                        <p className="text-[13px] text-zinc-400">{event.event_description}</p>
+                        {event.indicators && event.indicators.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {event.indicators.map((ioc, j) => (
+                              <code key={j} className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-500">{ioc}</code>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
           </div>
-        </Section>
-      )}
+        );
+      })()}
 
       {tab === "mitre" && (
         <Section icon={Target} label="MITRE ATT&CK Mapping" count={incident.mitre_attack_techniques?.length}
