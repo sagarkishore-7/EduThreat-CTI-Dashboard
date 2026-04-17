@@ -298,7 +298,9 @@ export default function IncidentDetailPage() {
           return defaultStyle;
         };
 
-        // Build unified entries: key dates from incident fields + explicit timeline events
+        // Build unified entries: key dates from incident fields + explicit timeline events.
+        // LLM timeline entries on the same date as a key date are merged into it
+        // (inheriting the event_description as reasoning).
         type UnifiedEntry = {
           date: string;
           label: string;
@@ -309,19 +311,39 @@ export default function IncidentDetailPage() {
           indicators?: string[];
           isKeyDate: boolean;
         };
+
+        // Index LLM timeline by date for quick description lookup
+        const llmByDate = new Map<string, { description?: string; datePrecision?: string; actorAttribution?: string; indicators?: string[] }>();
+        for (const ev of incident.timeline ?? []) {
+          if (ev.date && ev.event_description && !llmByDate.has(ev.date)) {
+            llmByDate.set(ev.date, {
+              description: ev.event_description,
+              datePrecision: ev.date_precision,
+              actorAttribution: ev.actor_attribution,
+              indicators: ev.indicators,
+            });
+          }
+        }
+
+        const keyDates = new Set<string>();
         const entries: UnifiedEntry[] = [];
 
-        if (incident.incident_date)
-          entries.push({ date: incident.incident_date, label: "Incident Date", typeKey: "incident", isKeyDate: true });
-        if (incident.discovery_date)
-          entries.push({ date: incident.discovery_date, label: "Discovery Date", typeKey: "discovery", isKeyDate: true });
+        const pushKeyDate = (date: string, label: string, typeKey: string) => {
+          keyDates.add(date);
+          const llm = llmByDate.get(date);
+          entries.push({ date, label, typeKey, isKeyDate: true, description: llm?.description, datePrecision: llm?.datePrecision, actorAttribution: llm?.actorAttribution, indicators: llm?.indicators });
+        };
+
+        if (incident.incident_date) pushKeyDate(incident.incident_date, "Incident Date", "incident");
+        if (incident.discovery_date) pushKeyDate(incident.discovery_date, "Discovery Date", "discovery");
         if (incident.transparency_metrics?.public_disclosure_date)
-          entries.push({ date: incident.transparency_metrics.public_disclosure_date, label: "Public Disclosure", typeKey: "disclosure", isKeyDate: true });
-        if (incident.source_published_date)
-          entries.push({ date: incident.source_published_date, label: "Source Published", typeKey: "source", isKeyDate: true });
+          pushKeyDate(incident.transparency_metrics.public_disclosure_date, "Public Disclosure", "disclosure");
+        if (incident.source_published_date) pushKeyDate(incident.source_published_date, "Source Published", "source");
 
         for (const ev of incident.timeline ?? []) {
           if (!ev.date) continue;
+          // Skip if already represented by a key date entry
+          if (keyDates.has(ev.date) && !ev.event_type) continue;
           entries.push({
             date: ev.date,
             label: ev.event_type ? formatAttackCategory(ev.event_type) : "Event",
