@@ -274,96 +274,120 @@ export default function IncidentDetailPage() {
       )}
 
       {tab === "timeline" && (() => {
-        // Build labeled key-dates from incident fields to prepend to timeline
-        const keyDates: { date: string; label: string; cls: string }[] = [];
-        if (incident.incident_date) keyDates.push({ date: incident.incident_date, label: "Incident Date", cls: "text-red-400" });
-        if (incident.discovery_date) keyDates.push({ date: incident.discovery_date, label: "Discovery Date", cls: "text-amber-400" });
-        if (incident.transparency_metrics?.public_disclosure_date) keyDates.push({ date: incident.transparency_metrics.public_disclosure_date, label: "Public Disclosure", cls: "text-sky-400" });
-        if (incident.source_published_date) keyDates.push({ date: incident.source_published_date, label: "Source Published", cls: "text-violet-400" });
-
-        const timelineEvents = incident.timeline ?? [];
-
-        const eventTypeColorMap: Record<string, string> = {
-          initial_access: "bg-red-500/10 text-red-400 border-red-500/20",
-          discovery: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-          containment: "bg-sky-500/10 text-sky-400 border-sky-500/20",
-          eradication: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-          recovery: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-          disclosure: "bg-violet-500/10 text-violet-400 border-violet-500/20",
-          exfiltration: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-          encryption: "bg-red-500/10 text-red-400 border-red-500/20",
-          ransom: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-          notification: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        // Colour / style config per event type
+        const eventTypeStyleMap: Record<string, { tag: string; dot: string; line: string }> = {
+          incident:      { tag: "bg-red-500/10 text-red-400 border-red-500/20",     dot: "bg-red-500/20 border-red-500/40",    line: "bg-red-500/20" },
+          initial_access:{ tag: "bg-red-500/10 text-red-400 border-red-500/20",     dot: "bg-red-500/20 border-red-500/40",    line: "bg-red-500/20" },
+          discovery:     { tag: "bg-amber-500/10 text-amber-400 border-amber-500/20", dot: "bg-amber-500/20 border-amber-500/40", line: "bg-amber-500/20" },
+          source:        { tag: "bg-violet-500/10 text-violet-400 border-violet-500/20", dot: "bg-violet-500/20 border-violet-500/40", line: "bg-violet-500/20" },
+          disclosure:    { tag: "bg-sky-500/10 text-sky-400 border-sky-500/20",      dot: "bg-sky-500/20 border-sky-500/40",    line: "bg-sky-500/20" },
+          containment:   { tag: "bg-sky-500/10 text-sky-400 border-sky-500/20",      dot: "bg-sky-500/20 border-sky-500/40",    line: "bg-sky-500/20" },
+          eradication:   { tag: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",   dot: "bg-cyan-500/20 border-cyan-500/40",  line: "bg-cyan-500/20" },
+          recovery:      { tag: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", dot: "bg-emerald-500/20 border-emerald-500/40", line: "bg-emerald-500/20" },
+          exfiltration:  { tag: "bg-orange-500/10 text-orange-400 border-orange-500/20", dot: "bg-orange-500/20 border-orange-500/40", line: "bg-orange-500/20" },
+          encryption:    { tag: "bg-red-500/10 text-red-400 border-red-500/20",      dot: "bg-red-500/20 border-red-500/40",    line: "bg-red-500/20" },
+          ransom:        { tag: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20", dot: "bg-yellow-500/20 border-yellow-500/40", line: "bg-yellow-500/20" },
+          notification:  { tag: "bg-blue-500/10 text-blue-400 border-blue-500/20",   dot: "bg-blue-500/20 border-blue-500/40",  line: "bg-blue-500/20" },
         };
-        const getEventTypeStyle = (type?: string) => {
-          if (!type) return "bg-zinc-800 text-zinc-400 border-zinc-700";
-          const key = type.toLowerCase().replace(/[_\s]+/g, "_");
-          for (const [k, v] of Object.entries(eventTypeColorMap)) {
-            if (key.includes(k)) return v;
+        const defaultStyle = { tag: "bg-zinc-800 text-zinc-400 border-zinc-700", dot: "bg-zinc-800 border-zinc-700", line: "bg-zinc-800" };
+        const getStyle = (typeKey: string) => {
+          const k = typeKey.toLowerCase().replace(/[_\s]+/g, "_");
+          for (const [key, val] of Object.entries(eventTypeStyleMap)) {
+            if (k.includes(key)) return val;
           }
-          return "bg-zinc-800 text-zinc-400 border-zinc-700";
+          return defaultStyle;
         };
+
+        // Build unified entries: key dates from incident fields + explicit timeline events
+        type UnifiedEntry = {
+          date: string;
+          label: string;
+          typeKey: string;
+          description?: string;
+          datePrecision?: string;
+          actorAttribution?: string;
+          indicators?: string[];
+          isKeyDate: boolean;
+        };
+        const entries: UnifiedEntry[] = [];
+
+        if (incident.incident_date)
+          entries.push({ date: incident.incident_date, label: "Incident Date", typeKey: "incident", isKeyDate: true });
+        if (incident.discovery_date)
+          entries.push({ date: incident.discovery_date, label: "Discovery Date", typeKey: "discovery", isKeyDate: true });
+        if (incident.transparency_metrics?.public_disclosure_date)
+          entries.push({ date: incident.transparency_metrics.public_disclosure_date, label: "Public Disclosure", typeKey: "disclosure", isKeyDate: true });
+        if (incident.source_published_date)
+          entries.push({ date: incident.source_published_date, label: "Source Published", typeKey: "source", isKeyDate: true });
+
+        for (const ev of incident.timeline ?? []) {
+          if (!ev.date) continue;
+          entries.push({
+            date: ev.date,
+            label: ev.event_type ? formatAttackCategory(ev.event_type) : "Event",
+            typeKey: ev.event_type ?? "event",
+            description: ev.event_description,
+            datePrecision: ev.date_precision,
+            actorAttribution: ev.actor_attribution,
+            indicators: ev.indicators,
+            isKeyDate: false,
+          });
+        }
+
+        // Sort descending (newest first)
+        entries.sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
+
+        if (entries.length === 0) return <EmptyTab message="No timeline data available." />;
 
         return (
-          <div className="space-y-4">
-            {keyDates.length > 0 && (
-              <div className="bg-[#0d0d1a] border border-zinc-800 rounded-lg p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <Calendar className="w-4 h-4 text-cyan-500" />
-                  <h2 className="text-[13px] font-semibold text-zinc-200">Key Dates</h2>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {keyDates.map(({ date, label, cls }, i) => (
-                    <div key={i} className="flex flex-col gap-0.5 bg-zinc-900/50 border border-zinc-800 rounded-lg px-3 py-2 min-w-[140px]">
-                      <span className="text-[10px] uppercase tracking-widest text-zinc-600">{label}</span>
-                      <span className={cn("text-[13px] font-mono font-semibold", cls)}>{formatDate(date)}</span>
+          <Section icon={Clock} label="Incident Timeline" count={entries.length}>
+            <div className="space-y-0">
+              {entries.map((entry, i) => {
+                const style = getStyle(entry.typeKey);
+                const isLast = i === entries.length - 1;
+                return (
+                  <div key={i} className="relative pl-8">
+                    {/* Vertical connector line */}
+                    {!isLast && (
+                      <div className="absolute left-[13px] top-6 bottom-0 w-px bg-zinc-800" />
+                    )}
+                    {/* Dot */}
+                    <div className={cn(
+                      "absolute left-0 top-1.5 w-[26px] h-[26px] rounded-full border flex items-center justify-center",
+                      style.dot
+                    )}>
+                      <div className={cn("w-2 h-2 rounded-full", style.line)} />
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {timelineEvents.length > 0 && (
-              <Section icon={Clock} label="Attack Timeline" count={timelineEvents.length}>
-                <div className="space-y-3">
-                  {timelineEvents.map((event, i) => (
-                    <div key={i} className="relative pl-7">
-                      {i < (timelineEvents.length - 1) && (
-                        <div className="absolute left-[10px] top-5 bottom-0 w-px bg-zinc-800" />
-                      )}
-                      <div className="absolute left-0 top-1.5 w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                      </div>
-                      <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          {event.date && (
-                            <span className="text-[12px] font-mono text-cyan-400 font-semibold">{formatDate(event.date)}</span>
-                          )}
-                          <span className={`tag ${getEventTypeStyle(event.event_type)}`}>
-                            {event.event_type ? formatAttackCategory(event.event_type) : "Event"}
-                          </span>
-                          {event.date_precision && event.date_precision !== "exact" && (
-                            <span className="text-[9px] font-mono text-zinc-600">({event.date_precision})</span>
-                          )}
-                          {event.actor_attribution && (
-                            <span className="tag bg-violet-500/10 text-violet-400 border-violet-500/20">{event.actor_attribution}</span>
-                          )}
-                        </div>
-                        <p className="text-[13px] text-zinc-400">{event.event_description}</p>
-                        {event.indicators && event.indicators.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {event.indicators.map((ioc, j) => (
-                              <code key={j} className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-500">{ioc}</code>
-                            ))}
-                          </div>
+                    <div className={cn("mb-5 bg-zinc-900/40 border border-zinc-800 rounded-lg p-3", isLast && "mb-0")}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[12px] font-mono text-zinc-300 font-semibold">
+                          {formatDate(entry.date)}
+                        </span>
+                        <span className={cn("tag", style.tag)}>{entry.label}</span>
+                        {entry.datePrecision && entry.datePrecision !== "exact" && (
+                          <span className="text-[9px] font-mono text-zinc-600">({entry.datePrecision})</span>
+                        )}
+                        {entry.actorAttribution && (
+                          <span className="tag bg-violet-500/10 text-violet-400 border-violet-500/20">{entry.actorAttribution}</span>
                         )}
                       </div>
+                      {entry.description && (
+                        <p className="text-[13px] text-zinc-400 mt-1.5">{entry.description}</p>
+                      )}
+                      {entry.indicators && entry.indicators.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {entry.indicators.map((ioc, j) => (
+                            <code key={j} className="text-[10px] font-mono bg-zinc-900 px-1.5 py-0.5 rounded text-zinc-500">{ioc}</code>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </Section>
-            )}
-          </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Section>
         );
       })()}
 
