@@ -16,7 +16,6 @@ export interface PaginationMeta {
 export interface IncidentSummary {
   incident_id: string;
   university_name: string;
-  victim_raw_name?: string;
   institution_type?: string;
   country?: string;
   region?: string;
@@ -77,7 +76,6 @@ export interface IncidentSource {
 export interface IncidentDetail {
   incident_id: string;
   university_name: string;
-  victim_raw_name?: string;
   institution_type?: string;
   institution_size?: string;
   country?: string;

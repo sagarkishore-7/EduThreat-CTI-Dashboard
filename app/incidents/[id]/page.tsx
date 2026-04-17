@@ -90,7 +90,7 @@ export default function IncidentDetailPage() {
 
   const name = (incident.university_name && incident.university_name !== "Unknown")
     ? incident.university_name
-    : (incident.victim_raw_name || "Unknown Institution");
+    : "Unknown Institution";
 
   const attackType = incident.attack_category || incident.attack_type_hint;
   const hasTimeline  = (incident.timeline?.length ?? 0) > 0;
