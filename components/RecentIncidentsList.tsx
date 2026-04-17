@@ -53,6 +53,7 @@ export function RecentIncidentsList({ incidents }: RecentIncidentsListProps) {
       <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60">
         {incidents.map((incident, index) => {
           const severity = getSeverity(incident.attack_category);
+          const description = incident.enriched_summary || incident.title;
           return (
             <Link
               key={incident.incident_id}
@@ -79,9 +80,9 @@ export function RecentIncidentsList({ incidents }: RecentIncidentsListProps) {
                 </div>
 
                 {/* Title */}
-                {incident.title && (
+                {description && (
                   <p className="text-[11px] text-zinc-600 truncate mb-1.5">
-                    {incident.title}
+                    {description}
                   </p>
                 )}
 

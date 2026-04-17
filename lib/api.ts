@@ -18,11 +18,14 @@ export interface IncidentSummary {
   institution_name: string;
   institution_type?: string;
   country?: string;
+  country_code?: string;
   region?: string;
   city?: string;
   incident_date?: string;
   date_precision?: string;
   title?: string;
+  subtitle?: string;
+  enriched_summary?: string;
   attack_type_hint?: string;
   attack_category?: string;
   ransomware_family?: string;
@@ -207,6 +210,7 @@ export interface RecentIncident {
   ransomware_family?: string;
   incident_date?: string;
   title?: string;
+  enriched_summary?: string;
   threat_actor_name?: string;
 }
 
@@ -799,4 +803,3 @@ export async function getRansomFlow(): Promise<RansomFlowResponse> {
 export async function getCountryAttackMatrix(): Promise<CountryAttackMatrixResponse> {
   return fetchAPI('/api/analytics/country-attack-matrix');
 }
-

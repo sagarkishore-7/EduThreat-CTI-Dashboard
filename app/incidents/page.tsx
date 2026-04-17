@@ -324,6 +324,7 @@ function IncidentsContent() {
               ) : (
                 data?.incidents.map((incident) => {
                   const attackType = incident.attack_category || incident.attack_type_hint;
+                  const description = incident.enriched_summary || incident.title;
                   const visited = visitedIds.has(incident.incident_id);
                   const fromParam = searchParams.toString();
                   const detailHref = `/incidents/${incident.incident_id}${fromParam ? `?from=${encodeURIComponent(fromParam)}` : ""}`;
@@ -345,8 +346,8 @@ function IncidentsContent() {
                         >
                           {incident.institution_name}
                         </Link>
-                        {incident.title && (
-                          <p className="text-[11px] text-zinc-600 truncate mt-0.5">{incident.title}</p>
+                        {description && (
+                          <p className="text-[11px] text-zinc-600 line-clamp-2 mt-0.5">{description}</p>
                         )}
                       </td>
 
@@ -387,7 +388,7 @@ function IncidentsContent() {
                             onClick={() => push({ country: incident.country, page: 1, filters: undefined })}
                             className="flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-zinc-300 transition-colors"
                           >
-                            <span className="text-base leading-none">{getCountryFlag(incident.country)}</span>
+                            <span className="text-base leading-none">{getCountryFlag(incident.country_code || incident.country)}</span>
                             <span className="hidden sm:inline">{incident.country}</span>
                           </button>
                         )}

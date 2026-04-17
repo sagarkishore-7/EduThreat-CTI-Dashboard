@@ -98,6 +98,12 @@ export default function IncidentDetailPage() {
   const hasImpact    = !!(incident.data_impact || incident.user_impact || incident.system_impact || incident.financial_impact || incident.regulatory_impact || incident.transparency_metrics);
   const hasIntel     = !!(incident.threat_actor_name || incident.attack_dynamics);
   const hasSources   = (incident.all_urls?.length ?? 0) > 0 || (incident.sources?.length ?? 0) > 0 || !!incident.primary_url;
+  const sourceDescription =
+    incident.subtitle &&
+    incident.subtitle !== incident.enriched_summary &&
+    !/(?:news\.google\.com\/rss|<a\s+href="https?:\/\/news\.google\.com\/rss)/i.test(incident.subtitle)
+      ? incident.subtitle
+      : null;
 
   const tabEnabled: Record<Tab, boolean> = {
     overview: true,
@@ -252,9 +258,9 @@ export default function IncidentDetailPage() {
               <p className="text-[14px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{incident.enriched_summary}</p>
             </Section>
           )}
-          {incident.subtitle && incident.subtitle !== incident.enriched_summary && (
+          {sourceDescription && (
             <Section icon={BookOpen} label="Source Description">
-              <p className="text-[14px] text-zinc-400 leading-relaxed">{incident.subtitle}</p>
+              <p className="text-[14px] text-zinc-400 leading-relaxed">{sourceDescription}</p>
             </Section>
           )}
           {incident.initial_access_description && (
@@ -262,7 +268,7 @@ export default function IncidentDetailPage() {
               <p className="text-[14px] text-zinc-400 leading-relaxed">{incident.initial_access_description}</p>
             </Section>
           )}
-          {!incident.enriched_summary && !incident.subtitle && !incident.initial_access_description && (
+          {!incident.enriched_summary && !sourceDescription && !incident.initial_access_description && (
             <EmptyTab message="This incident has not been LLM-enriched yet." />
           )}
         </div>
