@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getCountryAnalytics, getStats } from "@/lib/api";
-import { getCountryFlag, formatNumber, cn } from "@/lib/utils";
+import { getCountryFlag, getCountryRegion, formatNumber, cn } from "@/lib/utils";
 import { Globe2, MapPin } from "lucide-react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
@@ -39,26 +39,10 @@ export default function MapPage() {
     );
   }
 
-  // Group countries by region
-  const regionMap: Record<string, string[]> = {
-    "North America": ["United States", "Canada", "Mexico"],
-    "Europe": ["United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Belgium", "Austria", "Switzerland", "Poland", "Sweden", "Norway", "Denmark", "Finland", "Ireland", "Portugal", "Greece", "Czech Republic", "Hungary", "Romania", "Bulgaria", "Croatia", "Slovakia", "Slovenia", "Lithuania", "Latvia", "Estonia", "Luxembourg", "Malta", "Cyprus", "Iceland"],
-    "Asia Pacific": ["Australia", "New Zealand", "Japan", "South Korea", "Singapore", "Hong Kong", "Taiwan", "India", "Philippines", "Malaysia", "Thailand", "Indonesia", "Vietnam", "China"],
-    "Middle East & Africa": ["Israel", "United Arab Emirates", "Saudi Arabia", "South Africa", "Egypt", "Nigeria", "Kenya"],
-    "Latin America": ["Brazil", "Argentina", "Chile", "Colombia", "Peru"],
-  };
-
-  const countryToRegion: Record<string, string> = {};
-  Object.entries(regionMap).forEach(([region, countries]) => {
-    countries.forEach((country) => {
-      countryToRegion[country] = region;
-    });
-  });
-
-  type CountryItem = { category: string; count: number; flag_emoji?: string };
+  type CountryItem = { category: string; count: number; country_code?: string; flag_emoji?: string };
   const groupedByRegion: Record<string, CountryItem[]> = {};
   countryData?.data?.forEach((country) => {
-    const region = countryToRegion[country.category] || "Other";
+    const region = getCountryRegion(country.category, country.country_code);
     if (!groupedByRegion[region]) {
       groupedByRegion[region] = [];
     }

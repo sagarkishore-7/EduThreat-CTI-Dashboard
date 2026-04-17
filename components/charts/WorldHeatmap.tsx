@@ -8,50 +8,30 @@ import {
   ZoomableGroup,
 } from "react-simple-maps";
 import type { CountByCategory } from "@/lib/api";
-import { getCountryFlag, formatNumber } from "@/lib/utils";
+import { COUNTRY_NAME_TO_CODE, getCountryFlag, formatNumber } from "@/lib/utils";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 // ISO 3166-1 numeric to alpha-2 mapping for matching
 const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "004": "AF", "008": "AL", "012": "DZ", "020": "AD", "024": "AO",
-  "032": "AR", "036": "AU", "040": "AT", "050": "BD", "056": "BE",
-  "076": "BR", "100": "BG", "124": "CA", "152": "CL", "156": "CN",
-  "170": "CO", "191": "HR", "196": "CY", "203": "CZ", "208": "DK",
-  "218": "EC", "818": "EG", "233": "EE", "246": "FI", "250": "FR",
+  "032": "AR", "036": "AU", "040": "AT", "048": "BH", "050": "BD",
+  "056": "BE", "060": "BM", "068": "BO", "070": "BA", "076": "BR",
+  "100": "BG", "124": "CA", "152": "CL", "156": "CN",
+  "170": "CO", "188": "CR", "191": "HR", "196": "CY", "203": "CZ",
+  "208": "DK", "218": "EC", "222": "SV", "233": "EE", "246": "FI", "250": "FR",
   "276": "DE", "300": "GR", "344": "HK", "348": "HU", "352": "IS",
-  "356": "IN", "360": "ID", "364": "IR", "368": "IQ", "372": "IE",
-  "376": "IL", "380": "IT", "392": "JP", "400": "JO", "404": "KE",
-  "410": "KR", "414": "KW", "428": "LV", "440": "LT", "442": "LU",
-  "458": "MY", "470": "MT", "484": "MX", "504": "MA", "528": "NL",
+  "356": "IN", "360": "ID", "364": "IR", "368": "IQ", "372": "IE", "376": "IL",
+  "380": "IT", "388": "JM", "392": "JP", "400": "JO", "404": "KE",
+  "410": "KR", "414": "KW", "422": "LB", "428": "LV", "434": "LY",
+  "438": "LI", "440": "LT", "442": "LU", "458": "MY", "470": "MT",
+  "484": "MX", "504": "MA", "512": "OM", "516": "NA", "528": "NL",
   "554": "NZ", "566": "NG", "578": "NO", "586": "PK", "604": "PE",
-  "608": "PH", "616": "PL", "620": "PT", "634": "QA", "642": "RO",
-  "643": "RU", "682": "SA", "702": "SG", "703": "SK", "705": "SI",
-  "710": "ZA", "724": "ES", "752": "SE", "756": "CH", "158": "TW",
-  "764": "TH", "792": "TR", "804": "UA", "784": "AE", "826": "GB",
-  "840": "US", "704": "VN", "862": "VE",
-};
-
-// Country name to ISO alpha-2
-const NAME_TO_CODE: Record<string, string> = {
-  "United States": "US", "United Kingdom": "GB", "Canada": "CA",
-  "Australia": "AU", "Germany": "DE", "France": "FR", "Italy": "IT",
-  "Spain": "ES", "Netherlands": "NL", "Belgium": "BE", "Austria": "AT",
-  "Switzerland": "CH", "Sweden": "SE", "Norway": "NO", "Denmark": "DK",
-  "Finland": "FI", "Poland": "PL", "Czech Republic": "CZ", "Ireland": "IE",
-  "Portugal": "PT", "Greece": "GR", "Hungary": "HU", "Romania": "RO",
-  "Bulgaria": "BG", "Croatia": "HR", "Slovakia": "SK", "Slovenia": "SI",
-  "Lithuania": "LT", "Latvia": "LV", "Estonia": "EE", "Luxembourg": "LU",
-  "Malta": "MT", "Cyprus": "CY", "Iceland": "IS", "Japan": "JP",
-  "China": "CN", "India": "IN", "South Korea": "KR", "Singapore": "SG",
-  "Malaysia": "MY", "Thailand": "TH", "Philippines": "PH", "Indonesia": "ID",
-  "Vietnam": "VN", "New Zealand": "NZ", "Brazil": "BR", "Mexico": "MX",
-  "Argentina": "AR", "Chile": "CL", "Colombia": "CO", "Peru": "PE",
-  "South Africa": "ZA", "Egypt": "EG", "Nigeria": "NG", "Kenya": "KE",
-  "Israel": "IL", "United Arab Emirates": "AE", "Saudi Arabia": "SA",
-  "Turkey": "TR", "Russia": "RU", "Ukraine": "UA", "Pakistan": "PK",
-  "Bangladesh": "BD", "Taiwan": "TW", "Hong Kong": "HK", "Iran": "IR",
-  "Iraq": "IQ",
+  "608": "PH", "616": "PL", "620": "PT", "630": "PR", "634": "QA",
+  "642": "RO", "643": "RU", "682": "SA", "702": "SG", "703": "SK",
+  "705": "SI", "710": "ZA", "724": "ES", "752": "SE", "756": "CH",
+  "788": "TN", "792": "TR", "804": "UA", "818": "EG", "826": "GB",
+  "834": "TZ", "840": "US", "858": "UY", "704": "VN", "716": "ZW", "862": "VE",
 };
 
 interface WorldHeatmapProps {
@@ -69,7 +49,7 @@ export function WorldHeatmap({ data, onCountryClick }: WorldHeatmapProps) {
     const map: Record<string, { count: number; name: string }> = {};
     data.forEach((item) => {
       // Try country_code first, then lookup by name
-      const code = item.country_code || NAME_TO_CODE[item.category];
+      const code = item.country_code || COUNTRY_NAME_TO_CODE[item.category];
       if (code) {
         map[code] = { count: item.count, name: item.category };
       }
