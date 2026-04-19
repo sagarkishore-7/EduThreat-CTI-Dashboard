@@ -105,6 +105,7 @@ export interface IncidentDetail {
   threat_actor_name?: string;
   threat_actor_category?: string;
   threat_actor_motivation?: string;
+  threat_actor_origin_country?: string;
   timeline?: TimelineEvent[];
   mitre_attack_techniques?: MITRETechnique[];
   attack_dynamics?: AttackDynamics;
@@ -124,6 +125,10 @@ export interface IncidentDetail {
     email_system_affected?: boolean;
     student_portal_affected?: boolean;
     research_systems_affected?: boolean;
+    hospital_systems_affected?: boolean;
+    cloud_services_affected?: boolean;
+    third_party_vendor_impact?: boolean;
+    vendor_name?: string;
   };
   user_impact?: {
     students_affected?: number;
@@ -142,6 +147,9 @@ export interface IncidentDetail {
   };
   regulatory_impact?: {
     applicable_regulations?: string[];
+    gdpr_breach?: boolean;
+    hipaa_breach?: boolean;
+    ferpa_breach?: boolean;
     breach_notification_required?: boolean;
     notification_sent?: boolean;
     fine_imposed?: boolean;
@@ -152,8 +160,11 @@ export interface IncidentDetail {
   recovery_metrics?: {
     recovery_method?: string;
     recovery_duration_days?: number;
+    from_backup?: boolean;
+    mfa_implemented?: boolean;
     law_enforcement_involved?: boolean;
     ir_firm_engaged?: string;
+    forensics_firm?: string;
     security_improvements?: string;
   };
   transparency_metrics?: {

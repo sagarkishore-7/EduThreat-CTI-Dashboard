@@ -96,7 +96,7 @@ export default function IncidentDetailPage() {
   const hasTimeline  = (incident.timeline?.length ?? 0) > 0 || !!incident.incident_date || !!incident.discovery_date;
   const hasMitre     = (incident.mitre_attack_techniques?.length ?? 0) > 0;
   const hasImpact    = !!(incident.data_impact || incident.user_impact || incident.system_impact || incident.financial_impact || incident.regulatory_impact || incident.transparency_metrics);
-  const hasIntel     = !!(incident.threat_actor_name || incident.attack_dynamics);
+  const hasIntel     = !!(incident.threat_actor_name || incident.threat_actor_category || incident.threat_actor_motivation || incident.attack_dynamics);
   const hasSources   = (incident.all_urls?.length ?? 0) > 0 || (incident.sources?.length ?? 0) > 0 || !!incident.primary_url;
   const sourceDescription =
     incident.subtitle &&
@@ -141,8 +141,13 @@ export default function IncidentDetailPage() {
                   <h1 className="text-xl lg:text-2xl font-bold text-zinc-100 truncate">{name}</h1>
                   <CopyBtn value={name} k="name" />
                 </div>
-                {incident.institution_type && (
-                  <p className="text-[12px] text-zinc-500 capitalize">{incident.institution_type.replace(/_/g, " ")}</p>
+                {(incident.institution_type || incident.institution_size) && (
+                  <p className="text-[12px] text-zinc-500 capitalize">
+                    {incident.institution_type?.replace(/_/g, " ")}
+                    {incident.institution_size && (
+                      <span className="ml-2 text-zinc-600">· {incident.institution_size.replace(/_/g, " ")}</span>
+                    )}
+                  </p>
                 )}
               </div>
             </div>
@@ -153,6 +158,19 @@ export default function IncidentDetailPage() {
 
             {/* Tags */}
             <div className="flex flex-wrap gap-1.5">
+              {incident.incident_severity && (() => {
+                const sevColor: Record<string, string> = {
+                  critical: "bg-red-500/15 text-red-300 border-red-500/30",
+                  high:     "bg-orange-500/15 text-orange-300 border-orange-500/30",
+                  medium:   "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
+                  low:      "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+                };
+                return (
+                  <span className={cn("tag font-semibold", sevColor[incident.incident_severity] ?? "bg-zinc-800 text-zinc-400 border-zinc-700")}>
+                    <AlertTriangle className="w-2.5 h-2.5 mr-1" />{incident.incident_severity}
+                  </span>
+                );
+              })()}
               {attackType && (
                 <span className={cn("tag", getAttackTypeColor(attackType))}>
                   {formatAttackCategory(attackType)}
@@ -216,11 +234,17 @@ export default function IncidentDetailPage() {
       {/* ── Quick stats strip ─────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <QuickStat icon={MapPin} label="Location" value={incident.country || "Unknown"} sub={[incident.city, incident.region].filter(Boolean).join(", ")} />
-        <QuickStat icon={Building2} label="Institution" value={incident.institution_type?.replace(/_/g, " ") || "Unknown"} />
+        <QuickStat icon={Building2} label="Institution" value={incident.institution_type?.replace(/_/g, " ") || "Unknown"} sub={incident.institution_size?.replace(/_/g, " ")} />
         <QuickStat icon={Shield} label="Attack Vector" value={formatAttackCategory(incident.attack_dynamics?.attack_vector) || "Unknown"} />
-        <QuickStat icon={Database} label="Records" value={incident.data_impact?.records_affected_exact ? formatNumber(incident.data_impact.records_affected_exact) : "N/A"} />
+        <QuickStat icon={Database} label="Records" value={
+          incident.data_impact?.records_affected_exact
+            ? formatNumber(incident.data_impact.records_affected_exact)
+            : incident.data_impact?.records_affected_min
+            ? `≥${formatNumber(incident.data_impact.records_affected_min)}`
+            : "N/A"
+        } />
         <QuickStat icon={Users} label="Individuals" value={incident.user_impact?.total_individuals_affected ? formatNumber(incident.user_impact.total_individuals_affected) : "N/A"} />
-        <QuickStat icon={DollarSign} label="Est. Cost" value={incident.financial_impact?.estimated_total_cost_usd ? formatCurrency(incident.financial_impact.estimated_total_cost_usd) : "N/A"} />
+        <QuickStat icon={AlertTriangle} label="Severity" value={incident.incident_severity || "N/A"} />
       </div>
 
       {/* ── Tabs ─────────────────────────────────────────────── */}
@@ -454,13 +478,37 @@ export default function IncidentDetailPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {incident.data_impact && (
-              <ImpactCard icon={Database} title="Data Impact" accent="cyan" fields={[
-                { label: "Data Breached",    value: incident.data_impact.data_breached ? "Confirmed" : "None", alert: !!incident.data_impact.data_breached },
-                { label: "Exfiltrated",      value: incident.data_impact.data_exfiltrated ? "Yes" : "No" },
-                { label: "Records Affected", value: formatNumber(incident.data_impact.records_affected_exact) },
-                { label: "PII Records",      value: formatNumber(incident.data_impact.pii_records_leaked) },
-                { label: "Categories",       value: incident.data_impact.data_categories?.join(", ") },
-              ]} />
+              <div className="bg-zinc-900/30 border border-cyan-500/15 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Database className="w-4 h-4 text-cyan-400" />
+                  <h3 className="text-[12px] font-semibold text-zinc-300">Data Impact</h3>
+                </div>
+                <div className="space-y-1.5 mb-3">
+                  {[
+                    { label: "Data Breached",    value: incident.data_impact.data_breached != null ? (incident.data_impact.data_breached ? "Confirmed" : "None") : null, alert: !!incident.data_impact.data_breached },
+                    { label: "Exfiltrated",      value: incident.data_impact.data_exfiltrated != null ? (incident.data_impact.data_exfiltrated ? "Yes" : "No") : null },
+                    { label: "Records Affected", value: formatNumber(incident.data_impact.records_affected_exact) || (incident.data_impact.records_affected_min ? `≥${formatNumber(incident.data_impact.records_affected_min)}` : null) },
+                    { label: "PII Records",      value: formatNumber(incident.data_impact.pii_records_leaked) },
+                  ].filter(f => f.value).map((f, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-zinc-600">{f.label}</span>
+                      <span className={cn("text-[12px] font-mono", f.alert ? "text-red-400" : "text-zinc-300")}>{f.value}</span>
+                    </div>
+                  ))}
+                </div>
+                {incident.data_impact.data_categories && incident.data_impact.data_categories.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Data Categories</p>
+                    <div className="flex flex-wrap gap-1">
+                      {incident.data_impact.data_categories.map((cat, i) => (
+                        <span key={i} className="tag bg-cyan-500/10 text-cyan-300 border-cyan-500/20 text-[10px]">
+                          {cat.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             {incident.user_impact && (
               <ImpactCard icon={Users} title="User Impact" accent="violet" fields={[
@@ -472,13 +520,49 @@ export default function IncidentDetailPage() {
               ]} />
             )}
             {incident.system_impact && (
-              <ImpactCard icon={Server} title="System Impact" accent="orange" fields={[
-                { label: "Network",         value: incident.system_impact.network_compromised ? "Compromised" : "OK", alert: !!incident.system_impact.network_compromised },
-                { label: "Email",           value: incident.system_impact.email_system_affected ? "Affected" : "OK" },
-                { label: "Student Portal",  value: incident.system_impact.student_portal_affected ? "Affected" : "OK" },
-                { label: "Research Sys",    value: incident.system_impact.research_systems_affected ? "Affected" : "OK" },
-                { label: "Critical Sys",    value: incident.system_impact.critical_systems_affected ? "Yes" : "No", alert: !!incident.system_impact.critical_systems_affected },
-              ]} />
+              <div className="bg-zinc-900/30 border border-orange-500/15 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Server className="w-4 h-4 text-orange-400" />
+                  <h3 className="text-[12px] font-semibold text-zinc-300">System Impact</h3>
+                </div>
+                {incident.system_impact.systems_affected && incident.system_impact.systems_affected.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1.5">Systems Affected</p>
+                    <div className="flex flex-wrap gap-1">
+                      {incident.system_impact.systems_affected.map((s, i) => (
+                        <span key={i} className="tag bg-orange-500/10 text-orange-300 border-orange-500/20 text-[10px]">
+                          {s.replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Critical Systems",   val: incident.system_impact.critical_systems_affected, alert: true },
+                    { label: "Network",            val: incident.system_impact.network_compromised, alert: true },
+                    { label: "Email",              val: incident.system_impact.email_system_affected },
+                    { label: "Student Portal",     val: incident.system_impact.student_portal_affected },
+                    { label: "Research Systems",   val: incident.system_impact.research_systems_affected },
+                    { label: "Hospital Systems",   val: incident.system_impact.hospital_systems_affected },
+                    { label: "Cloud Services",     val: incident.system_impact.cloud_services_affected },
+                    { label: "Third-party Vendor", val: incident.system_impact.third_party_vendor_impact },
+                  ].filter(r => r.val != null).map((r, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-zinc-600">{r.label}</span>
+                      <span className={cn("text-[12px] font-mono", r.val ? (r.alert ? "text-red-400" : "text-orange-300") : "text-zinc-500")}>
+                        {r.val ? "Yes" : "No"}
+                      </span>
+                    </div>
+                  ))}
+                  {incident.system_impact.vendor_name && (
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-zinc-600">Vendor</span>
+                      <span className="text-[12px] font-mono text-zinc-300">{incident.system_impact.vendor_name}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
             {incident.financial_impact && (
               <ImpactCard icon={DollarSign} title="Financial Impact" accent="emerald" fields={[
@@ -490,14 +574,34 @@ export default function IncidentDetailPage() {
               ]} />
             )}
             {incident.regulatory_impact && (
-              <ImpactCard icon={Scale} title="Regulatory" accent="red" fields={[
-                { label: "Notification Req",  value: incident.regulatory_impact.breach_notification_required ? "Yes" : "No" },
-                { label: "Notified",          value: incident.regulatory_impact.notification_sent ? "Yes" : "No" },
-                { label: "Fine",              value: incident.regulatory_impact.fine_imposed ? (formatCurrency(incident.regulatory_impact.fine_amount_usd) || "Yes") : "No", alert: !!incident.regulatory_impact.fine_imposed },
-                { label: "Lawsuits",          value: incident.regulatory_impact.lawsuits_filed ? "Filed" : "None" },
-                { label: "Class Action",      value: incident.regulatory_impact.class_action_filed ? "Filed" : "None" },
-                { label: "Regulations",       value: incident.regulatory_impact.applicable_regulations?.join(", ") },
-              ]} />
+              <div className="bg-zinc-900/30 border border-red-500/15 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Scale className="w-4 h-4 text-red-400" />
+                  <h3 className="text-[12px] font-semibold text-zinc-300">Regulatory</h3>
+                </div>
+                {(incident.regulatory_impact.gdpr_breach || incident.regulatory_impact.hipaa_breach || incident.regulatory_impact.ferpa_breach) && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {incident.regulatory_impact.gdpr_breach && <span className="tag bg-red-500/15 text-red-300 border-red-500/30 text-[10px] font-semibold">GDPR</span>}
+                    {incident.regulatory_impact.hipaa_breach && <span className="tag bg-red-500/15 text-red-300 border-red-500/30 text-[10px] font-semibold">HIPAA</span>}
+                    {incident.regulatory_impact.ferpa_breach && <span className="tag bg-red-500/15 text-red-300 border-red-500/30 text-[10px] font-semibold">FERPA</span>}
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  {[
+                    { label: "Notification Required", value: incident.regulatory_impact.breach_notification_required != null ? (incident.regulatory_impact.breach_notification_required ? "Yes" : "No") : null },
+                    { label: "Notified",              value: incident.regulatory_impact.notification_sent != null ? (incident.regulatory_impact.notification_sent ? "Yes" : "No") : null },
+                    { label: "Fine",                  value: incident.regulatory_impact.fine_imposed ? (formatCurrency(incident.regulatory_impact.fine_amount_usd) || "Yes") : (incident.regulatory_impact.fine_imposed === false ? "No" : null), alert: !!incident.regulatory_impact.fine_imposed },
+                    { label: "Lawsuits",              value: incident.regulatory_impact.lawsuits_filed != null ? (incident.regulatory_impact.lawsuits_filed ? "Filed" : "None") : null },
+                    { label: "Class Action",          value: incident.regulatory_impact.class_action_filed != null ? (incident.regulatory_impact.class_action_filed ? "Filed" : "None") : null },
+                    { label: "Regulations",           value: incident.regulatory_impact.applicable_regulations?.join(", ") || null },
+                  ].filter(f => f.value).map((f, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-zinc-600">{f.label}</span>
+                      <span className={cn("text-[12px] font-mono", f.alert ? "text-red-400" : "text-zinc-300")}>{f.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
             {incident.transparency_metrics && (
               <ImpactCard icon={Eye} title="Transparency" accent="sky" fields={[
@@ -511,10 +615,13 @@ export default function IncidentDetailPage() {
           {incident.recovery_metrics && (
             <Section icon={Activity} label="Recovery & Response">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <DF label="Recovery Method"    value={incident.recovery_metrics.recovery_method} />
-                <DF label="Duration"           value={incident.recovery_metrics.recovery_duration_days ? `${incident.recovery_metrics.recovery_duration_days} days` : null} />
-                <DF label="Law Enforcement"    value={incident.recovery_metrics.law_enforcement_involved != null ? (incident.recovery_metrics.law_enforcement_involved ? "Involved" : "Not involved") : null} />
-                <DF label="IR Firm"            value={incident.recovery_metrics.ir_firm_engaged} />
+                <DF label="Duration"        value={incident.recovery_metrics.recovery_duration_days ? `${incident.recovery_metrics.recovery_duration_days} days` : null} />
+                <DF label="IR Firm"         value={incident.recovery_metrics.ir_firm_engaged} />
+                <DF label="Forensics Firm"  value={incident.recovery_metrics.forensics_firm} />
+                <DF label="Recovery Method" value={incident.recovery_metrics.recovery_method} />
+                <DF label="Law Enforcement" value={incident.recovery_metrics.law_enforcement_involved != null ? (incident.recovery_metrics.law_enforcement_involved ? "Involved" : "Not involved") : null} />
+                <DF label="Restored from Backup" value={incident.recovery_metrics.from_backup != null ? (incident.recovery_metrics.from_backup ? "Yes" : "No") : null} />
+                <DF label="MFA Implemented" value={incident.recovery_metrics.mfa_implemented != null ? (incident.recovery_metrics.mfa_implemented ? "Yes" : "No") : null} />
               </div>
               {incident.recovery_metrics.security_improvements && (
                 <div>
@@ -529,20 +636,28 @@ export default function IncidentDetailPage() {
 
       {tab === "intelligence" && (
         <div className="space-y-4">
-          {incident.threat_actor_name && (
+          {(incident.threat_actor_name || incident.threat_actor_category || incident.threat_actor_motivation) && (
             <div className="bg-[#0d0d1a] border border-violet-500/20 rounded-lg p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Skull className="w-4 h-4 text-violet-400" />
                 <p className="section-label">Threat Actor Profile</p>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="col-span-2 md:col-span-1">
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Actor</p>
-                  <p className="text-lg font-bold text-violet-300">{incident.threat_actor_name}</p>
-                </div>
-                <DF label="Category"    value={incident.threat_actor_category} />
-                <DF label="Motivation"  value={incident.threat_actor_motivation} />
-                <DF label="Confidence"  value={incident.source_confidence} />
+                {incident.threat_actor_name ? (
+                  <div className="col-span-2 md:col-span-1">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Actor</p>
+                    <p className="text-lg font-bold text-violet-300">{incident.threat_actor_name}</p>
+                  </div>
+                ) : (
+                  <div className="col-span-2 md:col-span-1">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">Actor</p>
+                    <p className="text-[13px] font-medium text-zinc-700">—</p>
+                  </div>
+                )}
+                <DF label="Category"       value={incident.threat_actor_category?.replace(/_/g, " ")} />
+                <DF label="Motivation"     value={incident.threat_actor_motivation?.replace(/_/g, " ")} />
+                <DF label="Origin Country" value={incident.threat_actor_origin_country} />
+                <DF label="Confidence"     value={incident.source_confidence} />
               </div>
             </div>
           )}
