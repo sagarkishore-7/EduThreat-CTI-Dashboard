@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboard, getAttackFlow } from "@/lib/api";
+import { getDashboard, getAttackFlow, getCountryAnalytics } from "@/lib/api";
 import { StatCard } from "@/components/StatCard";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
 import { formatCurrency } from "@/lib/utils";
@@ -55,6 +55,13 @@ export default function DashboardPage() {
   const { data: attackFlow } = useQuery({
     queryKey: ["attack-flow"],
     queryFn: getAttackFlow,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch all countries for the full-coverage choropleth (same as global map page)
+  const { data: allCountriesData } = useQuery({
+    queryKey: ["countries-dashboard-map"],
+    queryFn: () => getCountryAnalytics(200),
     staleTime: 5 * 60 * 1000,
   });
 
@@ -201,7 +208,7 @@ export default function DashboardPage() {
         {/* Map takes 2/3 */}
         <div className="xl:col-span-2">
           <WorldHeatmap
-            data={incidents_by_country}
+            data={allCountriesData?.data ?? incidents_by_country}
             onCountryClick={(country) =>
               router.push(`/incidents?country=${encodeURIComponent(country)}`)
             }

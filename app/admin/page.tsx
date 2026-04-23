@@ -270,9 +270,13 @@ export default function AdminPage() {
 
   const fetchStats = async (token: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/export/stats`, {
-        headers: { "X-Session-Token": token },
-      });
+      const res = await fetch(
+        `${API_BASE}/api/admin/export/stats?_=${Date.now()}`,
+        {
+          headers: { "X-Session-Token": token },
+          cache: "no-store",
+        }
+      );
       if (res.ok) setStats(await res.json());
       else if (res.status === 401) {
         handleLogout();
@@ -1831,36 +1835,6 @@ export default function AdminPage() {
       </div>
 
       {/* ============================================================ */}
-      {/* SCHEDULER QUICK ACTIONS */}
-      {/* ============================================================ */}
-      <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Zap className="w-5 h-5 text-primary" />
-          Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <JobButton
-            label="RSS Ingestion"
-            description="Fetch latest RSS feeds"
-            loading={isRunning}
-            onClick={() => triggerJob("rss")}
-          />
-          <JobButton
-            label="Weekly Ingestion"
-            description="Full curated + news"
-            loading={isRunning}
-            onClick={() => triggerJob("weekly")}
-          />
-          <JobButton
-            label="LLM Enrichment"
-            description="Enrich unenriched incidents"
-            loading={isRunning}
-            onClick={() => triggerJob("enrich")}
-          />
-        </div>
-      </div>
-
-      {/* ============================================================ */}
       {/* EXPORTS (Collapsible) */}
       {/* ============================================================ */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
@@ -1907,6 +1881,31 @@ export default function AdminPage() {
                   }
                 />
               </div>
+            </div>
+
+            {/* Research Export */}
+            <div>
+              <h3 className="font-medium mb-1 flex items-center gap-2">
+                <FileDown className="w-4 h-4 text-primary" />
+                Research Dataset Export
+              </h3>
+              <p className="text-xs text-muted-foreground mb-3">
+                Education-related enriched incidents only · one row per incident · all structured
+                fields from incidents + enrichment tables · ready for Julius AI, Python, R, or Excel
+              </p>
+              <ExportButton
+                label="Download Research CSV"
+                description="All fields · edu incidents · no raw JSON blobs"
+                icon={FileDown}
+                loading={downloading === "research-edu"}
+                onClick={() =>
+                  downloadFile(
+                    "/export/research-csv",
+                    `eduthreat_research_edu_${Date.now()}.csv`,
+                    "research-edu"
+                  )
+                }
+              />
             </div>
 
             {/* CSV Exports */}
