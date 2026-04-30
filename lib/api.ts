@@ -96,12 +96,15 @@ export interface IncidentDetail {
   initial_access_description?: string;
   primary_url?: string;
   all_urls: string[];
-  leak_site_url?: string;
+  leak_site_url?: string;        // dark web claim URL (.onion) — directly from ransomware group
+  source_detail_url?: string;    // CTI platform page (e.g. ransomware.live/id/...)
+  screenshot_url?: string;       // screenshot of the claim/leak page
   attack_type_hint?: string;
   attack_category?: string;
   incident_severity?: string;
   status: string;
   source_confidence: string;
+  threat_actor?: string;         // raw ingestion field (from ransomware.live group name)
   threat_actor_name?: string;
   threat_actor_category?: string;
   threat_actor_motivation?: string;
