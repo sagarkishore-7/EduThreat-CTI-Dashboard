@@ -2737,7 +2737,10 @@ function RawDataViewer() {
                     const incidentId = String(incident.incident_id || "");
                     const mitreJson = incident.mitre_techniques_json;
                     const mitreCount = incident.mitre_techniques_count;
-                    const enrichmentData = incident.enrichment_data;
+                    const rawResponsePayload = incident.raw_response_payload;
+                    const rawExtractionJson = incident.raw_extraction_json;
+                    const finalEnrichmentJson = incident.final_enrichment_json;
+                    const storageMetadata = incident.storage_metadata;
 
                     // Extract key fields for the summary row
                     const keyFields: Record<string, unknown> = {
@@ -2777,9 +2780,9 @@ function RawDataViewer() {
                                   MITRE: {String(mitreCount)}
                                 </span>
                               )}
-                              {enrichmentData != null && (
+                              {finalEnrichmentJson != null && (
                                 <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                                  Has JSON
+                                  Has Final JSON
                                 </span>
                               )}
                             </div>
@@ -2792,7 +2795,7 @@ function RawDataViewer() {
                           <div className="px-4 pb-4 bg-secondary/10">
                             {/* Section tabs */}
                             <div className="flex gap-2 mb-3 pt-2">
-                              {["key_fields", "flat_columns", "mitre_json", "enrichment_json"].map((section) => (
+                              {["key_fields", "flat_columns", "mitre_json", "raw_response", "raw_extraction", "final_enrichment", "storage_metadata"].map((section) => (
                                 <button
                                   key={section}
                                   onClick={() => setExpandedSection(expandedSection === section ? null : section)}
@@ -2806,7 +2809,10 @@ function RawDataViewer() {
                                   {section === "key_fields" && "Key Fields"}
                                   {section === "flat_columns" && "All Flat Columns"}
                                   {section === "mitre_json" && `MITRE JSON (${mitreCount || 0})`}
-                                  {section === "enrichment_json" && "Enrichment JSON"}
+                                  {section === "raw_response" && "Raw Response"}
+                                  {section === "raw_extraction" && "Raw Extraction"}
+                                  {section === "final_enrichment" && "Final Enrichment"}
+                                  {section === "storage_metadata" && "Storage Metadata"}
                                 </button>
                               ))}
                               <button
@@ -2846,7 +2852,7 @@ function RawDataViewer() {
                                 <table className="text-xs w-full">
                                   <tbody>
                                     {Object.entries(incident)
-                                      .filter(([k]) => k !== "enrichment_data")
+                                      .filter(([k]) => !["raw_response_payload", "raw_extraction_json", "final_enrichment_json", "storage_metadata"].includes(k))
                                       .map(([k, v]) => (
                                         <tr key={k} className="border-b border-border/30">
                                           <td className="py-1.5 pr-4 text-cyan-400 font-mono whitespace-nowrap align-top">
@@ -2905,32 +2911,122 @@ function RawDataViewer() {
                               </div>
                             )}
 
-                            {/* Enrichment JSON */}
-                            {expandedSection === "enrichment_json" && (
+                            {/* Raw Response Payload */}
+                            {expandedSection === "raw_response" && (
                               <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
-                                {enrichmentData ? (
+                                {rawResponsePayload ? (
                                   <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
-                                    {typeof enrichmentData === "object"
-                                      ? JSON.stringify(enrichmentData, null, 2)
-                                      : String(enrichmentData)}
+                                    {typeof rawResponsePayload === "object"
+                                      ? JSON.stringify(rawResponsePayload, null, 2)
+                                      : String(rawResponsePayload)}
                                   </pre>
                                 ) : (
                                   <p className="text-xs text-red-400/60">
-                                    enrichment_data is NULL (no JSON enrichment found)
+                                    raw_response_payload is NULL (no raw model artifact found)
                                   </p>
                                 )}
                                 <button
                                   onClick={() => copyToClipboard(
-                                    enrichmentData
-                                      ? typeof enrichmentData === "object"
-                                        ? JSON.stringify(enrichmentData, null, 2)
-                                        : String(enrichmentData)
+                                    rawResponsePayload
+                                      ? typeof rawResponsePayload === "object"
+                                        ? JSON.stringify(rawResponsePayload, null, 2)
+                                        : String(rawResponsePayload)
                                       : "NULL"
                                   )}
                                   className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
                                 >
                                   <Copy className="w-3 h-3" />
-                                  Copy Enrichment JSON
+                                  Copy Raw Response
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Raw Extraction JSON */}
+                            {expandedSection === "raw_extraction" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                {rawExtractionJson ? (
+                                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                                    {typeof rawExtractionJson === "object"
+                                      ? JSON.stringify(rawExtractionJson, null, 2)
+                                      : String(rawExtractionJson)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-400/60">
+                                    raw_extraction_json is NULL
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => copyToClipboard(
+                                    rawExtractionJson
+                                      ? typeof rawExtractionJson === "object"
+                                        ? JSON.stringify(rawExtractionJson, null, 2)
+                                        : String(rawExtractionJson)
+                                      : "NULL"
+                                  )}
+                                  className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy Raw Extraction
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Final Enrichment JSON */}
+                            {expandedSection === "final_enrichment" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                {finalEnrichmentJson ? (
+                                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                                    {typeof finalEnrichmentJson === "object"
+                                      ? JSON.stringify(finalEnrichmentJson, null, 2)
+                                      : String(finalEnrichmentJson)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-400/60">
+                                    final_enrichment_json is NULL
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => copyToClipboard(
+                                    finalEnrichmentJson
+                                      ? typeof finalEnrichmentJson === "object"
+                                        ? JSON.stringify(finalEnrichmentJson, null, 2)
+                                        : String(finalEnrichmentJson)
+                                      : "NULL"
+                                  )}
+                                  className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy Final Enrichment
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Storage Metadata */}
+                            {expandedSection === "storage_metadata" && (
+                              <div className="bg-[#0a0a12] rounded-lg p-3 overflow-x-auto max-h-[500px] overflow-y-auto">
+                                {storageMetadata ? (
+                                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                                    {typeof storageMetadata === "object"
+                                      ? JSON.stringify(storageMetadata, null, 2)
+                                      : String(storageMetadata)}
+                                  </pre>
+                                ) : (
+                                  <p className="text-xs text-red-400/60">
+                                    storage_metadata is NULL
+                                  </p>
+                                )}
+                                <button
+                                  onClick={() => copyToClipboard(
+                                    storageMetadata
+                                      ? typeof storageMetadata === "object"
+                                        ? JSON.stringify(storageMetadata, null, 2)
+                                        : String(storageMetadata)
+                                      : "NULL"
+                                  )}
+                                  className="mt-2 px-2 py-1 rounded text-xs bg-secondary hover:bg-secondary/80 flex items-center gap-1"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  Copy Storage Metadata
                                 </button>
                               </div>
                             )}

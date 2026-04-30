@@ -891,7 +891,7 @@ export default function IncidentDetailPage() {
             )}
             {incident.transparency_metrics && (
               <ImpactCard icon={Eye} title="Transparency" accent="sky" fields={[
-                { label: "Public Disclosure", value: incident.transparency_metrics.public_disclosure ? "Yes" : "No" },
+                { label: "Public Disclosure", value: incident.transparency_metrics.public_disclosure != null ? (incident.transparency_metrics.public_disclosure ? "Yes" : "No") : null },
                 { label: "Disclosed",         value: formatDate(incident.transparency_metrics.public_disclosure_date) },
                 { label: "Delay",             value: incident.transparency_metrics.disclosure_delay_days ? `${incident.transparency_metrics.disclosure_delay_days} days` : null },
                 { label: "Level",             value: incident.transparency_metrics.transparency_level },
