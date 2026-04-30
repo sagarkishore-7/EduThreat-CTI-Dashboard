@@ -731,27 +731,6 @@ export default function AdminPage() {
   // Legacy helpers (downloads, maintenance)
   // ------------------------------------------------------------------
 
-  const migrateDatabase = async () => {
-    if (!sessionToken) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/migrate-db`, {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setSuccess(`Database migrated! ${data.incident_count} incidents at ${data.destination}`);
-        fetchStats(sessionToken);
-      } else setError(data.message || "Migration failed");
-    } catch {
-      setError("Migration failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const uploadDatabase = async (file: File) => {
     if (!sessionToken) return;
     setLoading(true);
@@ -784,15 +763,15 @@ export default function AdminPage() {
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/admin/fix-incident-dates?apply=${apply}`,
+        `${API_BASE}/api/admin/repair-date-corruption?dry_run=${!apply}`,
         { method: "POST", headers: authHeaders() }
       );
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (res.ok) {
         setSuccess(
           apply
-            ? `Fixed ${data.fixed} incident dates! ${data.skipped} skipped.`
-            : `Dry run: Would fix ${data.fixed} dates. ${data.skipped} skipped.`
+            ? `Fixed ${data.date_corrupted_count} incident dates and ${data.url_corrupted_count} primary URLs.`
+            : `Dry run: Would fix ${data.date_corrupted_count} dates and ${data.url_corrupted_count} primary URLs.`
         );
         if (apply) fetchStats(sessionToken);
       } else setError(data.detail || "Fix failed");
@@ -2028,25 +2007,6 @@ export default function AdminPage() {
                       Choose .db File
                     </span>
                   </label>
-                </div>
-                <div className="border border-border rounded-lg p-4 bg-secondary/30">
-                  <h4 className="font-medium mb-2 text-sm">Migrate from Repo</h4>
-                  <button
-                    onClick={migrateDatabase}
-                    disabled={loading}
-                    className={cn(
-                      "px-4 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors",
-                      "bg-secondary hover:bg-secondary/80 border border-border",
-                      loading && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {loading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    Migrate
-                  </button>
                 </div>
               </div>
             </div>
