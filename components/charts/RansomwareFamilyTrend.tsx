@@ -47,6 +47,8 @@ export function RansomwareFamilyTrend({ data }: RansomwareFamilyTrendProps) {
     const monthMap = new Map<string, Record<string, number>>();
 
     for (const point of data.data) {
+      // Skip corrupted dates (e.g. "-4707-06" from bad source_published_date)
+      if (!point.month || !point.month.match(/^\d{4}-\d{2}$/)) continue;
       if (!monthMap.has(point.month)) {
         monthMap.set(point.month, {});
       }
