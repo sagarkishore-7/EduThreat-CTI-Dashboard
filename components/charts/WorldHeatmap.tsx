@@ -33,6 +33,8 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "705": "SI", "710": "ZA", "724": "ES", "752": "SE", "756": "CH",
   "788": "TN", "792": "TR", "804": "UA", "818": "EG", "826": "GB",
   "834": "TZ", "840": "US", "858": "UY", "704": "VN", "716": "ZW", "862": "VE",
+  "398": "KZ", "192": "CU", "760": "SY", "729": "SD",
+  "600": "PY", "417": "KG", "831": "GG", "214": "DO", "112": "BY",
 };
 
 interface WorldHeatmapProps {
