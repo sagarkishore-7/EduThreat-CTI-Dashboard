@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  getStats,
   getThreatActors,
   getThreatActorCategories,
   getThreatActorMotivations,
@@ -56,7 +55,6 @@ const tooltipStyle = {
 };
 
 export default function ThreatActorIntelligencePage() {
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
   const { data: actors, isLoading: l1 } = useQuery({ queryKey: ["threat-actors-full"], queryFn: () => getThreatActors(30) });
   const { data: categories, isLoading: l2 } = useQuery({ queryKey: ["actor-categories"], queryFn: getThreatActorCategories });
   const { data: motivations, isLoading: l3 } = useQuery({ queryKey: ["actor-motivations"], queryFn: getThreatActorMotivations });
@@ -72,9 +70,10 @@ export default function ThreatActorIntelligencePage() {
   if (isLoading) return <PageSkeleton rows={4} />;
 
   const trackedActors = actors?.total || 0;
+  const shownActors = actors?.returned || 0;
   const mostActive = actors?.threat_actors[0]?.name || "N/A";
-  const countriesTargeted = stats?.countries_affected || 0;
-  const avgPerActor = trackedActors > 0 ? (actors?.threat_actors.reduce((s, a) => s + a.incident_count, 0) || 0) / trackedActors : 0;
+  const countriesTargeted = actors?.countries_targeted_total || 0;
+  const avgPerActor = trackedActors > 0 ? (actors?.total_incidents || 0) / trackedActors : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -82,7 +81,7 @@ export default function ThreatActorIntelligencePage() {
         icon={Users}
         label="Threat Actor Intelligence"
         title="Threat Actor Intelligence"
-        description={`${trackedActors} threat actors tracked across education sector incidents — profiling, targeting & attribution`}
+        description={`${trackedActors} threat actors tracked across education sector incidents — showing top ${shownActors} profiles by incident volume`}
       />
 
       {/* Stat Cards */}
@@ -254,7 +253,12 @@ export default function ThreatActorIntelligencePage() {
 
       {/* Threat Actor Cards */}
       <div className="bg-card border border-border rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Threat Actor Profiles</h2>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold">Top Threat Actor Profiles</h2>
+          <p className="text-sm text-muted-foreground">
+            Showing {shownActors} of {trackedActors}
+          </p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {actors?.threat_actors.map((actor, index) => (
             <div

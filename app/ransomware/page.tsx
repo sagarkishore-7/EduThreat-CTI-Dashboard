@@ -49,7 +49,7 @@ export default function RansomwareIntelligencePage() {
   if (isLoading) return <PageSkeleton rows={4} />;
 
   const ransomwareIncidents = stats?.incidents_with_ransomware || 0;
-  const activeFamilies = ransomwareData?.data.length || 0;
+  const activeFamilies = stats?.unique_ransomware_families || ransomwareData?.data.length || 0;
   const demandedCount = economics?.demanded_count || 0;
   const avgDemanded = economics?.avg_demanded;
   const paymentRate = economics?.payment_rate || 0;

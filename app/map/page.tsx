@@ -24,7 +24,7 @@ export default function MapPage() {
 
   const { data: countryData, isLoading } = useQuery({
     queryKey: ["countries-full"],
-    queryFn: () => getCountryAnalytics(50),
+    queryFn: () => getCountryAnalytics(200),
   });
 
   if (isLoading) {

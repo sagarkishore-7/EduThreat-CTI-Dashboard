@@ -44,7 +44,7 @@ import {
 
 export default function ImpactAnalyticsPage() {
   const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
-  const { data: countryData, isLoading: l1 } = useQuery({ queryKey: ["analytics-countries"], queryFn: () => getCountryAnalytics(20) });
+  const { data: countryData, isLoading: l1 } = useQuery({ queryKey: ["analytics-countries"], queryFn: () => getCountryAnalytics(200) });
   const { data: timelineData, isLoading: l2 } = useQuery({ queryKey: ["analytics-timeline"], queryFn: () => getTimelineAnalytics(36) });
   const { data: institutionTypes, isLoading: l3 } = useQuery({ queryKey: ["institution-types"], queryFn: getInstitutionTypes });
   const { data: institutionRisk, isLoading: l4 } = useQuery({ queryKey: ["institution-risk-matrix"], queryFn: getInstitutionRiskMatrix });

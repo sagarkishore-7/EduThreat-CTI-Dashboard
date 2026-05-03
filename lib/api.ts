@@ -246,6 +246,14 @@ export interface ThreatActorSummary {
   last_seen?: string;
 }
 
+export interface ThreatActorsResponse {
+  threat_actors: ThreatActorSummary[];
+  total: number;
+  returned: number;
+  total_incidents: number;
+  countries_targeted_total: number;
+}
+
 export interface FilterOptions {
   countries: string[];
   attack_categories: string[];
@@ -329,7 +337,7 @@ export async function getFilters(): Promise<FilterOptions> {
   return fetchAPI<FilterOptions>('/api/filters');
 }
 
-export async function getThreatActors(limit: number = 20): Promise<{ threat_actors: ThreatActorSummary[]; total: number }> {
+export async function getThreatActors(limit: number = 20): Promise<ThreatActorsResponse> {
   return fetchAPI(`/api/analytics/threat-actors?limit=${limit}`);
 }
 
