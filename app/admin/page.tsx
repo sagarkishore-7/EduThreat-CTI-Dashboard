@@ -1015,6 +1015,13 @@ export default function AdminPage() {
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
+          <a
+            href="/admin/review"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            Manual Review
+          </a>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors"
