@@ -389,7 +389,7 @@ export default function IncidentDetailPage() {
                 )}
                 {incident.llm_enriched && (
                   <span className="tag bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                    <CheckCircle2 className="w-2.5 h-2.5 mr-1" />enriched
+                    <CheckCircle2 className="w-2.5 h-2.5 mr-1" />analysis ready
                   </span>
                 )}
               </div>
@@ -506,7 +506,7 @@ export default function IncidentDetailPage() {
             </Section>
           )}
           {incident.enriched_summary && (
-            <Section icon={FileText} label="AI Intelligence Summary" badge="AI Generated">
+            <Section icon={FileText} label="Intelligence Summary" badge="Structured Analysis">
               <p className="text-[14px] text-zinc-400 leading-relaxed whitespace-pre-wrap">{incident.enriched_summary}</p>
             </Section>
           )}
@@ -516,7 +516,7 @@ export default function IncidentDetailPage() {
             </Section>
           )}
           {!incident.enriched_summary && !sourceDescription && !incident.initial_access_description && (
-            <EmptyTab message="This incident has not been LLM-enriched yet." />
+            <EmptyTab message="No analytical narrative is available for this incident yet." />
           )}
         </div>
       )}
@@ -1025,7 +1025,7 @@ export default function IncidentDetailPage() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <DF label="First Ingested"   value={formatDate(incident.ingested_at)} />
-                <DF label="LLM Enriched At"  value={formatDate(incident.llm_enriched_at)} />
+                <DF label="Analysis Updated" value={formatDate(incident.llm_enriched_at)} />
                 <DF label="Source Published" value={formatDate(incident.source_published_date)} />
                 <DF label="Discovery Date"   value={formatDate(incident.discovery_date)} />
               </div>

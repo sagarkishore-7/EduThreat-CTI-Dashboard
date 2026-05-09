@@ -18,13 +18,13 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Dashboard",          href: "/",              icon: LayoutDashboard, group: "main" },
+  { name: "Briefing",           href: "/",              icon: LayoutDashboard, group: "main" },
   { name: "Incidents",          href: "/incidents",     icon: FileText,        group: "main" },
-  { name: "Global Map",         href: "/map",           icon: Globe2,          group: "main" },
-  { name: "Attack Intel",       href: "/attacks",       icon: AlertTriangle,   group: "intel" },
+  { name: "Geography",          href: "/map",           icon: Globe2,          group: "main" },
+  { name: "Tradecraft",         href: "/attacks",       icon: AlertTriangle,   group: "intel" },
   { name: "Ransomware",         href: "/ransomware",    icon: Lock,            group: "intel" },
   { name: "Threat Actors",      href: "/threat-actors", icon: Users,           group: "intel" },
-  { name: "Analytics",          href: "/analytics",     icon: BarChart3,       group: "intel" },
+  { name: "Exposure",           href: "/analytics",     icon: BarChart3,       group: "intel" },
 ];
 
 const adminNav = [

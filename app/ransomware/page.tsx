@@ -84,9 +84,9 @@ export default function RansomwareIntelligencePage() {
       <PageHeader
         icon={Lock}
         iconColor="text-red-400"
-        label="Ransomware Intelligence"
-        title="Ransomware Intelligence"
-        description={`Family prevalence, recent victimization, and geographic targeting across the canonical education-sector dataset`}
+        label="Ransomware"
+        title="Ransomware & Extortion Watch"
+        description="Family prevalence, recent victimization, and geographic targeting across the retained canonical dataset"
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

@@ -94,9 +94,9 @@ export default function AttackIntelligencePage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         icon={Shield}
-        label="Attack Intelligence"
-        title="Attack Intelligence"
-        description={`Core attack distribution, sector trend, and institution targeting across ${totalIncidents} canonical education incidents`}
+        label="Tradecraft"
+        title="Tradecraft & Intrusion Patterns"
+        description={`Attack clusters, sector trend, and victim targeting across ${totalIncidents} retained education-sector canonicals`}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">

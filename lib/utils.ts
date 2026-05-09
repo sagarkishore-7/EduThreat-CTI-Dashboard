@@ -35,12 +35,27 @@ export function formatCurrency(amount: number | undefined | null): string {
   }).format(amount);
 }
 
+export function formatPercent(value: number | undefined | null, digits: number = 1): string {
+  if (value === undefined || value === null || Number.isNaN(value)) return "N/A";
+  return `${value.toFixed(digits)}%`;
+}
+
 export function formatAttackCategory(category: string | undefined | null): string {
   if (!category) return "Unknown";
   
   return category
     .replace(/_/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function formatInstitutionSegment(segment: string | undefined | null): string {
+  if (!segment) return "Unknown";
+  return segment;
+}
+
+export function formatAttackCluster(cluster: string | undefined | null): string {
+  if (!cluster) return "Unknown";
+  return cluster;
 }
 
 export function getSeverityColor(severity: string | undefined | null): string {

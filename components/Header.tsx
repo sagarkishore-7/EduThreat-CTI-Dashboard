@@ -7,14 +7,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 
 const pageMeta: Record<string, { label: string; description: string }> = {
-  "/":              { label: "Dashboard",         description: "Global threat overview" },
-  "/incidents":     { label: "Incidents",          description: "Verified education sector incidents" },
-  "/map":           { label: "Global Map",          description: "Geographic threat distribution" },
-  "/attacks":       { label: "Attack Intelligence", description: "Canonical attack distribution and sector trend" },
-  "/ransomware":    { label: "Ransomware",          description: "Family prevalence and victim targeting" },
-  "/threat-actors": { label: "Threat Actors",       description: "Attribution and actor-linked families" },
-  "/analytics":     { label: "Analytics",           description: "v2 canonical breakdowns and trend views" },
-  "/admin":         { label: "Operations",          description: "v2 runtime, plans, and data quality controls" },
+  "/":              { label: "Executive Briefing", description: "Analyst-ready education sector threat summary" },
+  "/incidents":     { label: "Incidents",          description: "Canonical incident register and searchable casework" },
+  "/map":           { label: "Geography",          description: "Where retained education-sector pressure is concentrating" },
+  "/attacks":       { label: "Tradecraft",         description: "Attack patterns, intrusion clusters, and access signals" },
+  "/ransomware":    { label: "Ransomware",         description: "Family prevalence, extortion pressure, and victimization" },
+  "/threat-actors": { label: "Threat Actors",      description: "Attributed groups, targeting, and family overlap" },
+  "/analytics":     { label: "Exposure",           description: "Victimology, records exposure, and analyst workbook views" },
+  "/admin":         { label: "Operations",         description: "Runtime health, collection plans, and quality controls" },
 };
 
 interface HeaderProps {
@@ -32,7 +32,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const isDetail = pathname.startsWith("/incidents/") && pathname !== "/incidents";
   const meta = isDetail
-    ? { label: "Incident Detail", description: "Full CTI enrichment report" }
+    ? { label: "Incident Detail", description: "Structured case file and intelligence narrative" }
     : (pageMeta[pathname] ?? { label: "EduThreat-CTI", description: "Education Sector CTI" });
 
   // Breadcrumb for detail pages

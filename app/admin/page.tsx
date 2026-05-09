@@ -179,6 +179,26 @@ export default function AdminPage() {
     }));
   }, [status?.task_summary]);
 
+  const progressMetrics = useMemo(() => {
+    const counts = status?.counts;
+    if (!counts) return null;
+
+    const sourceIncidents = Number(counts.source_incidents || 0);
+    const articleDocuments = Number(counts.article_documents || 0);
+    const sourceEnrichments = Number(counts.source_enrichments || 0);
+    const canonicalIncidents = Number(counts.canonical_incidents || 0);
+    const queuedWork = taskTypeSummary.reduce((sum, item) => sum + item.queued, 0);
+    const leasedWork = taskTypeSummary.reduce((sum, item) => sum + item.leased, 0);
+
+    return {
+      fetchCoveragePct: sourceIncidents > 0 ? (articleDocuments / sourceIncidents) * 100 : 0,
+      enrichCoveragePct: articleDocuments > 0 ? (sourceEnrichments / articleDocuments) * 100 : 0,
+      canonicalYieldPct: sourceIncidents > 0 ? (canonicalIncidents / sourceIncidents) * 100 : 0,
+      queuedWork,
+      leasedWork,
+    };
+  }, [status?.counts, taskTypeSummary]);
+
   if (!token) {
     return (
       <div className="mx-auto flex min-h-[70vh] max-w-md items-center justify-center">
@@ -315,6 +335,43 @@ export default function AdminPage() {
           variant={(status?.queue_health.expired_leases || 0) > 0 ? "warning" : "success"}
         />
       </div>
+
+      {progressMetrics && (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard
+            title="Fetch Coverage"
+            value={`${progressMetrics.fetchCoveragePct.toFixed(1)}%`}
+            description="Source observations that already have article documents"
+            icon={Database}
+            variant="primary"
+            size="compact"
+          />
+          <StatCard
+            title="Enrichment Coverage"
+            value={`${progressMetrics.enrichCoveragePct.toFixed(1)}%`}
+            description="Fetched articles that already have source enrichment"
+            icon={Sparkles}
+            variant="purple"
+            size="compact"
+          />
+          <StatCard
+            title="Canonical Yield"
+            value={`${progressMetrics.canonicalYieldPct.toFixed(1)}%`}
+            description="Public canonicals retained from all raw source observations"
+            icon={Workflow}
+            variant="danger"
+            size="compact"
+          />
+          <StatCard
+            title="Queued / In Flight"
+            value={`${formatNumber(progressMetrics.queuedWork)} / ${formatNumber(progressMetrics.leasedWork)}`}
+            description="Worker backlog versus currently leased tasks"
+            icon={Activity}
+            variant="warning"
+            size="compact"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 space-y-6">

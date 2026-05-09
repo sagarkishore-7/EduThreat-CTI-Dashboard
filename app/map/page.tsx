@@ -53,9 +53,9 @@ export default function MapPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         icon={Globe2}
-        label="Global Threat Map"
-        title="Global Threat Map"
-        description={`Geographic distribution of cyber incidents across ${stats?.countries_affected || 0} countries targeting educational institutions`}
+        label="Geography"
+        title="Geographic Pressure Map"
+        description={`Geographic concentration of retained education-sector canonicals across ${stats?.countries_affected || 0} countries`}
       >
         {stats && (
           <div className="flex items-center gap-8">

@@ -49,9 +49,9 @@ export default function ThreatActorIntelligencePage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         icon={Users}
-        label="Threat Actor Intelligence"
-        title="Threat Actor Intelligence"
-        description={`${data?.total || 0} actor profiles derived from canonical incident attribution and source lineage`}
+        label="Threat Actors"
+        title="Attribution Watchlist"
+        description={`${data?.total || 0} actor profiles derived from canonical attribution and source lineage`}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

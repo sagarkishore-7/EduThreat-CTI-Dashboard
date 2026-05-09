@@ -22,12 +22,20 @@ const severityConfig: Record<string, { label: string; dot: string; text: string 
   malware:         { label: "HIGH",     dot: "bg-orange-500", text: "text-orange-400" },
   ddos:            { label: "MEDIUM",   dot: "bg-blue-500",   text: "text-blue-400" },
   unauthorized_access: { label: "HIGH", dot: "bg-amber-500",  text: "text-amber-400" },
+  third_party:     { label: "HIGH",     dot: "bg-violet-500", text: "text-violet-400" },
   default:         { label: "MEDIUM",   dot: "bg-zinc-500",   text: "text-zinc-400" },
 };
 
 function getSeverity(attackCategory?: string) {
-  if (!attackCategory) return severityConfig.default;
-  return severityConfig[attackCategory.toLowerCase()] ?? severityConfig.default;
+  const raw = attackCategory?.toLowerCase() || "";
+  if (!raw) return severityConfig.default;
+  if (raw.includes("ransomware")) return severityConfig.ransomware;
+  if (raw.includes("data_breach")) return severityConfig.data_breach;
+  if (raw.includes("ddos")) return severityConfig.ddos;
+  if (raw.includes("phishing")) return severityConfig.phishing;
+  if (raw.includes("malware")) return severityConfig.malware;
+  if (raw.includes("third_party") || raw.includes("supply_chain")) return severityConfig.third_party;
+  return severityConfig[raw] ?? severityConfig.default;
 }
 
 export function RecentIncidentsList({ incidents }: RecentIncidentsListProps) {

@@ -14,7 +14,7 @@ import {
 } from "@/lib/utils";
 import {
   Search, Filter, ChevronLeft, ChevronRight, ArrowUpDown,
-  ArrowUp, ArrowDown, AlertTriangle, CheckCircle2, Clock,
+  ArrowUp, ArrowDown, AlertTriangle,
   X, SlidersHorizontal, ChevronDown,
 } from "lucide-react";
 
@@ -280,7 +280,7 @@ function IncidentsContent() {
                 <ThSortable field="attack_category">Attack</ThSortable>
                 <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-widest font-semibold text-zinc-500">Actor</th>
                 <ThSortable field="country">Country</ThSortable>
-                <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-widest font-semibold text-zinc-500">Intel</th>
+                <th className="text-left px-3 py-2.5 text-[10px] uppercase tracking-widest font-semibold text-zinc-500">Lineage</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
@@ -373,17 +373,13 @@ function IncidentsContent() {
                         )}
                       </td>
 
-                      {/* Intel status */}
+                      {/* Source lineage */}
                       <td className="px-3 py-3">
-                        {incident.llm_enriched ? (
-                          <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-mono">
-                            <CheckCircle2 className="w-3 h-3" /> enriched
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-[10px] text-zinc-600 font-mono">
-                            <Clock className="w-3 h-3" /> pending
-                          </span>
-                        )}
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          {incident.source_count && incident.source_count > 0
+                            ? `${incident.source_count} source${incident.source_count === 1 ? "" : "s"}`
+                            : "1 source"}
+                        </span>
                       </td>
                     </tr>
                   );

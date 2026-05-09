@@ -41,6 +41,7 @@ export interface IncidentSummary {
   llm_enriched: boolean;
   llm_enriched_at?: string;
   ingested_at?: string;
+  source_count?: number;
   sources: string[];
 }
 
@@ -237,11 +238,96 @@ export interface RecentIncident {
 
 export interface DashboardResponse {
   stats: DashboardStats;
+  intelligence_summary: IntelligenceSummary;
   incidents_by_country: CountByCategory[];
   incidents_by_attack_type: CountByCategory[];
   incidents_by_ransomware: CountByCategory[];
   incidents_over_time: TimeSeriesPoint[];
   recent_incidents: RecentIncident[];
+}
+
+export interface IntelligenceRankedItem {
+  count: number;
+  percentage: number;
+}
+
+export interface IntelligenceFinding {
+  title: string;
+  value: string;
+  context: string;
+}
+
+export interface IntelligenceCountry extends CountByCategory {}
+
+export interface IntelligenceThreatActor extends ThreatActorSummary {}
+
+export interface IntelligenceRecordEvent {
+  incident_id: string;
+  display_name: string;
+  country?: string;
+  country_code?: string;
+  incident_date?: string;
+  records_affected: number;
+  attack_category?: string;
+}
+
+export interface IntelligenceSummary {
+  overview: {
+    total_incidents: number;
+    actor_attributed_count: number;
+    actor_attributed_share: number;
+    ransomware_count: number;
+    ransomware_share: number;
+    breach_count: number;
+    breach_share: number;
+    vendor_linked_count: number;
+    vendor_linked_share: number;
+    known_record_events: number;
+    known_record_volume: number;
+  };
+  tempo: {
+    anchor_date?: string | null;
+    recent_90d_count: number;
+    prior_90d_count: number;
+    recent_change_count: number;
+    recent_change_pct?: number | null;
+    recent_ransomware_count: number;
+    recent_vendor_count: number;
+    recent_breach_count: number;
+  };
+  victimology: {
+    institution_segments: Array<IntelligenceRankedItem & { segment: string }>;
+    top_countries: IntelligenceCountry[];
+    vendor_linked_count: number;
+    direct_victim_count: number;
+  };
+  tradecraft: {
+    attack_clusters: Array<IntelligenceRankedItem & { cluster: string }>;
+    attack_vectors: Array<IntelligenceRankedItem & { vector: string }>;
+    attack_vector_known_count: number;
+    attack_vector_known_share: number;
+  };
+  attribution: {
+    top_threat_actors: IntelligenceThreatActor[];
+    top_ransomware_families: CountByCategory[];
+    actor_attributed_count: number;
+    actor_attributed_share: number;
+  };
+  exposure: {
+    breach_count: number;
+    known_record_events: number;
+    known_record_volume: number;
+    largest_record_events: IntelligenceRecordEvent[];
+  };
+  coverage: {
+    attack_vector_known_count: number;
+    attack_vector_known_share: number;
+    record_loss_known_count: number;
+    record_loss_known_share: number;
+    attribution_known_count: number;
+    attribution_known_share: number;
+  };
+  priority_findings: IntelligenceFinding[];
 }
 
 export interface ThreatActorSummary {
@@ -334,6 +420,10 @@ export async function getDashboard(): Promise<DashboardResponse> {
 
 export async function getStats(): Promise<DashboardStats> {
   return fetchAPI<DashboardStats>("/api/v2/stats");
+}
+
+export async function getIntelligenceSummary(): Promise<IntelligenceSummary> {
+  return fetchAPI<IntelligenceSummary>("/api/v2/analytics/intelligence");
 }
 
 export async function getIncidents(params: {
