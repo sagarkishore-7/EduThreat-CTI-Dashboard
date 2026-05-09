@@ -1,0 +1,204 @@
+import { API_BASE } from "@/lib/api";
+
+export const ADMIN_SESSION_KEY = "v2_admin_session_token";
+
+export interface V2LoginResponse {
+  success: boolean;
+  session_token: string;
+  expires_at: string;
+  message: string;
+}
+
+export interface V2RuntimeStatus {
+  counts: {
+    source_incidents: number;
+    article_documents: number;
+    source_enrichments: number;
+    canonical_incidents: number;
+  };
+  queue_health: {
+    expired_leases: number;
+  };
+  task_summary: Record<string, Record<string, number>>;
+  recent_tasks: Array<Record<string, unknown>>;
+  recent_runs: Array<Record<string, unknown>>;
+  dashboard_snapshot: {
+    last_refreshed_at: string | null;
+    needs_refresh: boolean | null;
+  };
+}
+
+export interface V2PlanDefinition {
+  name: string;
+  description?: string;
+  collect?: Record<string, unknown>;
+  drain_tasks?: boolean;
+  worker_max_tasks?: number | null;
+}
+
+export interface V2ManualReviewQueueResponse {
+  items: Array<Record<string, unknown>>;
+  meta: {
+    limit: number;
+    returned: number;
+  };
+}
+
+export interface V2ConsistencyCandidatesResponse {
+  items: Array<Record<string, unknown>>;
+  meta: {
+    limit: number;
+    scan_limit: number;
+    returned: number;
+  };
+}
+
+function buildAdminHeaders(token?: string, extra?: HeadersInit): HeadersInit {
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { "X-Session-Token": token } : {}),
+    ...extra,
+  };
+}
+
+async function adminRequest<T>(
+  endpoint: string,
+  token?: string,
+  options?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: buildAdminHeaders(token, options?.headers),
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(detail.detail || `${response.status} ${response.statusText}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json();
+}
+
+export function getStoredAdminSession(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(ADMIN_SESSION_KEY);
+}
+
+export function setStoredAdminSession(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(ADMIN_SESSION_KEY, token);
+    return;
+  }
+  window.localStorage.removeItem(ADMIN_SESSION_KEY);
+}
+
+export async function loginV2Admin(username: string, password: string): Promise<V2LoginResponse> {
+  return adminRequest<V2LoginResponse>("/api/admin/v2/login", undefined, {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export async function logoutV2Admin(token: string): Promise<{ success: boolean; message: string }> {
+  return adminRequest("/api/admin/v2/logout", token, {
+    method: "POST",
+  });
+}
+
+export async function getV2Preflight(token: string): Promise<Record<string, unknown>> {
+  return adminRequest("/api/admin/v2/preflight", token);
+}
+
+export async function getV2RuntimeStatus(token: string): Promise<V2RuntimeStatus> {
+  return adminRequest("/api/admin/v2/status", token);
+}
+
+export async function getV2Tasks(
+  token: string,
+  params: { limit?: number; task_type?: string; status?: string[] } = {},
+): Promise<Record<string, unknown>> {
+  const search = new URLSearchParams();
+  if (params.limit) search.set("limit", String(params.limit));
+  if (params.task_type) search.set("task_type", params.task_type);
+  for (const value of params.status || []) search.append("status", value);
+  const query = search.toString();
+  return adminRequest(`/api/admin/v2/tasks${query ? `?${query}` : ""}`, token);
+}
+
+export async function getV2Runs(
+  token: string,
+  params: { limit?: number; status?: string[] } = {},
+): Promise<Record<string, unknown>> {
+  const search = new URLSearchParams();
+  if (params.limit) search.set("limit", String(params.limit));
+  for (const value of params.status || []) search.append("status", value);
+  const query = search.toString();
+  return adminRequest(`/api/admin/v2/runs${query ? `?${query}` : ""}`, token);
+}
+
+export async function getV2Plans(token: string): Promise<{ items: V2PlanDefinition[] }> {
+  return adminRequest("/api/admin/v2/plans", token);
+}
+
+export async function runV2Plan(
+  token: string,
+  planName: string,
+  options: { background?: boolean; include_paid_rss?: boolean } = {},
+): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams({ plan_name: planName });
+  if (options.background !== undefined) params.set("background", String(options.background));
+  if (options.include_paid_rss !== undefined) {
+    params.set("include_paid_rss", String(options.include_paid_rss));
+  }
+  return adminRequest(`/api/admin/v2/run-plan?${params.toString()}`, token, {
+    method: "POST",
+  });
+}
+
+export async function runV2DataQualitySweep(
+  token: string,
+  limit?: number,
+): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams();
+  if (limit) params.set("limit", String(limit));
+  return adminRequest(`/api/admin/v2/data-quality/sweep-now${params.toString() ? `?${params.toString()}` : ""}`, token, {
+    method: "POST",
+  });
+}
+
+export async function runV2ConsistencySweep(
+  token: string,
+  options: { limit?: number; scan_limit?: number } = {},
+): Promise<Record<string, unknown>> {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.scan_limit) params.set("scan_limit", String(options.scan_limit));
+  return adminRequest(
+    `/api/admin/v2/canonicalize/consistency-sweep-now${params.toString() ? `?${params.toString()}` : ""}`,
+    token,
+    { method: "POST" },
+  );
+}
+
+export async function getV2ManualReviewQueue(
+  token: string,
+  limit: number = 50,
+): Promise<V2ManualReviewQueueResponse> {
+  return adminRequest(`/api/admin/v2/manual-review-queue?limit=${limit}`, token);
+}
+
+export async function getV2ConsistencyCandidates(
+  token: string,
+  options: { limit?: number; scan_limit?: number } = {},
+): Promise<V2ConsistencyCandidatesResponse> {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.scan_limit) params.set("scan_limit", String(options.scan_limit));
+  const query = params.toString();
+  return adminRequest(`/api/admin/v2/canonicalize/consistency-candidates${query ? `?${query}` : ""}`, token);
+}

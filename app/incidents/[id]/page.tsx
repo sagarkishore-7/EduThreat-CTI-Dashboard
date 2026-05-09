@@ -450,7 +450,7 @@ export default function IncidentDetailPage() {
                     <Skull className="w-3.5 h-3.5" />RW.Live
                   </a>
                 )}
-                <a href={`${API_BASE}/api/incidents/${incident.incident_id}/report`} download
+                <a href={`${API_BASE}/api/v2/incidents/${incident.incident_id}/report`} download
                   className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20 transition-colors">
                   <Download className="w-3.5 h-3.5" />CTI Report
                 </a>

@@ -1,79 +1,69 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboard, getAttackFlow, getCountryAnalytics } from "@/lib/api";
-import { StatCard } from "@/components/StatCard";
+import { getCountryAnalytics, getDashboard, getThreatActors } from "@/lib/api";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
-import { formatCurrency } from "@/lib/utils";
+import { StatCard } from "@/components/StatCard";
+import { formatDate } from "@/lib/utils";
 import {
-  GraduationCap,
-  Globe2,
-  Users,
+  Activity,
   AlertTriangle,
   Database,
-  Lock,
-  Clock,
-  DollarSign,
-  Target,
+  Globe2,
+  GraduationCap,
   Layers,
+  Lock,
   Shield,
-  Activity,
+  Users,
 } from "lucide-react";
 
 const IncidentTimeChart = dynamic(
   () => import("@/components/charts/IncidentTimeChart").then((m) => m.IncidentTimeChart),
-  { ssr: false }
+  { ssr: false },
 );
 const AttackTypeChart = dynamic(
   () => import("@/components/charts/AttackTypeChart").then((m) => m.AttackTypeChart),
-  { ssr: false }
+  { ssr: false },
 );
 const WorldHeatmap = dynamic(
   () => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap),
-  { ssr: false }
+  { ssr: false },
 );
 const RansomwareChart = dynamic(
   () => import("@/components/charts/RansomwareChart").then((m) => m.RansomwareChart),
-  { ssr: false }
-);
-const AttackFlowChart = dynamic(
-  () => import("@/components/charts/AttackFlowChart").then((m) => m.AttackFlowChart),
-  { ssr: false }
+  { ssr: false },
 );
 
 export default function DashboardPage() {
   const router = useRouter();
-
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboard,
-    refetchInterval: 60000,
+    refetchInterval: 60_000,
   });
-
-  const { data: attackFlow } = useQuery({
-    queryKey: ["attack-flow"],
-    queryFn: getAttackFlow,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  // Fetch all countries for the full-coverage choropleth (same as global map page)
-  const { data: allCountriesData } = useQuery({
+  const { data: countries } = useQuery({
     queryKey: ["countries-dashboard-map"],
     queryFn: () => getCountryAnalytics(200),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 5 * 60_000,
+  });
+  const { data: actors } = useQuery({
+    queryKey: ["dashboard-threat-actors"],
+    queryFn: () => getThreatActors(6),
+    staleTime: 5 * 60_000,
   });
 
   if (isLoading) return <DashboardSkeleton />;
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-full items-center justify-center">
         <div className="text-center">
-          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-          <h2 className="text-base font-semibold mb-1 text-zinc-200">Connection Failed</h2>
-          <p className="text-sm text-zinc-600">Unable to reach the API.</p>
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-500" />
+          <h2 className="mb-1 text-base font-semibold text-zinc-200">Connection Failed</h2>
+          <p className="text-sm text-zinc-600">Unable to reach the v2 API.</p>
         </div>
       </div>
     );
@@ -88,193 +78,167 @@ export default function DashboardPage() {
     recent_incidents,
   } = data;
 
-  const enrichmentPct = stats.total_incidents > 0
-    ? Math.round((stats.education_incidents / stats.total_incidents) * 100)
-    : 0;
+  const actorItems = actors?.threat_actors || [];
+  const mapData = countries?.data || incidents_by_country;
 
   return (
     <div className="space-y-4 animate-fade-in">
-
-      {/* ── Status Banner ─────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-zinc-800 bg-[#0c0c18] text-[11px] font-mono overflow-x-auto">
-        <span className="flex items-center gap-1.5 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-emerald-400 font-bold">OPERATIONAL</span>
-        </span>
-        <span className="text-zinc-700">│</span>
-        <span className="text-zinc-500 shrink-0">
-          <span className="text-zinc-400">{stats.education_incidents.toLocaleString()}</span> verified incidents
-        </span>
-        <span className="text-zinc-700">│</span>
-        <span className="text-zinc-500 shrink-0">
-          <span className="text-zinc-400">{stats.countries_affected}</span> nations
-        </span>
-        <span className="text-zinc-700">│</span>
-        <span className="text-zinc-500 shrink-0">
-          <span className="text-zinc-400">{stats.unique_threat_actors}</span> threat actors
-        </span>
-        <span className="text-zinc-700">│</span>
-        <span className="text-zinc-500 shrink-0">
-          <span className="text-zinc-400">{stats.data_sources}</span> intel sources
-        </span>
-        <span className="text-zinc-700 hidden sm:inline">│</span>
-        <span className="text-zinc-600 shrink-0 hidden sm:inline">
-          updated {new Date(stats.last_updated).toLocaleTimeString()}
-        </span>
+      <div className="overflow-x-auto rounded-lg border border-zinc-800 bg-[#0c0c18] px-4 py-2.5 text-[11px] font-mono">
+        <div className="flex min-w-max items-center gap-3">
+          <span className="flex shrink-0 items-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+            <span className="font-bold text-emerald-400">V2 CANONICAL LIVE</span>
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500">
+            <span className="text-zinc-300">{stats.education_incidents.toLocaleString()}</span> verified incidents
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500">
+            <span className="text-zinc-300">{stats.countries_affected}</span> countries
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500">
+            <span className="text-zinc-300">{stats.unique_threat_actors}</span> actors
+          </span>
+          <span className="text-zinc-700">|</span>
+          <span className="text-zinc-500">
+            updated <span className="text-zinc-300">{new Date(stats.last_updated).toLocaleTimeString()}</span>
+          </span>
+        </div>
       </div>
 
-      {/* ── Primary Stat Cards ────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          title="Education Institutions Affected"
+          title="Education Incidents"
           value={stats.education_incidents}
-          description="Confirmed education-sector incidents"
+          description="Canonical incidents retained in the dataset"
           icon={GraduationCap}
           variant="primary"
-          href="/incidents?enriched_only=true"
+          href="/incidents"
         />
         <StatCard
-          title="Ransomware Attacks"
+          title="Ransomware"
           value={stats.incidents_with_ransomware}
-          description={`${stats.unique_ransomware_families} unique families identified`}
+          description={`${stats.unique_ransomware_families} families tracked`}
           icon={Lock}
           variant="danger"
-          href="/incidents?attack_category=ransomware"
+          href="/ransomware"
         />
         <StatCard
           title="Data Breaches"
           value={stats.incidents_with_data_breach}
-          description="Confirmed data exfiltration events"
+          description="Incidents with breach or exfiltration indicators"
           icon={Database}
           variant="warning"
-          href="/incidents?data_breached=true"
+          href="/analytics"
         />
         <StatCard
-          title="Countries Affected"
+          title="Countries"
           value={stats.countries_affected}
-          description="Nations with edu-sector incidents"
+          description="Geographic spread across the education sector"
           icon={Globe2}
           variant="success"
           href="/map"
         />
       </div>
 
-      {/* ── Secondary Metrics ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           title="Threat Actors"
           value={stats.unique_threat_actors}
-          description="Identified groups"
           icon={Users}
-          variant="danger"
+          variant="purple"
+          size="compact"
+          href="/threat-actors"
+        />
+        <StatCard
+          title="Enriched"
+          value={stats.enriched_incidents}
+          icon={Shield}
+          variant="success"
           size="compact"
           href="/incidents"
         />
         <StatCard
-          title="MITRE Mapped"
-          value={stats.incidents_with_mitre}
-          description="With ATT&CK attribution"
-          icon={Target}
-          variant="purple"
+          title="Pending Review"
+          value={stats.unenriched_incidents}
+          icon={Activity}
+          variant="warning"
           size="compact"
-          href="/incidents?enriched_only=true"
+          href="/admin"
         />
         <StatCard
-          title={stats.total_financial_impact > 0 ? "Financial Impact" : "Avg Recovery"}
-          value={
-            stats.total_financial_impact > 0
-              ? formatCurrency(stats.total_financial_impact)
-              : stats.avg_recovery_days
-              ? `${stats.avg_recovery_days}d`
-              : "N/A"
-          }
-          description={stats.total_financial_impact > 0 ? "Estimated total loss" : "Mean days to recover"}
-          icon={stats.total_financial_impact > 0 ? DollarSign : Clock}
-          variant={stats.total_financial_impact > 0 ? "pink" : "warning"}
-          size="compact"
-        />
-        <StatCard
-          title="Intel Sources"
+          title="Feeds"
           value={stats.data_sources}
-          description="Active data feeds"
           icon={Layers}
-          variant="success"
+          variant="default"
           size="compact"
+          href="/admin"
         />
       </div>
 
-      {/* ── World Heatmap + Attack Flow ───────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Map takes 2/3 */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <WorldHeatmap
-            data={allCountriesData?.data ?? incidents_by_country}
+            data={mapData}
             onCountryClick={(country) =>
               router.push(`/incidents?country=${encodeURIComponent(country)}`)
             }
           />
         </div>
 
-        {/* Attack Flow Sankey — 1/3 */}
-        <div className="bg-[#0c0c18] border border-zinc-800 rounded-lg p-4">
+        <div className="rounded-lg border border-zinc-800 bg-[#0c0c18] p-4">
           <div className="mb-3">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-0.5">
-              Attack Intelligence
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-widest text-zinc-500">
+              Threat Actor Focus
             </p>
-            <h3 className="text-sm font-semibold text-zinc-200">Attack Flow</h3>
-            <p className="text-[10px] text-zinc-600 mt-0.5">
-              Vector → Category → Actor
+            <h3 className="text-sm font-semibold text-zinc-200">Top Active Groups</h3>
+            <p className="mt-0.5 text-[10px] text-zinc-600">
+              Canonical actor profiles built from the new Postgres read path
             </p>
           </div>
-          <div className="h-[360px]">
-            {attackFlow ? (
-              <AttackFlowChart data={attackFlow} />
+          <div className="space-y-2">
+            {actorItems.length > 0 ? (
+              actorItems.map((actor, index) => (
+                <Link
+                  key={actor.name}
+                  href={`/incidents?search=${encodeURIComponent(actor.name)}`}
+                  className="flex items-start justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 p-3 transition-colors hover:border-cyan-500/30 hover:bg-zinc-800/50"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-widest text-zinc-600">#{index + 1}</p>
+                    <p className="truncate text-sm font-medium text-zinc-100">{actor.name}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {actor.countries_targeted.slice(0, 3).join(", ") || "Multi-region targeting"}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-lg font-semibold text-cyan-400">
+                      {actor.incident_count}
+                    </p>
+                    <p className="text-[10px] text-zinc-600">
+                      {formatDate(actor.last_seen || actor.first_seen || stats.last_updated)}
+                    </p>
+                  </div>
+                </Link>
+              ))
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-2">
-                  <Activity className="w-8 h-8 text-zinc-700 mx-auto" />
-                  <p className="text-xs text-zinc-600">Loading attack flow…</p>
-                </div>
+              <div className="flex h-[320px] items-center justify-center text-sm text-zinc-600">
+                Threat actor profiles are still loading.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ── Timeline — full width ─────────────────────────────────── */}
       <IncidentTimeChart data={incidents_over_time} />
 
-      {/* ── Bottom Row: Attack Types | Ransomware | Feed ─────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <AttackTypeChart data={incidents_by_attack_type} />
         <RansomwareChart data={incidents_by_ransomware} />
-        <div className="min-h-[360px] flex flex-col">
+        <div className="min-h-[360px]">
           <RecentIncidentsList incidents={recent_incidents} />
-        </div>
-      </div>
-
-      {/* ── Coverage Meter ────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 px-4 py-3 rounded-lg border border-zinc-800 bg-[#0c0c18]">
-        <Shield className="w-4 h-4 text-cyan-500 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[11px] uppercase tracking-widest text-zinc-500 font-medium">
-              Intelligence Coverage
-            </span>
-            <span className="text-[11px] font-mono text-cyan-400 font-bold">
-              {enrichmentPct}%
-            </span>
-          </div>
-          <div className="h-1.5 bg-zinc-900 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-1000"
-              style={{ width: `${enrichmentPct}%` }}
-            />
-          </div>
-          <p className="text-[10px] text-zinc-600 mt-1 font-mono">
-            {stats.education_incidents.toLocaleString()} education incidents /{" "}
-            {stats.total_incidents.toLocaleString()} total collected
-          </p>
         </div>
       </div>
     </div>
@@ -284,28 +248,22 @@ export default function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
-      <div className="h-10 rounded-lg bg-zinc-900 border border-zinc-800" />
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="h-10 rounded-lg border border-zinc-800 bg-zinc-900" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 rounded-lg bg-zinc-900 border border-zinc-800" />
+          <div key={i} className="h-28 rounded-lg border border-zinc-800 bg-zinc-900" />
         ))}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-16 rounded-lg bg-zinc-900 border border-zinc-800" />
+          <div key={i} className="h-20 rounded-lg border border-zinc-800 bg-zinc-900" />
         ))}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 h-[460px] rounded-lg bg-zinc-900 border border-zinc-800" />
-        <div className="h-[460px] rounded-lg bg-zinc-900 border border-zinc-800" />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="h-[420px] rounded-lg border border-zinc-800 bg-zinc-900 xl:col-span-2" />
+        <div className="h-[420px] rounded-lg border border-zinc-800 bg-zinc-900" />
       </div>
-      <div className="h-[320px] rounded-lg bg-zinc-900 border border-zinc-800" />
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-[360px] rounded-lg bg-zinc-900 border border-zinc-800" />
-        ))}
-      </div>
-      <div className="h-14 rounded-lg bg-zinc-900 border border-zinc-800" />
+      <div className="h-[360px] rounded-lg border border-zinc-800 bg-zinc-900" />
     </div>
   );
 }

@@ -24,11 +24,11 @@ const navigation = [
   { name: "Attack Intel",       href: "/attacks",       icon: AlertTriangle,   group: "intel" },
   { name: "Ransomware",         href: "/ransomware",    icon: Lock,            group: "intel" },
   { name: "Threat Actors",      href: "/threat-actors", icon: Users,           group: "intel" },
-  { name: "Impact Analytics",   href: "/analytics",     icon: BarChart3,       group: "intel" },
+  { name: "Analytics",          href: "/analytics",     icon: BarChart3,       group: "intel" },
 ];
 
 const adminNav = [
-  { name: "Admin Panel", href: "/admin", icon: Settings },
+  { name: "Operations", href: "/admin", icon: Settings },
 ];
 
 interface SidebarProps {

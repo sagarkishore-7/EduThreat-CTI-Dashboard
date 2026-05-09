@@ -10,11 +10,11 @@ const pageMeta: Record<string, { label: string; description: string }> = {
   "/":              { label: "Dashboard",         description: "Global threat overview" },
   "/incidents":     { label: "Incidents",          description: "Verified education sector incidents" },
   "/map":           { label: "Global Map",          description: "Geographic threat distribution" },
-  "/attacks":       { label: "Attack Intelligence", description: "TTPs, vectors & MITRE mapping" },
-  "/ransomware":    { label: "Ransomware",          description: "Family tracking & economics" },
-  "/threat-actors": { label: "Threat Actors",       description: "Group profiles & attribution" },
-  "/analytics":     { label: "Impact Analytics",    description: "Financial, regulatory & recovery data" },
-  "/admin":         { label: "Admin Panel",          description: "Pipeline controls & exports" },
+  "/attacks":       { label: "Attack Intelligence", description: "Canonical attack distribution and sector trend" },
+  "/ransomware":    { label: "Ransomware",          description: "Family prevalence and victim targeting" },
+  "/threat-actors": { label: "Threat Actors",       description: "Attribution and actor-linked families" },
+  "/analytics":     { label: "Analytics",           description: "v2 canonical breakdowns and trend views" },
+  "/admin":         { label: "Operations",          description: "v2 runtime, plans, and data quality controls" },
 };
 
 interface HeaderProps {

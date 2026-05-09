@@ -2,62 +2,93 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  getStats,
+  getAnalyticsBreakdowns,
   getAttackTypeAnalytics,
-  getAttackTrends,
-  getAttackVectors,
-  getMitreTactics,
-  getInitialAccess,
-  getSystemImpact,
-  getAttackVectorByInstitution,
-  getBreachSeverityTimeline,
-  getAttackFlow,
-  getMitreSunburst,
+  getIncidentTrend,
+  getIncidents,
+  getStats,
+  getThreatActors,
+  type RecentIncident,
 } from "@/lib/api";
-import { StatCard } from "@/components/StatCard";
-import { AttackTrendChart } from "@/components/charts/AttackTrendChart";
-import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
-import { AttackVectorDonut } from "@/components/charts/AttackVectorDonut";
-import { MitreHeatmap } from "@/components/charts/MitreHeatmap";
-import { InitialAccessTreemap } from "@/components/charts/InitialAccessTreemap";
-import { SystemImpactChart } from "@/components/charts/SystemImpactChart";
-import { AttackVectorByInstitution } from "@/components/charts/AttackVectorByInstitution";
-import { BreachSeverityTimeline } from "@/components/charts/BreachSeverityTimeline";
-import { AttackFlowSankey } from "@/components/charts/AttackFlowSankey";
-import { MitreSunburst } from "@/components/charts/MitreSunburst";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
+import { StatCard } from "@/components/StatCard";
+import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
+import { CountryChart } from "@/components/charts/CountryChart";
+import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
+import { InstitutionTypeChart } from "@/components/charts/InstitutionTypeChart";
+import { RecentIncidentsList } from "@/components/RecentIncidentsList";
+import { formatAttackCategory, formatDate } from "@/lib/utils";
 import {
+  AlertTriangle,
+  Building2,
+  Globe2,
   Shield,
-  Lock,
   Target,
-  Database,
-  Crosshair,
+  Users,
 } from "lucide-react";
 
-export default function AttackIntelligencePage() {
-  // Fetch all data with react-query
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
-  const { data: attackTypes, isLoading: l1 } = useQuery({ queryKey: ["attack-types-full"], queryFn: () => getAttackTypeAnalytics(20) });
-  const { data: attackTrends, isLoading: l2 } = useQuery({ queryKey: ["attack-trends"], queryFn: () => getAttackTrends(36) });
-  const { data: attackVectors, isLoading: l3 } = useQuery({ queryKey: ["attack-vectors"], queryFn: () => getAttackVectors(10) });
-  const { data: mitreTactics, isLoading: l4 } = useQuery({ queryKey: ["mitre-tactics"], queryFn: getMitreTactics });
-  const { data: initialAccess, isLoading: l5 } = useQuery({ queryKey: ["initial-access"], queryFn: () => getInitialAccess(12) });
-  const { data: systemImpact, isLoading: l6 } = useQuery({ queryKey: ["system-impact"], queryFn: getSystemImpact });
-  const { data: attackVectorByInst, isLoading: l7 } = useQuery({ queryKey: ["attack-vector-by-institution"], queryFn: () => getAttackVectorByInstitution(8) });
-  const { data: breachSeverity, isLoading: l8 } = useQuery({ queryKey: ["breach-severity-timeline"], queryFn: () => getBreachSeverityTimeline(60) });
-  const { data: attackFlow, isLoading: l9 } = useQuery({ queryKey: ["attack-flow"], queryFn: getAttackFlow });
-  const { data: mitreSunburst, isLoading: l10 } = useQuery({ queryKey: ["mitre-sunburst"], queryFn: getMitreSunburst });
+function toRecentIncidents(
+  incidents: Array<{
+    incident_id: string;
+    institution_name: string;
+    country?: string;
+    attack_category?: string;
+    ransomware_family?: string;
+    incident_date?: string;
+    title?: string;
+    enriched_summary?: string;
+    threat_actor_name?: string;
+  }>,
+): RecentIncident[] {
+  return incidents.map((incident) => ({
+    incident_id: incident.incident_id,
+    institution_name: incident.institution_name,
+    country: incident.country,
+    attack_category: incident.attack_category,
+    ransomware_family: incident.ransomware_family,
+    incident_date: incident.incident_date,
+    title: incident.title,
+    enriched_summary: incident.enriched_summary,
+    threat_actor_name: incident.threat_actor_name,
+  }));
+}
 
-  const isLoading = l1 || l2 || l3 || l4 || l5 || l6 || l7 || l8 || l9 || l10;
+export default function AttackIntelligencePage() {
+  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
+  const { data: attackTypes, isLoading: loadingAttackTypes } = useQuery({
+    queryKey: ["attack-types-v2"],
+    queryFn: () => getAttackTypeAnalytics(20),
+  });
+  const { data: trend, isLoading: loadingTrend } = useQuery({
+    queryKey: ["attack-trend-v2"],
+    queryFn: () => getIncidentTrend({ bucket: "month", limit: 24 }),
+  });
+  const { data: breakdowns, isLoading: loadingBreakdowns } = useQuery({
+    queryKey: ["attack-breakdowns-v2"],
+    queryFn: () => getAnalyticsBreakdowns(),
+  });
+  const { data: recentList, isLoading: loadingRecent } = useQuery({
+    queryKey: ["attack-recent-incidents"],
+    queryFn: () => getIncidents({ per_page: 10, sort_by: "incident_date", sort_order: "desc" }),
+  });
+  const { data: actors, isLoading: loadingActors } = useQuery({
+    queryKey: ["attack-threat-actors"],
+    queryFn: () => getThreatActors(8),
+  });
+
+  const isLoading =
+    loadingAttackTypes || loadingTrend || loadingBreakdowns || loadingRecent || loadingActors;
 
   if (isLoading) return <PageSkeleton rows={4} />;
 
-  // Calculate stat values from stats
-  const eduIncidents = stats?.education_incidents || 0;
-  const ransomwareRate = eduIncidents > 0 ? ((stats?.incidents_with_ransomware || 0) / eduIncidents * 100).toFixed(1) : "0";
-  const breachRate = eduIncidents > 0 ? ((stats?.incidents_with_data_breach || 0) / eduIncidents * 100).toFixed(1) : "0";
-  const avgDowntime = stats?.avg_recovery_days ? `${stats.avg_recovery_days}d` : "N/A";
-  const mitreCount = stats?.incidents_with_mitre || 0;
+  const totalIncidents = stats?.education_incidents || 0;
+  const attackItems = attackTypes?.data || [];
+  const leadAttack = attackItems[0];
+  const countryItems = breakdowns?.countries || [];
+  const institutionTypes = breakdowns?.institution_types || [];
+  const severityItems = breakdowns?.severities || [];
+  const actorItems = actors?.threat_actors || [];
+  const recentIncidents = toRecentIncidents(recentList?.incidents || []);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -65,47 +96,121 @@ export default function AttackIntelligencePage() {
         icon={Shield}
         label="Attack Intelligence"
         title="Attack Intelligence"
-        description={`Comprehensive analysis of attack vectors, TTPs, and system impact across ${eduIncidents} verified education incidents`}
+        description={`Core attack distribution, sector trend, and institution targeting across ${totalIncidents} canonical education incidents`}
       />
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <StatCard title="Verified Incidents" value={eduIncidents} icon={Shield} variant="primary" />
-        <StatCard title="Ransomware Rate" value={`${ransomwareRate}%`} icon={Lock} variant="danger" />
-        <StatCard title="Data Breach Rate" value={`${breachRate}%`} icon={Database} variant="warning" />
-        <StatCard title="Avg Downtime" value={avgDowntime} icon={Target} variant="purple" />
-        <StatCard title="MITRE Mapped" value={mitreCount} icon={Crosshair} variant="success" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <StatCard title="Verified Incidents" value={totalIncidents} icon={Shield} variant="primary" />
+        <StatCard
+          title="Attack Types"
+          value={attackItems.length}
+          icon={AlertTriangle}
+          variant="danger"
+        />
+        <StatCard
+          title="Top Category"
+          value={leadAttack ? formatAttackCategory(leadAttack.category) : "N/A"}
+          icon={Target}
+          variant="warning"
+        />
+        <StatCard
+          title="Countries"
+          value={countryItems.length}
+          icon={Globe2}
+          variant="success"
+        />
+        <StatCard
+          title="Institution Types"
+          value={institutionTypes.length}
+          icon={Building2}
+          variant="purple"
+        />
       </div>
 
-      {/* Attack Trends - Full Width */}
-      {attackTrends && <AttackTrendChart data={attackTrends.data} />}
+      <IncidentTimeChart data={trend?.items || []} />
 
-      {/* Attack Flow Sankey - Full Width */}
-      <AttackFlowSankey data={attackFlow} />
-
-      {/* Attack Category + Attack Vector side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {attackTypes && <AttackTypeChart data={attackTypes.data} />}
-        {attackVectors && <AttackVectorDonut data={attackVectors.data} />}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <AttackTypeChart data={attackItems} />
+        <CountryChart data={countryItems} />
       </div>
 
-      {/* MITRE Heatmap - Full Width */}
-      {mitreTactics && <MitreHeatmap data={mitreTactics.data} />}
-
-      {/* MITRE Sunburst - Full Width */}
-      <MitreSunburst data={mitreSunburst} />
-
-      {/* Breach Severity Timeline - Full Width */}
-      {breachSeverity && <BreachSeverityTimeline data={breachSeverity} />}
-
-      {/* Initial Access + System Impact side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {initialAccess && <InitialAccessTreemap data={initialAccess.data} />}
-        {systemImpact && <SystemImpactChart data={systemImpact.data} />}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <InstitutionTypeChart data={institutionTypes} />
+        <div className="rounded-xl border border-zinc-800 bg-[#0d0d1a] p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="section-label mb-1">Severity Breakdown</p>
+              <h3 className="text-lg font-semibold text-zinc-100">Operational Risk Signals</h3>
+            </div>
+            <Users className="h-5 w-5 text-cyan-400" />
+          </div>
+          <div className="space-y-3">
+            {severityItems.length > 0 ? (
+              severityItems.map((item) => (
+                <div key={item.category} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-sm font-medium text-zinc-100">
+                      {formatAttackCategory(item.category)}
+                    </p>
+                    <p className="font-mono text-cyan-400">{item.count}</p>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500"
+                      style={{ width: `${Math.min(item.percentage, 100)}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-zinc-500">{item.percentage.toFixed(1)}% of canonicals</p>
+                </div>
+              ))
+            ) : (
+              <div className="flex h-[320px] items-center justify-center text-sm text-zinc-600">
+                Severity metadata is still building in the v2 dataset.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Attack Vector by Institution - Full Width */}
-      {attackVectorByInst && <AttackVectorByInstitution data={attackVectorByInst} />}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2">
+          <RecentIncidentsList incidents={recentIncidents} />
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-[#0d0d1a] p-5">
+          <div className="mb-4">
+            <p className="section-label mb-1">Threat Actors</p>
+            <h3 className="text-lg font-semibold text-zinc-100">Who Shows Up Most Often</h3>
+          </div>
+          <div className="space-y-3">
+            {actorItems.map((actor) => (
+              <div key={actor.name} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-zinc-100">{actor.name}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {actor.countries_targeted.slice(0, 3).join(", ") || "Multi-region"}
+                    </p>
+                  </div>
+                  <p className="shrink-0 font-mono text-lg text-cyan-400">{actor.incident_count}</p>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {actor.ransomware_families.slice(0, 4).map((family) => (
+                    <span
+                      key={family}
+                      className="rounded-full border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400"
+                    >
+                      {family}
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-2 text-[10px] text-zinc-600">
+                  Last seen {formatDate(actor.last_seen || actor.first_seen || "")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

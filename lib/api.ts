@@ -1,8 +1,14 @@
 /**
- * API client for EduThreat-CTI backend
+ * Public API client for the EduThreat-CTI v2 dashboard.
+ *
+ * This file intentionally exposes a small compatibility layer over the new
+ * Postgres-backed `/api/v2` surface instead of carrying forward the old
+ * SQLite-era endpoint map.
  */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import { COUNTRY_NAME_TO_CODE } from "@/lib/utils";
+
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export interface PaginationMeta {
   page: number;
@@ -96,19 +102,20 @@ export interface IncidentDetail {
   initial_access_description?: string;
   primary_url?: string;
   all_urls: string[];
-  leak_site_url?: string;        // dark web claim URL (.onion) — directly from ransomware group
-  source_detail_url?: string;    // CTI platform page (e.g. ransomware.live/id/...)
-  screenshot_url?: string;       // screenshot of the claim/leak page
+  leak_site_url?: string;
+  source_detail_url?: string;
+  screenshot_url?: string;
   attack_type_hint?: string;
   attack_category?: string;
   incident_severity?: string;
   status: string;
   source_confidence: string;
-  threat_actor?: string;         // raw ingestion field (from ransomware.live group name)
+  threat_actor?: string;
   threat_actor_name?: string;
   threat_actor_category?: string;
   threat_actor_motivation?: string;
   threat_actor_origin_country?: string;
+  threat_actor_claim_url?: string;
   timeline?: TimelineEvent[];
   mitre_attack_techniques?: MITRETechnique[];
   attack_dynamics?: AttackDynamics;
@@ -268,30 +275,65 @@ export interface IncidentListResponse {
   pagination: PaginationMeta;
 }
 
-// API Functions
+export interface AnalyticsBreakdownsResponse {
+  countries: CountByCategory[];
+  attack_categories: CountByCategory[];
+  institution_types: CountByCategory[];
+  severities: CountByCategory[];
+}
+
+export interface IncidentTrendResponse {
+  bucket: "month" | "week" | "year";
+  items: TimeSeriesPoint[];
+}
+
+export interface IncidentBreakdownFilters {
+  search?: string;
+  country?: string;
+  attack_category?: string;
+  institution_type?: string;
+  severity?: string;
+  has_vendor?: boolean;
+  is_education_related?: boolean;
+  date_from?: string;
+  date_to?: string;
+}
+
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
-  const response = await fetch(url, {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options?.headers,
     },
   });
-  
+
   if (!response.ok) {
     throw new Error(`API Error: ${response.status} ${response.statusText}`);
   }
-  
+
   return response.json();
 }
 
+function toCountryCode(country?: string): string | undefined {
+  if (!country) return undefined;
+  const trimmed = country.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length === 2) return trimmed.toUpperCase();
+  return COUNTRY_NAME_TO_CODE[trimmed] || undefined;
+}
+
+function withQuery(endpoint: string, params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `${endpoint}?${query}` : endpoint;
+}
+
 export async function getDashboard(): Promise<DashboardResponse> {
-  return fetchAPI<DashboardResponse>('/api/dashboard');
+  return fetchAPI<DashboardResponse>("/api/v2/dashboard");
 }
 
 export async function getStats(): Promise<DashboardStats> {
-  return fetchAPI<DashboardStats>('/api/stats');
+  return fetchAPI<DashboardStats>("/api/v2/stats");
 }
 
 export async function getIncidents(params: {
@@ -303,525 +345,128 @@ export async function getIncidents(params: {
   threat_actor?: string;
   institution_type?: string;
   year?: number;
-  enriched_only?: boolean;
-  data_breached?: boolean;
   search?: string;
   sort_by?: string;
   sort_order?: string;
 } = {}): Promise<IncidentListResponse> {
+  const page = params.page || 1;
+  const perPage = params.per_page || 25;
   const searchParams = new URLSearchParams();
-  
-  if (params.page) searchParams.set('page', params.page.toString());
-  if (params.per_page) searchParams.set('per_page', params.per_page.toString());
-  if (params.country) searchParams.set('country', params.country);
-  if (params.attack_category) searchParams.set('attack_category', params.attack_category);
-  if (params.ransomware_family) searchParams.set('ransomware_family', params.ransomware_family);
-  if (params.threat_actor) searchParams.set('threat_actor', params.threat_actor);
-  if (params.institution_type) searchParams.set('institution_type', params.institution_type);
-  if (params.year) searchParams.set('year', params.year.toString());
-  if (params.enriched_only) searchParams.set('enriched_only', 'true');
-  if (params.data_breached) searchParams.set('data_breached', 'true');
-  if (params.search) searchParams.set('search', params.search);
-  if (params.sort_by) searchParams.set('sort_by', params.sort_by);
-  if (params.sort_order) searchParams.set('sort_order', params.sort_order);
-  
-  const query = searchParams.toString();
-  return fetchAPI<IncidentListResponse>(`/api/incidents${query ? `?${query}` : ''}`);
+
+  searchParams.set("format", "legacy");
+  searchParams.set("limit", perPage.toString());
+  searchParams.set("offset", ((page - 1) * perPage).toString());
+
+  const countryCode = toCountryCode(params.country);
+  if (countryCode) searchParams.set("country_code", countryCode);
+  if (params.attack_category) searchParams.set("attack_category", params.attack_category);
+  if (params.institution_type) searchParams.set("institution_type", params.institution_type);
+  if (params.search) searchParams.set("search", params.search);
+  if (!params.search && params.threat_actor) searchParams.set("search", params.threat_actor);
+  if (params.sort_by) {
+    const sortMap: Record<string, string> = {
+      incident_date: "incident_date",
+      institution_name: "institution_name",
+      country: "country",
+      attack_category: "severity",
+    };
+    searchParams.set("sort_by", sortMap[params.sort_by] || params.sort_by);
+  }
+  if (params.sort_order) searchParams.set("sort_order", params.sort_order);
+  if (params.year) {
+    searchParams.set("date_from", `${params.year}-01-01`);
+    searchParams.set("date_to", `${params.year}-12-31`);
+  }
+
+  const response = await fetchAPI<IncidentListResponse>(withQuery("/api/v2/incidents", searchParams));
+  return {
+    incidents: response.incidents,
+    pagination: {
+      page,
+      per_page: perPage,
+      total: response.pagination.total,
+      total_pages: Math.max(Math.ceil(response.pagination.total / perPage), 1),
+      has_next: page * perPage < response.pagination.total,
+      has_prev: page > 1,
+    },
+  };
 }
 
 export async function getIncident(id: string): Promise<IncidentDetail> {
-  return fetchAPI<IncidentDetail>(`/api/incidents/${id}`);
+  return fetchAPI<IncidentDetail>(`/api/v2/incidents/${id}?format=legacy`);
 }
 
 export async function getFilters(): Promise<FilterOptions> {
-  return fetchAPI<FilterOptions>('/api/filters');
+  return fetchAPI<FilterOptions>("/api/v2/filters");
 }
 
 export async function getThreatActors(limit: number = 20): Promise<ThreatActorsResponse> {
-  return fetchAPI(`/api/analytics/threat-actors?limit=${limit}`);
+  return fetchAPI(`/api/v2/analytics/threat-actors?limit=${limit}`);
 }
 
-export async function getCountryAnalytics(limit: number = 20): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI(`/api/analytics/countries?limit=${limit}`);
+export async function getCountryAnalytics(
+  limit: number = 20,
+): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI(`/api/v2/analytics/countries?limit=${limit}`);
 }
 
-export async function getAttackTypeAnalytics(limit: number = 15): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI(`/api/analytics/attack-types?limit=${limit}`);
+export async function getAttackTypeAnalytics(
+  limit: number = 15,
+): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI(`/api/v2/analytics/attack-types?limit=${limit}`);
 }
 
-export async function getRansomwareAnalytics(limit: number = 15): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI(`/api/analytics/ransomware?limit=${limit}`);
+export async function getRansomwareAnalytics(
+  limit: number = 15,
+): Promise<{ data: CountByCategory[]; total: number }> {
+  return fetchAPI(`/api/v2/analytics/ransomware?limit=${limit}`);
 }
 
-export async function getTimelineAnalytics(months: number = 24): Promise<{ data: TimeSeriesPoint[]; total: number }> {
-  return fetchAPI(`/api/analytics/timeline?months=${months}`);
+export async function getTimelineAnalytics(
+  months: number = 24,
+): Promise<{ data: TimeSeriesPoint[]; total: number }> {
+  return fetchAPI(`/api/v2/analytics/timeline?months=${months}`);
 }
 
-// ============================================================
-// Advanced Analytics Types
-// ============================================================
-
-export interface AttackTrendPoint {
-  month: string;
-  attack_category: string | null;
-  count: number;
-}
-
-export interface MitreTacticItem {
-  tactic: string;
-  count: number;
-  techniques: string[];
-}
-
-export interface RansomwareTimelineItem {
-  family: string;
-  incident_count: number;
-  first_seen?: string;
-  last_seen?: string;
-}
-
-export interface RansomwareFamilyDetail {
-  family: string;
-  incident_count: number;
-  exfiltration_count: number;
-  exfiltration_rate: number;
-  avg_ransom: number | null;
-  countries: string[];
-  first_seen?: string;
-  last_seen?: string;
-}
-
-export interface RansomEconomics {
-  total_ransomware: number;
-  demanded_count: number;
-  paid_count: number;
-  payment_rate: number;
-  total_demanded: number | null;
-  avg_demanded: number | null;
-  max_demanded: number | null;
-  total_paid: number | null;
-  avg_paid: number | null;
-}
-
-export interface RecoveryComparison {
-  avg_recovery_days: number;
-  avg_downtime_days: number;
-  backup_rate: number;
-  ir_firm_rate: number;
-  forensics_rate: number;
-  total: number;
-}
-
-export interface RecoveryComparisonResponse {
-  ransomware: RecoveryComparison;
-  other: RecoveryComparison;
-}
-
-export interface RansomwareGeoItem {
-  family: string;
-  countries: { country: string; count: number }[];
-}
-
-export interface ActorTimelinePoint {
-  actor: string;
-  month: string;
-  count: number;
-}
-
-export interface ActorRansomwareMatrix {
-  actors: string[];
-  families: string[];
-  matrix: { actor: string; family: string; count: number }[];
-}
-
-export interface ActorTargetingItem {
-  actor: string;
-  countries: { country: string; count: number }[];
-}
-
-export interface DataImpactStats {
-  total: number;
-  breached_count: number;
-  exfiltrated_count: number;
-  breach_rate: number;
-  exfiltration_rate: number;
-  total_records: number | null;
-  avg_records: number | null;
-  max_records: number | null;
-  total_pii_leaked: number | null;
-}
-
-export interface RegulatoryImpactStats {
-  total: number;
-  gdpr_count: number;
-  hipaa_count: number;
-  ferpa_count: number;
-  notification_required: number;
-  notifications_sent: number;
-  fines_imposed: number;
-  total_fines: number | null;
-  lawsuits_count: number;
-  class_action_count: number;
-}
-
-export interface RecoveryEffectiveness {
-  total: number;
-  avg_recovery_days: number | null;
-  avg_downtime_days: number | null;
-  backup_count: number;
-  backup_rate: number;
-  ir_firm_count: number;
-  ir_firm_rate: number;
-  forensics_count: number;
-  forensics_rate: number;
-  mfa_post_count: number;
-  mfa_adoption_rate: number;
-}
-
-export interface TransparencyStats {
-  total: number;
-  disclosed_count: number;
-  disclosure_rate: number;
-  avg_delay_days: number | null;
-  levels: { level: string; count: number }[];
-}
-
-export interface UserImpactTotals {
-  students: number | null;
-  staff: number | null;
-  faculty: number | null;
-  total_individuals: number | null;
-  incidents_with_data: number;
-}
-
-export interface FinancialImpactByYear {
-  year: string | null;
-  ransom_cost: number | null;
-  recovery_cost: number | null;
-  legal_cost: number | null;
-  notification_cost: number | null;
-  incident_count: number;
-}
-
-export interface OperationalImpactItem {
-  category: string;
-  count: number;
-  percentage: number;
-}
-
-// ============================================================
-// Advanced Analytics Fetch Functions
-// ============================================================
-
-export async function getAttackTrends(months: number = 36): Promise<{ data: AttackTrendPoint[]; total: number }> {
-  return fetchAPI(`/api/analytics/attack-trends?months=${months}`);
-}
-
-export async function getAttackVectors(limit: number = 10): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI(`/api/analytics/attack-vectors?limit=${limit}`);
-}
-
-export async function getMitreTactics(): Promise<{ data: MitreTacticItem[]; total: number }> {
-  return fetchAPI('/api/analytics/mitre-tactics');
-}
-
-export async function getInitialAccess(limit: number = 12): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI(`/api/analytics/initial-access?limit=${limit}`);
-}
-
-export async function getSystemImpact(): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI('/api/analytics/system-impact');
-}
-
-export async function getRansomwareTimeline(limit: number = 15): Promise<{ data: RansomwareTimelineItem[]; total: number }> {
-  return fetchAPI(`/api/analytics/ransomware-timeline?limit=${limit}`);
-}
-
-export async function getRansomwareFamiliesDetail(limit: number = 15): Promise<{ data: RansomwareFamilyDetail[]; total: number }> {
-  return fetchAPI(`/api/analytics/ransomware-families-detail?limit=${limit}`);
-}
-
-export async function getRansomEconomics(): Promise<RansomEconomics> {
-  return fetchAPI('/api/analytics/ransom-economics');
-}
-
-export async function getRansomwareRecovery(): Promise<RecoveryComparisonResponse> {
-  return fetchAPI('/api/analytics/ransomware-recovery');
-}
-
-export async function getRansomwareGeo(): Promise<RansomwareGeoItem[]> {
-  return fetchAPI('/api/analytics/ransomware-geo');
-}
-
-export async function getThreatActorCategories(): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI('/api/analytics/threat-actor-categories');
-}
-
-export async function getThreatActorMotivations(): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI('/api/analytics/threat-actor-motivations');
-}
-
-export async function getThreatActorTimeline(limit: number = 10): Promise<{ data: ActorTimelinePoint[]; total: number }> {
-  return fetchAPI(`/api/analytics/threat-actor-timeline?limit=${limit}`);
-}
-
-export async function getActorRansomwareMatrix(): Promise<ActorRansomwareMatrix> {
-  return fetchAPI('/api/analytics/actor-ransomware-matrix');
-}
-
-export async function getActorTargeting(limit: number = 10): Promise<ActorTargetingItem[]> {
-  return fetchAPI(`/api/analytics/actor-targeting?limit=${limit}`);
-}
-
-export async function getInstitutionTypes(): Promise<{ data: CountByCategory[]; total: number }> {
-  return fetchAPI('/api/analytics/institution-types');
-}
-
-export async function getOperationalImpact(): Promise<{ data: OperationalImpactItem[]; total: number }> {
-  return fetchAPI('/api/analytics/operational-impact');
-}
-
-export async function getFinancialImpact(): Promise<{ data: FinancialImpactByYear[]; total: number }> {
-  return fetchAPI('/api/analytics/financial-impact');
-}
-
-export async function getDataImpact(): Promise<DataImpactStats> {
-  return fetchAPI('/api/analytics/data-impact');
-}
-
-export async function getRegulatoryImpact(): Promise<RegulatoryImpactStats> {
-  return fetchAPI('/api/analytics/regulatory-impact');
-}
-
-export async function getRecoveryMetrics(): Promise<RecoveryEffectiveness> {
-  return fetchAPI('/api/analytics/recovery-metrics');
-}
-
-export async function getTransparencyMetrics(): Promise<TransparencyStats> {
-  return fetchAPI('/api/analytics/transparency-metrics');
-}
-
-export async function getUserImpact(): Promise<UserImpactTotals> {
-  return fetchAPI('/api/analytics/user-impact');
-}
-
-// ============================================================
-// Admin / Debug Raw Data Viewer
-// ============================================================
-
-export interface RawIncidentFilters {
-  incident_id?: string;
-  has_mitre?: boolean;
-  attack_category?: string;
-  country?: string;
-  has_enrichment?: boolean;
-  limit?: number;
-  offset?: number;
-}
-
-export interface RawIncidentResponse {
-  total: number;
-  limit: number;
-  offset: number;
-  incidents: Record<string, unknown>[];
-}
-
-export async function getRawIncidents(filters: RawIncidentFilters = {}): Promise<RawIncidentResponse> {
+export async function getAnalyticsBreakdowns(
+  filters: IncidentBreakdownFilters = {},
+): Promise<AnalyticsBreakdownsResponse> {
   const params = new URLSearchParams();
-  if (filters.incident_id) params.set('incident_id', filters.incident_id);
-  if (filters.has_mitre !== undefined) params.set('has_mitre', String(filters.has_mitre));
-  if (filters.attack_category) params.set('attack_category', filters.attack_category);
-  if (filters.country) params.set('country', filters.country);
-  if (filters.has_enrichment !== undefined) params.set('has_enrichment', String(filters.has_enrichment));
-  if (filters.limit) params.set('limit', String(filters.limit));
-  if (filters.offset) params.set('offset', String(filters.offset));
-  return fetchAPI(`/api/admin/raw-incidents?${params.toString()}`);
+  if (filters.search) params.set("search", filters.search);
+  const countryCode = toCountryCode(filters.country);
+  if (countryCode) params.set("country_code", countryCode);
+  if (filters.attack_category) params.set("attack_category", filters.attack_category);
+  if (filters.institution_type) params.set("institution_type", filters.institution_type);
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.has_vendor !== undefined) params.set("has_vendor", String(filters.has_vendor));
+  if (filters.is_education_related !== undefined) {
+    params.set("is_education_related", String(filters.is_education_related));
+  }
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  return fetchAPI<AnalyticsBreakdownsResponse>(withQuery("/api/v2/analytics/breakdowns", params));
 }
 
-// ============================================================
-// Extended Cross-Dimensional Analytics
-// ============================================================
-
-export interface InstitutionRiskItem {
-  institution_type: string;
-  attack_category: string;
-  count: number;
-}
-
-export interface RecoveryByAttackTypeItem {
-  attack_category: string;
-  avg_recovery_days: number | null;
-  avg_downtime_days: number | null;
-  incident_count: number;
-}
-
-export interface AttackVectorByInstitutionResponse {
-  institution_types: string[];
-  vectors: string[];
-  data: { institution_type: string; attack_vector: string; count: number }[];
-}
-
-export interface BreachSeverityPoint {
-  month: string;
-  incident_count: number;
-  avg_records: number | null;
-  breach_count: number;
-}
-
-export interface RansomPaymentByYearItem {
-  year: string | null;
-  total_incidents: number;
-  demanded_count: number;
-  paid_count: number;
-  total_demanded: number | null;
-  total_paid: number | null;
-  payment_rate: number;
-}
-
-export interface RansomwareFamilyTrendResponse {
-  families: string[];
-  data: { month: string; family: string; count: number }[];
-}
-
-export interface ActorInstitutionResponse {
-  actors: string[];
-  institution_types: string[];
-  data: { actor: string; institution_type: string; count: number }[];
-}
-
-export interface ActorTTPResponse {
-  actors: string[];
-  tactics: string[];
-  data: { actor: string; tactic: string; count: number }[];
-}
-
-export interface DisclosureTimelinePoint {
-  incident_date: string;
-  disclosure_delay_days: number;
-  country: string;
-  transparency_level: string | null;
-}
-
-export interface BreachByInstitutionItem {
-  institution_type: string;
-  total_incidents: number;
-  breach_count: number;
-  breach_rate: number;
-  avg_records: number | null;
-  total_records: number | null;
-}
-
-export async function getInstitutionRiskMatrix(): Promise<InstitutionRiskItem[]> {
-  return fetchAPI('/api/analytics/institution-risk-matrix');
-}
-
-export async function getRecoveryByAttackType(): Promise<RecoveryByAttackTypeItem[]> {
-  return fetchAPI('/api/analytics/recovery-by-attack-type');
-}
-
-export async function getAttackVectorByInstitution(limit: number = 8): Promise<AttackVectorByInstitutionResponse> {
-  return fetchAPI(`/api/analytics/attack-vector-by-institution?limit=${limit}`);
-}
-
-export async function getBreachSeverityTimeline(months: number = 60): Promise<BreachSeverityPoint[]> {
-  return fetchAPI(`/api/analytics/breach-severity-timeline?months=${months}`);
-}
-
-export async function getRansomPaymentByYear(): Promise<RansomPaymentByYearItem[]> {
-  return fetchAPI('/api/analytics/ransom-payment-by-year');
-}
-
-export async function getRansomwareFamilyTrend(limit: number = 8): Promise<RansomwareFamilyTrendResponse> {
-  return fetchAPI(`/api/analytics/ransomware-family-trend?limit=${limit}`);
-}
-
-export async function getActorInstitutionTargeting(limit: number = 12): Promise<ActorInstitutionResponse> {
-  return fetchAPI(`/api/analytics/actor-institution-targeting?limit=${limit}`);
-}
-
-export async function getActorTTPProfile(limit: number = 8): Promise<ActorTTPResponse> {
-  return fetchAPI(`/api/analytics/actor-ttp-profile?limit=${limit}`);
-}
-
-export async function getDisclosureTimeline(): Promise<DisclosureTimelinePoint[]> {
-  return fetchAPI('/api/analytics/disclosure-timeline');
-}
-
-export async function getBreachByInstitutionType(): Promise<BreachByInstitutionItem[]> {
-  return fetchAPI('/api/analytics/breach-by-institution-type');
-}
-
-// ============================================================
-// Interactive Nivo Visualization Types & Fetchers
-// ============================================================
-
-export interface SankeyNode {
-  id: string;
-}
-
-export interface SankeyLink {
-  source: string;
-  target: string;
-  value: number;
-}
-
-export interface AttackFlowResponse {
-  nodes: SankeyNode[];
-  links: SankeyLink[];
-}
-
-export interface MitreSunburstNode {
-  id: string;
-  value?: number;
-  children?: MitreSunburstNode[];
-}
-
-export interface ActorNetworkNode {
-  id: string;
-  radius: number;
-  count: number;
-  families: string[];
-}
-
-export interface ActorNetworkLink {
-  source: string;
-  target: string;
-  distance: number;
-  shared_families: string[];
-}
-
-export interface ActorNetworkResponse {
-  nodes: ActorNetworkNode[];
-  links: ActorNetworkLink[];
-}
-
-export interface RansomFlowResponse {
-  nodes: SankeyNode[];
-  links_by_count: SankeyLink[];
-  links_by_amount: SankeyLink[];
-}
-
-export interface CountryAttackMatrixResponse {
-  keys: string[];
-  matrix: number[][];
-}
-
-export async function getAttackFlow(): Promise<AttackFlowResponse> {
-  return fetchAPI('/api/analytics/attack-flow');
-}
-
-export async function getMitreSunburst(): Promise<MitreSunburstNode> {
-  return fetchAPI('/api/analytics/mitre-sunburst');
-}
-
-export async function getActorNetwork(): Promise<ActorNetworkResponse> {
-  return fetchAPI('/api/analytics/actor-network');
-}
-
-export async function getRansomFlow(): Promise<RansomFlowResponse> {
-  return fetchAPI('/api/analytics/ransom-flow');
-}
-
-export async function getCountryAttackMatrix(): Promise<CountryAttackMatrixResponse> {
-  return fetchAPI('/api/analytics/country-attack-matrix');
+export async function getIncidentTrend(
+  filters: IncidentBreakdownFilters & {
+    bucket?: "month" | "week" | "year";
+    limit?: number;
+  } = {},
+): Promise<IncidentTrendResponse> {
+  const params = new URLSearchParams();
+  params.set("bucket", filters.bucket || "month");
+  if (filters.limit) params.set("limit", String(filters.limit));
+  if (filters.search) params.set("search", filters.search);
+  const countryCode = toCountryCode(filters.country);
+  if (countryCode) params.set("country_code", countryCode);
+  if (filters.attack_category) params.set("attack_category", filters.attack_category);
+  if (filters.institution_type) params.set("institution_type", filters.institution_type);
+  if (filters.severity) params.set("severity", filters.severity);
+  if (filters.has_vendor !== undefined) params.set("has_vendor", String(filters.has_vendor));
+  if (filters.is_education_related !== undefined) {
+    params.set("is_education_related", String(filters.is_education_related));
+  }
+  if (filters.date_from) params.set("date_from", filters.date_from);
+  if (filters.date_to) params.set("date_to", filters.date_to);
+  return fetchAPI<IncidentTrendResponse>(withQuery("/api/v2/analytics/trend", params));
 }

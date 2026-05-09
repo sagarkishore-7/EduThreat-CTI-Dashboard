@@ -44,8 +44,6 @@ function IncidentsContent() {
   const attackCat  = searchParams.get("attack_category")  || "";
   const ransomware = searchParams.get("ransomware_family")|| "";
   const year       = searchParams.get("year")             || "";
-  const enrichedOnly  = searchParams.get("enriched_only") === "true";
-  const dataBreached  = searchParams.get("data_breached") === "true";
   const showFilters   = searchParams.get("filters") !== "0";
 
   const [localSearch, setLocalSearch] = useState(search);
@@ -75,13 +73,13 @@ function IncidentsContent() {
     [searchParams, router, pathname]
   );
 
-  const activeFilterCount = [country, attackCat, ransomware, year, enrichedOnly, dataBreached].filter(Boolean).length;
+  const activeFilterCount = [country, attackCat, ransomware, year].filter(Boolean).length;
 
   // ── Data fetching ──────────────────────────────────────────
   const { data: filterOptions } = useQuery({ queryKey: ["filters"], queryFn: getFilters });
 
   const { data, isLoading } = useQuery({
-    queryKey: ["incidents", page, perPage, search, sortBy, sortOrder, country, attackCat, ransomware, year, enrichedOnly, dataBreached],
+    queryKey: ["incidents", page, perPage, search, sortBy, sortOrder, country, attackCat, ransomware, year],
     queryFn: () => getIncidents({
       page, per_page: perPage,
       search: search || undefined,
@@ -90,8 +88,6 @@ function IncidentsContent() {
       attack_category: attackCat || undefined,
       ransomware_family: ransomware || undefined,
       year: year ? parseInt(year) : undefined,
-      enriched_only: enrichedOnly || undefined,
-      data_breached: dataBreached || undefined,
     }),
     placeholderData: (prev) => prev,
   });
@@ -106,8 +102,7 @@ function IncidentsContent() {
 
   const clearFilters = () => push({
     search: undefined, country: undefined, attack_category: undefined,
-    ransomware_family: undefined, year: undefined,
-    enriched_only: undefined, data_breached: undefined, page: 1,
+    ransomware_family: undefined, year: undefined, page: 1,
   });
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -241,20 +236,6 @@ function IncidentsContent() {
                 ))}
               </FilterSelect>
 
-              {/* Toggles */}
-              <div className="flex flex-col gap-1.5 col-span-1">
-                <FilterToggle
-                  label="Enriched only"
-                  checked={enrichedOnly}
-                  onChange={(v) => push({ enriched_only: v || undefined, page: 1 })}
-                />
-                <FilterToggle
-                  label="Data breaches"
-                  checked={dataBreached}
-                  onChange={(v) => push({ data_breached: v || undefined, page: 1 })}
-                />
-              </div>
-
               {/* Clear */}
               <div className="flex items-end">
                 <button
@@ -282,8 +263,6 @@ function IncidentsContent() {
               {attackCat && <FilterPill label={formatAttackCategory(attackCat)} onRemove={() => push({ attack_category: undefined, page: 1 })} />}
               {ransomware && <FilterPill label={ransomware} onRemove={() => push({ ransomware_family: undefined, page: 1 })} />}
               {year && <FilterPill label={year} onRemove={() => push({ year: undefined, page: 1 })} />}
-              {enrichedOnly && <FilterPill label="Enriched" onRemove={() => push({ enriched_only: undefined, page: 1 })} />}
-              {dataBreached && <FilterPill label="Breached" onRemove={() => push({ data_breached: undefined, page: 1 })} />}
             </div>
           )}
         </div>
@@ -479,26 +458,6 @@ function FilterSelect({ label, value, onChange, children }: {
       </select>
       <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600 pointer-events-none" />
     </div>
-  );
-}
-
-function FilterToggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer group">
-      <div
-        onClick={() => onChange(!checked)}
-        className={cn(
-          "w-7 h-4 rounded-full border transition-colors relative cursor-pointer",
-          checked ? "bg-cyan-500/30 border-cyan-500/50" : "bg-zinc-800 border-zinc-700"
-        )}
-      >
-        <div className={cn(
-          "absolute top-0.5 w-3 h-3 rounded-full transition-all",
-          checked ? "left-3.5 bg-cyan-400" : "left-0.5 bg-zinc-600"
-        )} />
-      </div>
-      <span className="text-[11px] text-zinc-500 group-hover:text-zinc-300 transition-colors select-none">{label}</span>
-    </label>
   );
 }
 
