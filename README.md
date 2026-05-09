@@ -181,9 +181,10 @@ The dashboard connects to the EduThreat-CTI REST API:
 
 ### Production API (Railway)
 
-The API is deployed at:
+The supported production backend is the `v2-api` Railway service. Use its
+service domain, for example:
 ```
-https://eduthreat-cti-production.up.railway.app
+https://v2-api-production-e3d1.up.railway.app
 ```
 
 ### Vercel Deployment
@@ -195,7 +196,7 @@ https://eduthreat-cti-production.up.railway.app
 2. **Configure Environment Variables**
    Add this environment variable in Vercel project settings:
    ```
-   NEXT_PUBLIC_API_URL=https://eduthreat-cti-production.up.railway.app
+   NEXT_PUBLIC_API_URL=https://v2-api-production-e3d1.up.railway.app
    ```
 
 3. **Deploy**
@@ -252,4 +253,3 @@ For questions or feedback, open an issue on GitHub.
 ---
 
 **Part of the [EduThreat-CTI](https://github.com/sagarkishore-7/EduThreat-CTI) project** - Making education sector threat intelligence transparent and accessible.
-

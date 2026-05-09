@@ -68,7 +68,7 @@ The EduThreat-CTI Dashboard is a modern, responsive web application built with N
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              EduThreat-CTI REST API                          │
-│         https://eduthreat-cti-production.up.railway.app     │
+│         https://v2-api-production-e3d1.up.railway.app       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -335,7 +335,7 @@ npm start
 
 ```env
 # API URL (required)
-NEXT_PUBLIC_API_URL=https://eduthreat-cti-production.up.railway.app
+NEXT_PUBLIC_API_URL=https://v2-api-production-e3d1.up.railway.app
 
 # Site metadata (optional)
 NEXT_PUBLIC_SITE_NAME=EduThreat-CTI
