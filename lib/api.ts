@@ -373,6 +373,19 @@ export interface IncidentTrendResponse {
   items: TimeSeriesPoint[];
 }
 
+interface RawIncidentTrendPoint {
+  date?: string;
+  count?: number;
+  bucket_start?: string;
+  incident_count?: number;
+}
+
+interface RawIncidentTrendResponse {
+  bucket?: "month" | "week" | "year";
+  items?: RawIncidentTrendPoint[];
+  data?: RawIncidentTrendPoint[];
+}
+
 export interface IncidentBreakdownFilters {
   search?: string;
   country?: string;
@@ -412,6 +425,24 @@ function toCountryCode(country?: string): string | undefined {
 function withQuery(endpoint: string, params: URLSearchParams): string {
   const query = params.toString();
   return query ? `${endpoint}?${query}` : endpoint;
+}
+
+function normalizeTrendResponse(payload: RawIncidentTrendResponse): IncidentTrendResponse {
+  const rawItems = payload.items || payload.data || [];
+  return {
+    bucket: payload.bucket || "month",
+    items: rawItems
+      .map((item) => ({
+        date: item.date || item.bucket_start || "",
+        count:
+          typeof item.count === "number"
+            ? item.count
+            : typeof item.incident_count === "number"
+            ? item.incident_count
+            : 0,
+      }))
+      .filter((item) => Boolean(item.date)),
+  };
 }
 
 export async function getDashboard(): Promise<DashboardResponse> {
@@ -515,7 +546,12 @@ export async function getRansomwareAnalytics(
 export async function getTimelineAnalytics(
   months: number = 24,
 ): Promise<{ data: TimeSeriesPoint[]; total: number }> {
-  return fetchAPI(`/api/v2/analytics/timeline?months=${months}`);
+  const payload = await fetchAPI<RawIncidentTrendResponse>(`/api/v2/analytics/timeline?months=${months}`);
+  const normalized = normalizeTrendResponse(payload);
+  return {
+    data: normalized.items,
+    total: normalized.items.length,
+  };
 }
 
 export async function getAnalyticsBreakdowns(
@@ -558,5 +594,6 @@ export async function getIncidentTrend(
   }
   if (filters.date_from) params.set("date_from", filters.date_from);
   if (filters.date_to) params.set("date_to", filters.date_to);
-  return fetchAPI<IncidentTrendResponse>(withQuery("/api/v2/analytics/trend", params));
+  const payload = await fetchAPI<RawIncidentTrendResponse>(withQuery("/api/v2/analytics/trend", params));
+  return normalizeTrendResponse(payload);
 }
