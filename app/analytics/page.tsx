@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { getAnalyticsBreakdowns, getDashboard, getIntelligenceSummary } from "@/lib/api";
+import { getAnalyticsBreakdowns, getDashboard } from "@/lib/api";
 import { formatDate, formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
 import {
   BarChart3,
@@ -19,18 +19,16 @@ export default function ImpactAnalyticsPage() {
     queryKey: ["dashboard"],
     queryFn: getDashboard,
   });
-  const { data: intelligence, isLoading: loadingIntelligence } = useQuery({
-    queryKey: ["analytics-intelligence"],
-    queryFn: getIntelligenceSummary,
-  });
   const { data: breakdowns, isLoading: loadingBreakdowns } = useQuery({
     queryKey: ["analytics-breakdowns-v2"],
     queryFn: () => getAnalyticsBreakdowns(),
   });
 
-  if (loadingDashboard || loadingIntelligence || loadingBreakdowns || !dashboard || !intelligence) {
+  if (loadingDashboard || loadingBreakdowns || !dashboard) {
     return <PageSkeleton rows={4} />;
   }
+
+  const intelligence = dashboard.intelligence_summary;
 
   const topCountries = intelligence.victimology.top_countries.slice(0, 8);
   const segments = intelligence.victimology.institution_segments.slice(0, 6);
