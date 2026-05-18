@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { LayoutWrapper } from "@/components/LayoutWrapper";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { VercelAnalytics } from "@/components/VercelAnalytics";
 
 const inter = Inter({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             <LayoutWrapper>{children}</LayoutWrapper>
           </ErrorBoundary>
         </Providers>
+        <VercelAnalytics />
       </body>
     </html>
   );
