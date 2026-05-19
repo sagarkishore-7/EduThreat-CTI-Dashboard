@@ -164,7 +164,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="h-14 border-b border-zinc-800/80 bg-[#09091a]/80 backdrop-blur-md flex items-center justify-between px-4 gap-4 shrink-0">
+    <header className="relative z-30 h-14 overflow-visible border-b border-zinc-800/80 bg-[#09091a]/80 backdrop-blur-md flex items-center justify-between px-4 gap-4 shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
@@ -226,7 +226,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <RefreshCw className={`w-4 h-4 ${spinning ? "animate-spin" : ""}`} />
         </button>
 
-        <div className="relative" ref={adminMenuRef}>
+        <div className="relative z-40" ref={adminMenuRef}>
           <button
             onClick={() => setMenuOpen((value) => !value)}
             className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/70 pl-2 pr-2.5 py-1 text-zinc-200 transition-colors hover:border-cyan-500/30 hover:bg-zinc-900"
@@ -243,7 +243,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-zinc-800 bg-[#0d0d1a] p-4 shadow-2xl shadow-black/40">
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-zinc-800 bg-[#0d0d1a] p-4 shadow-2xl shadow-black/40">
               {!token ? (
                 <form onSubmit={handleAdminLogin} className="space-y-4">
                   <div>
