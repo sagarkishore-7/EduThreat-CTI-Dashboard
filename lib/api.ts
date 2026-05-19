@@ -76,11 +76,27 @@ export interface AttackDynamics {
   operational_impact?: string[];
 }
 
+export interface IncidentSourceUrl {
+  url: string;
+  resolved_url?: string;
+  url_kind?: string;
+  is_wrapper?: boolean;
+  is_primary_from_source?: boolean;
+  is_resolved_primary?: boolean;
+}
+
 export interface IncidentSource {
   source: string;
+  source_group?: string;
   source_event_id?: string;
   first_seen_at: string;
+  source_published_at?: string;
   confidence?: string;
+  is_primary_member?: boolean;
+  raw_title?: string;
+  raw_subtitle?: string;
+  raw_institution_name?: string;
+  source_urls?: IncidentSourceUrl[];
 }
 
 export interface IncidentDetail {

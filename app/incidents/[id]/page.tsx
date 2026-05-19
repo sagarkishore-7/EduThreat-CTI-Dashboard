@@ -990,8 +990,7 @@ export default function IncidentDetailPage() {
               <Section icon={Globe} label="News & Press Sources" count={allUrls.length}>
                 <div className="space-y-1.5">
                   {allUrls.map((url, i) => {
-                    let domain = "";
-                    try { domain = new URL(url).hostname.replace("www.", ""); } catch { /**/ }
+                    const domain = getUrlDomain(url);
                     return (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-2 p-2.5 bg-zinc-900/40 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors group">
@@ -1016,12 +1015,80 @@ export default function IncidentDetailPage() {
           {incident.sources && incident.sources.length > 0 && (
             <Section icon={Layers} label="Data Provenance">
               <div className="flex flex-wrap gap-1.5 mb-4">
-                {incident.sources.map((src: { source: string; first_seen_at?: string; confidence?: string }, i: number) => (
+                {incident.sources.map((src, i: number) => (
                   <span key={i} className="flex items-center gap-1.5 tag bg-zinc-800 text-zinc-300 border-zinc-700">
                     {src.source}
                     <span className="text-zinc-600 text-[9px] font-mono">{formatDate(src.first_seen_at)}</span>
                   </span>
                 ))}
+              </div>
+              <div className="space-y-3 mb-4">
+                {incident.sources.map((src, i: number) => {
+                  const sourceUrls = dedupeSourceUrls(src.source_urls ?? []);
+                  return (
+                    <div key={`${src.source}-${src.source_event_id ?? i}`} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[12px] font-semibold text-zinc-200">{src.source}</p>
+                            {src.source_group && (
+                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-zinc-700 text-zinc-500">
+                                {src.source_group}
+                              </span>
+                            )}
+                            {src.is_primary_member && (
+                              <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                primary member
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[12px] text-zinc-400 line-clamp-2">
+                            {src.raw_title || src.raw_institution_name || "Source observation"}
+                          </p>
+                        </div>
+                        <div className="text-[10px] font-mono text-zinc-600 md:text-right">
+                          <p>Seen {formatDate(src.first_seen_at)}</p>
+                          {src.source_published_at && <p>Published {formatDate(src.source_published_at)}</p>}
+                        </div>
+                      </div>
+
+                      {sourceUrls.length > 0 && (
+                        <div className="mt-3 space-y-1.5">
+                          {sourceUrls.map((sourceUrl, urlIndex) => {
+                            const displayUrl = getDisplayUrl(sourceUrl);
+                            if (!displayUrl) return null;
+                            const domain = getUrlDomain(displayUrl);
+                            return (
+                              <a
+                                key={`${displayUrl}-${urlIndex}`}
+                                href={displayUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 rounded-lg border border-zinc-800 bg-[#090912] px-2.5 py-2 hover:border-zinc-700 transition-colors group"
+                              >
+                                <Globe className="w-3.5 h-3.5 text-zinc-600 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <p className="text-[11px] font-mono text-zinc-500">{domain}</p>
+                                    {sourceUrl.url_kind && (
+                                      <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-600">
+                                        {sourceUrl.url_kind.replace(/_/g, " ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[12px] font-mono text-cyan-400 truncate group-hover:underline">
+                                    {displayUrl}
+                                  </p>
+                                </div>
+                                <ExternalLink className="w-3 h-3 text-zinc-700 shrink-0" />
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <DF label="First Ingested"   value={formatDate(incident.ingested_at)} />
@@ -1104,6 +1171,33 @@ function DF({ label, value }: { label: string; value: string | null | undefined 
       </p>
     </div>
   );
+}
+
+function getUrlDomain(url: string): string {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return "";
+  }
+}
+
+function getDisplayUrl(sourceUrl: {
+  resolved_url?: string;
+  url?: string;
+}): string | null {
+  return sourceUrl.resolved_url || sourceUrl.url || null;
+}
+
+function dedupeSourceUrls<T extends { resolved_url?: string; url?: string }>(sourceUrls: T[]): T[] {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const sourceUrl of sourceUrls) {
+    const displayUrl = getDisplayUrl(sourceUrl);
+    if (!displayUrl || seen.has(displayUrl)) continue;
+    seen.add(displayUrl);
+    deduped.push(sourceUrl);
+  }
+  return deduped;
 }
 
 function ImpactCard({ icon: Icon, title, accent, fields }: {
