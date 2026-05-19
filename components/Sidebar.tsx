@@ -12,7 +12,6 @@ import {
   BarChart3,
   AlertTriangle,
   X,
-  Settings,
   Lock,
   Radio,
 } from "lucide-react";
@@ -25,10 +24,6 @@ const navigation = [
   { name: "Ransomware",         href: "/ransomware",    icon: Lock,            group: "intel" },
   { name: "Threat Actors",      href: "/threat-actors", icon: Users,           group: "intel" },
   { name: "Exposure",           href: "/analytics",     icon: BarChart3,       group: "intel" },
-];
-
-const adminNav = [
-  { name: "Operations", href: "/admin", icon: Settings },
 ];
 
 interface SidebarProps {
@@ -98,14 +93,6 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             Intelligence
           </p>
           {navigation.filter(n => n.group === "intel").map((item) => (
-            <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
-          ))}
-
-          {/* Admin */}
-          <p className="px-2 pt-4 pb-1.5 text-[9px] uppercase tracking-widest font-semibold text-zinc-600">
-            Management
-          </p>
-          {adminNav.map((item) => (
             <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
           ))}
         </nav>
