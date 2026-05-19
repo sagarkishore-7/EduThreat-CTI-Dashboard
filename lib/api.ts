@@ -315,11 +315,38 @@ export interface RecentIncident {
 export interface DashboardResponse {
   stats: DashboardStats;
   intelligence_summary: IntelligenceSummary;
+  diamond_summary?: DiamondSummary;
   incidents_by_country: CountByCategory[];
   incidents_by_attack_type: CountByCategory[];
   incidents_by_ransomware: CountByCategory[];
   incidents_over_time: TimeSeriesPoint[];
   recent_incidents: RecentIncident[];
+}
+
+export interface DiamondSummary {
+  overview: {
+    total_incidents: number;
+    incidents_with_all_core_vertices?: number;
+    incidents_with_all_core_vertices_share?: number;
+  };
+  coverage: {
+    victim_vertex_count?: number;
+    adversary_vertex_count?: number;
+    capability_vertex_count?: number;
+    infrastructure_vertex_count?: number;
+    all_core_vertices_count?: number;
+    victim_vertex_share?: number;
+    adversary_vertex_share?: number;
+    capability_vertex_share?: number;
+    infrastructure_vertex_share?: number;
+    all_core_vertices_share?: number;
+  };
+  vertices?: {
+    top_adversaries?: Array<{ name: string; count: number; percentage?: number }>;
+    top_capabilities?: Array<{ name: string; count: number; percentage?: number }>;
+    top_victims?: Array<{ name: string; count: number; percentage?: number }>;
+    infrastructure_components?: Array<{ component: string; count: number; percentage?: number }>;
+  };
 }
 
 export interface IntelligenceRankedItem {
@@ -444,6 +471,112 @@ export interface AnalyticsBreakdownsResponse {
   severities: CountByCategory[];
 }
 
+export interface MitreTacticAnalytics {
+  tactic: string;
+  incident_count: number;
+  incident_percentage: number;
+  technique_count: number;
+}
+
+export interface MitreTechniqueAnalytics {
+  tactic: string;
+  technique_id: string;
+  technique_name: string;
+  count: number;
+  percentage: number;
+}
+
+export interface MitreAnalyticsResponse {
+  overview: {
+    total_incidents: number;
+    incidents_with_mitre: number;
+    incidents_with_mitre_share: number;
+    technique_count_total: number;
+    unique_tactic_count: number;
+    unique_technique_count: number;
+  };
+  tactics: MitreTacticAnalytics[];
+  techniques: MitreTechniqueAnalytics[];
+  top_techniques_by_tactic: Array<{
+    tactic: string;
+    techniques: Array<{
+      technique_id: string;
+      technique_name: string;
+      count: number;
+      percentage: number;
+    }>;
+  }>;
+}
+
+export interface PipelineResearchMetricsResponse {
+  captured_at?: string;
+  dataset_construction: {
+    source_incidents_total: number;
+    selected_article_sources_total: number;
+    article_documents_total: number;
+    source_enrichments_total: number;
+    canonicalized_sources_total: number;
+    canonical_incidents_total: number;
+    duplicate_sources_collapsed: number;
+    source_to_selected_article_pct: number;
+    source_to_enrichment_pct: number;
+    source_to_canonical_pct: number;
+    deduplication_reduction_pct: number;
+    avg_members_per_canonical: number;
+    median_members_per_canonical: number;
+    max_members_per_canonical: number;
+  };
+  fetch_performance: {
+    overall: {
+      attempts_total: number;
+      successes_total: number;
+      failures_total: number;
+      success_rate_pct: number;
+      selected_successes_total: number;
+      fallback_selected_share_pct: number;
+    };
+    richness_comparison?: {
+      richest_selected_tier?: string | null;
+      oxylabs_selected_avg_chars?: number;
+      newspaper3k_selected_avg_chars?: number;
+      oxylabs_vs_newspaper3k_selected_char_delta?: number;
+      oxylabs_vs_newspaper3k_selected_char_gain_pct?: number;
+    };
+    tiers?: Array<{
+      fetch_tier: string;
+      attempts_total: number;
+      success_rate_pct: number;
+      selected_successes_total?: number;
+      selected_avg_chars?: number;
+    }>;
+  };
+  pipeline_performance: {
+    expired_leases_current: number;
+    queue_backlog_current: Array<{
+      task_type: string;
+      status: string;
+      task_count: number;
+    }>;
+  };
+  dataset_quality: {
+    actor_attributed_count: number;
+    actor_attributed_share: number;
+    ransomware_count: number;
+    ransomware_share: number;
+    breach_count: number;
+    breach_share: number;
+    vendor_linked_count: number;
+    vendor_linked_share: number;
+    known_record_events: number;
+    known_record_volume: number;
+    attack_vector_known_count: number;
+    attack_vector_known_share: number;
+    record_loss_known_count: number;
+    record_loss_known_share: number;
+  };
+  intelligence_summary: IntelligenceSummary;
+}
+
 export interface IncidentTrendResponse {
   bucket: "month" | "week" | "year";
   items: TimeSeriesPoint[];
@@ -531,6 +664,19 @@ export async function getStats(): Promise<DashboardStats> {
 
 export async function getIntelligenceSummary(): Promise<IntelligenceSummary> {
   return fetchAPI<IntelligenceSummary>("/api/v2/analytics/intelligence");
+}
+
+export async function getMitreAnalytics(
+  options: { technique_limit?: number; per_tactic_limit?: number } = {},
+): Promise<MitreAnalyticsResponse> {
+  const params = new URLSearchParams();
+  if (options.technique_limit) params.set("technique_limit", String(options.technique_limit));
+  if (options.per_tactic_limit) params.set("per_tactic_limit", String(options.per_tactic_limit));
+  return fetchAPI<MitreAnalyticsResponse>(withQuery("/api/v2/analytics/mitre", params));
+}
+
+export async function getPipelineResearchMetrics(): Promise<PipelineResearchMetricsResponse> {
+  return fetchAPI<PipelineResearchMetricsResponse>("/api/v2/analytics/pipeline-research");
 }
 
 export async function getIncidents(params: {

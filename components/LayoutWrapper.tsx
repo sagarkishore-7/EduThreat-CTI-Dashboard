@@ -43,15 +43,14 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
   }, [sidebarOpen]);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#08090f] text-zinc-100">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Header onMenuClick={() => setSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 grid-pattern">
+        <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5 ops-grid-bg">
           {children}
         </main>
       </div>
     </div>
   );
 }
-

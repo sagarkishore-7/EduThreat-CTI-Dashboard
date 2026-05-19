@@ -12,6 +12,7 @@ import {
   LogOut,
   Settings,
   ClipboardList,
+  Bell,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -164,11 +165,11 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   return (
-    <header className="relative z-30 h-14 overflow-visible border-b border-zinc-800/80 bg-[#09091a]/80 backdrop-blur-md flex items-center justify-between px-4 gap-4 shrink-0">
+    <header className="relative z-30 flex h-[54px] shrink-0 items-center justify-between gap-4 overflow-visible border-b border-zinc-800/80 bg-[#080b12]/85 px-4 backdrop-blur-xl">
       <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-1.5 rounded-md hover:bg-zinc-800 transition-colors shrink-0"
+          className="lg:hidden rounded-md border border-transparent p-1.5 text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200 shrink-0"
         >
           <Menu className="w-4 h-4 text-zinc-400" />
         </button>
@@ -180,7 +181,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <span key={i} className="flex items-center gap-1.5">
                   {i > 0 && <ChevronRight className="w-3 h-3 text-zinc-600 shrink-0" />}
                   {crumb.href ? (
-                    <Link href={crumb.href} className="text-zinc-500 hover:text-cyan-400 transition-colors font-medium">
+                    <Link href={crumb.href} className="text-zinc-500 hover:text-emerald-300 transition-colors font-medium">
                       {crumb.label}
                     </Link>
                   ) : (
@@ -190,8 +191,12 @@ export function Header({ onMenuClick }: HeaderProps) {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <h1 className="text-[14px] font-semibold text-zinc-100 truncate">{meta.label}</h1>
+            <div className="flex items-center gap-3">
+              <div className="hidden h-6 w-px bg-zinc-800 sm:block" />
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Analyst Workspace</div>
+                <h1 className="truncate text-[14px] font-semibold text-zinc-100">{meta.label}</h1>
+              </div>
               <span className="hidden sm:inline text-[11px] text-zinc-600 truncate">— {meta.description}</span>
             </div>
           )}
@@ -200,7 +205,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
       <div className="flex items-center gap-2 shrink-0">
         <form onSubmit={handleSearch} className="hidden sm:block">
-          <div className={`relative flex items-center transition-all duration-200 ${focused ? "w-52" : "w-40"}`}>
+          <div className={`relative flex items-center transition-all duration-200 ${focused ? "w-56" : "w-44"}`}>
             <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-600 pointer-events-none" />
             <input
               ref={inputRef}
@@ -210,7 +215,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              className="w-full pl-8 pr-3 py-1.5 text-[12px] bg-zinc-900/60 border border-zinc-800 rounded-md text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500/40 focus:ring-1 focus:ring-cyan-500/20 transition-colors"
+              className="w-full rounded-md border border-zinc-800 bg-[#10131c]/90 py-2 pl-8 pr-3 text-[12px] text-zinc-200 placeholder:text-zinc-600 transition-colors focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
             />
             {!focused && (
               <span className="absolute right-2 text-[10px] text-zinc-700 font-mono pointer-events-none">/</span>
@@ -220,19 +225,34 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         <button
           onClick={handleRefresh}
-          className="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="relative rounded-md border border-transparent p-2 text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200"
           title="Refresh all data"
         >
           <RefreshCw className={`w-4 h-4 ${spinning ? "animate-spin" : ""}`} />
         </button>
 
+        <button
+          className="relative rounded-md border border-transparent p-2 text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200"
+          title="Alerts"
+        >
+          <Bell className="h-4 w-4" />
+          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(255,71,87,0.8)]" />
+        </button>
+
+        <button
+          className="hidden rounded-md border border-transparent p-2 text-zinc-500 transition-colors hover:border-zinc-700 hover:bg-zinc-900/70 hover:text-zinc-200 md:block"
+          title="Workspace settings"
+        >
+          <Settings className="h-4 w-4" />
+        </button>
+
         <div className="relative z-40" ref={adminMenuRef}>
           <button
             onClick={() => setMenuOpen((value) => !value)}
-            className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/70 pl-2 pr-2.5 py-1 text-zinc-200 transition-colors hover:border-cyan-500/30 hover:bg-zinc-900"
+            className="flex items-center gap-2 rounded-full border border-zinc-800 bg-[#10131c]/90 pl-2 pr-2.5 py-1 text-zinc-200 transition-colors hover:border-emerald-400/30 hover:bg-zinc-900"
             title={token ? "Admin session" : "Admin login"}
           >
-            <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-violet-600 text-white">
+            <div className="relative flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-300 to-indigo-400 text-[#08110f]">
               {token ? <ShieldCheck className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
               {token && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-[#09091a] bg-emerald-400" />}
             </div>
@@ -243,7 +263,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-xl border border-zinc-800 bg-[#0d0d1a] p-4 shadow-2xl shadow-black/40">
+            <div className="absolute right-0 top-full z-50 mt-2 w-80 rounded-2xl border border-zinc-800 bg-[#0f1420] p-4 shadow-2xl shadow-black/40">
               {!token ? (
                 <form onSubmit={handleAdminLogin} className="space-y-4">
                   <div>
@@ -259,7 +279,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <input
                       value={username}
                       onChange={(event) => setUsername(event.target.value)}
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-500/40"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-400/40"
                     />
                   </label>
 
@@ -269,7 +289,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       type="password"
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-cyan-500/40"
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 outline-none transition-colors focus:border-emerald-400/40"
                     />
                   </label>
 
@@ -282,7 +302,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <button
                     type="submit"
                     disabled={authBusy === "login"}
-                    className="w-full rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-cyan-400 disabled:opacity-60"
+                    className="w-full rounded-lg bg-emerald-400 px-4 py-2.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-300 disabled:opacity-60"
                   >
                     {authBusy === "login" ? "Signing in..." : "Sign In as Admin"}
                   </button>
@@ -300,7 +320,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <div className="space-y-2">
                     <Link
                       href="/admin"
-                      className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
+                      className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 transition-colors hover:border-emerald-400/30 hover:text-emerald-300"
                     >
                       <span className="inline-flex items-center gap-2">
                         <Settings className="h-4 w-4" />
@@ -310,7 +330,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </Link>
                     <Link
                       href="/admin/review"
-                      className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 transition-colors hover:border-cyan-500/30 hover:text-cyan-300"
+                      className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2 text-sm text-zinc-200 transition-colors hover:border-emerald-400/30 hover:text-emerald-300"
                     >
                       <span className="inline-flex items-center gap-2">
                         <ClipboardList className="h-4 w-4" />

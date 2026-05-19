@@ -6,26 +6,18 @@ import {
   getAttackTypeAnalytics,
   getIncidentTrend,
   getIncidents,
-  getStats,
+  getMitreAnalytics,
   getThreatActors,
   type RecentIncident,
 } from "@/lib/api";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
-import { CountryChart } from "@/components/charts/CountryChart";
 import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
 import { InstitutionTypeChart } from "@/components/charts/InstitutionTypeChart";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
-import { formatAttackCategory, formatDate } from "@/lib/utils";
-import {
-  AlertTriangle,
-  Building2,
-  Globe2,
-  Shield,
-  Target,
-  Users,
-} from "lucide-react";
+import { formatAttackCategory, formatNumber, formatPercent } from "@/lib/utils";
+import { AlertTriangle, Shield, Target, Users, Workflow } from "lucide-react";
 
 function toRecentIncidents(
   incidents: Array<{
@@ -54,163 +46,250 @@ function toRecentIncidents(
 }
 
 export default function AttackIntelligencePage() {
-  const { data: stats } = useQuery({ queryKey: ["stats"], queryFn: getStats });
-  const { data: attackTypes, isLoading: loadingAttackTypes } = useQuery({
+  const attackTypesQuery = useQuery({
     queryKey: ["attack-types-v2"],
-    queryFn: () => getAttackTypeAnalytics(20),
+    queryFn: () => getAttackTypeAnalytics(16),
   });
-  const { data: trend, isLoading: loadingTrend } = useQuery({
+  const trendQuery = useQuery({
     queryKey: ["attack-trend-v2"],
     queryFn: () => getIncidentTrend({ bucket: "month", limit: 24 }),
   });
-  const { data: breakdowns, isLoading: loadingBreakdowns } = useQuery({
+  const breakdownsQuery = useQuery({
     queryKey: ["attack-breakdowns-v2"],
     queryFn: () => getAnalyticsBreakdowns(),
   });
-  const { data: recentList, isLoading: loadingRecent } = useQuery({
+  const recentQuery = useQuery({
     queryKey: ["attack-recent-incidents"],
     queryFn: () => getIncidents({ per_page: 10, sort_by: "incident_date", sort_order: "desc" }),
   });
-  const { data: actors, isLoading: loadingActors } = useQuery({
+  const actorsQuery = useQuery({
     queryKey: ["attack-threat-actors"],
     queryFn: () => getThreatActors(8),
   });
+  const mitreQuery = useQuery({
+    queryKey: ["mitre-analytics", 20, 5],
+    queryFn: () => getMitreAnalytics({ technique_limit: 20, per_tactic_limit: 5 }),
+  });
 
-  const isLoading =
-    loadingAttackTypes || loadingTrend || loadingBreakdowns || loadingRecent || loadingActors;
+  if (
+    attackTypesQuery.isLoading ||
+    trendQuery.isLoading ||
+    breakdownsQuery.isLoading ||
+    recentQuery.isLoading ||
+    actorsQuery.isLoading ||
+    mitreQuery.isLoading
+  ) {
+    return <PageSkeleton rows={4} />;
+  }
 
-  if (isLoading) return <PageSkeleton rows={4} />;
+  if (
+    attackTypesQuery.error ||
+    trendQuery.error ||
+    breakdownsQuery.error ||
+    recentQuery.error ||
+    actorsQuery.error ||
+    mitreQuery.error
+  ) {
+    return (
+      <div className="flex min-h-[360px] items-center justify-center">
+        <div className="ops-panel px-6 py-8 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-red-400" />
+          <h2 className="text-lg font-semibold text-zinc-100">Tradecraft view unavailable</h2>
+          <p className="mt-2 text-sm text-zinc-500">One or more analytics endpoints did not respond successfully.</p>
+        </div>
+      </div>
+    );
+  }
 
-  const totalIncidents = stats?.education_incidents || 0;
-  const attackItems = attackTypes?.data || [];
-  const leadAttack = attackItems[0];
-  const countryItems = breakdowns?.countries || [];
+  const attackItems = attackTypesQuery.data?.data || [];
+  const trend = trendQuery.data?.items || [];
+  const breakdowns = breakdownsQuery.data;
+  const actors = actorsQuery.data?.threat_actors || [];
+  const mitre = mitreQuery.data!;
+  const recentIncidents = toRecentIncidents(recentQuery.data?.incidents || []);
   const institutionTypes = breakdowns?.institution_types || [];
   const severityItems = breakdowns?.severities || [];
-  const actorItems = actors?.threat_actors || [];
-  const recentIncidents = toRecentIncidents(recentList?.incidents || []);
+  const topAttack = attackItems[0];
 
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
-        icon={Shield}
+        icon={Workflow}
+        iconColor="text-amber-300"
         label="Tradecraft"
         title="Tradecraft & Intrusion Patterns"
-        description={`Attack clusters, sector trend, and victim targeting across ${totalIncidents} retained education-sector canonicals`}
-      />
+        description="Attack delivery, victim targeting, severity distribution, and observed ATT&CK stage frequency across the retained canonical set."
+      >
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <HeaderMetric
+            label="Observed Tactics"
+            value={formatNumber(mitre.overview.unique_tactic_count)}
+            detail={`${formatNumber(mitre.overview.incidents_with_mitre)} incidents with ATT&CK coverage`}
+          />
+          <HeaderMetric
+            label="Techniques"
+            value={formatNumber(mitre.overview.unique_technique_count)}
+            detail={`${formatNumber(mitre.overview.technique_count_total)} technique observations`}
+          />
+          <HeaderMetric
+            label="Lead Attack Cluster"
+            value={topAttack ? formatAttackCategory(topAttack.category) : "n/a"}
+            detail={`${topAttack ? formatNumber(topAttack.count) : "0"} mapped canonicals`}
+          />
+          <HeaderMetric
+            label="Institution Types"
+            value={formatNumber(institutionTypes.length)}
+            detail="Distinct victim segment buckets in the filtered corpus"
+          />
+        </div>
+      </PageHeader>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <StatCard title="Verified Incidents" value={totalIncidents} icon={Shield} variant="primary" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <StatCard
-          title="Attack Types"
-          value={attackItems.length}
-          icon={AlertTriangle}
-          variant="danger"
+          title="Mapped MITRE Share"
+          value={formatPercent(mitre.overview.incidents_with_mitre_share)}
+          description="Open canonicals with ATT&CK techniques retained in the merged projection."
+          icon={Shield}
+          variant="primary"
         />
         <StatCard
-          title="Top Category"
-          value={leadAttack ? formatAttackCategory(leadAttack.category) : "N/A"}
-          icon={Target}
+          title="Top Cluster"
+          value={topAttack ? formatAttackCategory(topAttack.category) : "n/a"}
+          description="Most frequent attack category in the current open set."
+          icon={AlertTriangle}
           variant="warning"
         />
         <StatCard
-          title="Countries"
-          value={countryItems.length}
-          icon={Globe2}
-          variant="success"
-        />
-        <StatCard
-          title="Institution Types"
-          value={institutionTypes.length}
-          icon={Building2}
+          title="Actor Watchlist"
+          value={formatNumber(actors.length)}
+          description="Named actors visible in the current tradecraft slice."
+          icon={Users}
           variant="purple"
         />
+        <StatCard
+          title="Stage Diversity"
+          value={formatNumber(mitre.tactics.length)}
+          description="ATT&CK tactic buckets present across retained incidents."
+          icon={Target}
+          variant="success"
+        />
       </div>
 
-      <IncidentTimeChart data={trend?.items || []} />
+      <IncidentTimeChart data={trend} />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <AttackTypeChart data={attackItems} />
-        <CountryChart data={countryItems} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <InstitutionTypeChart data={institutionTypes} />
-        <div className="rounded-xl border border-zinc-800 bg-[#0d0d1a] p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="ops-panel">
+          <div className="ops-panel-head">
             <div>
-              <p className="section-label mb-1">Severity Breakdown</p>
-              <h3 className="text-lg font-semibold text-zinc-100">Operational Risk Signals</h3>
+              <p className="ops-subtle">MITRE Stage Frequency</p>
+              <h2 className="ops-title">Observed tactic distribution</h2>
             </div>
-            <Users className="h-5 w-5 text-cyan-400" />
           </div>
-          <div className="space-y-3">
-            {severityItems.length > 0 ? (
-              severityItems.map((item) => (
-                <div key={item.category} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <p className="text-sm font-medium text-zinc-100">
-                      {formatAttackCategory(item.category)}
-                    </p>
-                    <p className="font-mono text-cyan-400">{item.count}</p>
+          <div className="ops-panel-body space-y-3">
+            {mitre.tactics.length > 0 ? (
+              mitre.tactics.slice(0, 8).map((tactic) => (
+                <div key={tactic.tactic}>
+                  <div className="mb-1 flex items-center justify-between gap-3">
+                    <span className="text-sm text-zinc-200">{tactic.tactic}</span>
+                    <span className="font-mono text-indigo-300">
+                      {formatNumber(tactic.incident_count)} · {formatPercent(tactic.incident_percentage)}
+                    </span>
                   </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-violet-500"
-                      style={{ width: `${Math.min(item.percentage, 100)}%` }}
-                    />
+                  <div className="ops-bar-track">
+                    <div className="ops-bar-fill" style={{ width: `${Math.min(tactic.incident_percentage, 100)}%` }} />
                   </div>
-                  <p className="mt-2 text-xs text-zinc-500">{item.percentage.toFixed(1)}% of canonicals</p>
+                  <p className="mt-1 text-xs text-zinc-500">{formatNumber(tactic.technique_count)} mapped techniques</p>
                 </div>
               ))
             ) : (
-              <div className="flex h-[320px] items-center justify-center text-sm text-zinc-600">
-                Severity metadata is still building in the v2 dataset.
+              <div className="rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-3 py-5 text-sm text-zinc-500">
+                MITRE stage observations are not available yet in the current canonical set.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
-          <RecentIncidentsList incidents={recentIncidents} />
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-[#0d0d1a] p-5">
-          <div className="mb-4">
-            <p className="section-label mb-1">Threat Actors</p>
-            <h3 className="text-lg font-semibold text-zinc-100">Who Shows Up Most Often</h3>
+      <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+        <InstitutionTypeChart data={institutionTypes} />
+        <div className="ops-panel">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Severity Profile</p>
+              <h2 className="ops-title">Operational risk concentration</h2>
+            </div>
           </div>
-          <div className="space-y-3">
-            {actorItems.map((actor) => (
-              <div key={actor.name} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-zinc-100">{actor.name}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {actor.countries_targeted.slice(0, 3).join(", ") || "Multi-region"}
-                    </p>
+          <div className="ops-panel-body space-y-3">
+            {severityItems.length > 0 ? (
+              severityItems.map((item) => (
+                <div key={item.category} className="rounded-xl border border-zinc-800/70 bg-zinc-900/30 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-zinc-200">{formatAttackCategory(item.category)}</span>
+                    <span className="font-mono text-emerald-300">{formatNumber(item.count)}</span>
                   </div>
-                  <p className="shrink-0 font-mono text-lg text-cyan-400">{actor.incident_count}</p>
+                  <div className="ops-bar-track">
+                    <div className="ops-bar-fill" style={{ width: `${Math.min(item.percentage, 100)}%` }} />
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">{formatPercent(item.percentage)} of canonicals</p>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {actor.ransomware_families.slice(0, 4).map((family) => (
-                    <span
-                      key={family}
-                      className="rounded-full border border-zinc-700 px-2 py-1 text-[10px] text-zinc-400"
-                    >
-                      {family}
-                    </span>
-                  ))}
+              ))
+            ) : (
+              <div className="rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-3 py-5 text-sm text-zinc-500">
+                Severity metadata is still sparse in the current dataset.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+        <RecentIncidentsList incidents={recentIncidents} />
+        <div className="ops-panel">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Technique Watchlist</p>
+              <h2 className="ops-title">Top ATT&CK techniques</h2>
+            </div>
+          </div>
+          <div className="ops-panel-body space-y-2">
+            {mitre.techniques.slice(0, 8).map((technique) => (
+              <div key={`${technique.tactic}-${technique.technique_id}`} className="ops-live-row">
+                <div className="mt-1 h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(0,216,180,0.7)]" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-100">
+                        {technique.technique_id} · {technique.technique_name}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-500">{technique.tactic}</p>
+                    </div>
+                    <span className="font-mono text-emerald-300">{formatNumber(technique.count)}</span>
+                  </div>
                 </div>
-                <p className="mt-2 text-[10px] text-zinc-600">
-                  Last seen {formatDate(actor.last_seen || actor.first_seen || "")}
-                </p>
               </div>
             ))}
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function HeaderMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-4 py-3">
+      <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">{label}</p>
+      <p className="mt-2 font-mono text-2xl text-zinc-100">{value}</p>
+      <p className="mt-1 text-xs text-zinc-500">{detail}</p>
     </div>
   );
 }
