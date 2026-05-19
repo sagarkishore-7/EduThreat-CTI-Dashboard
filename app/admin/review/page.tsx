@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   getStoredAdminSession,
+  isAdminAuthError,
   getV2ManualReviewQueue,
   loginV2Admin,
   runV2DataQualitySweep,
@@ -23,6 +24,12 @@ export default function ManualReviewPage() {
     setToken(getStoredAdminSession());
   }, []);
 
+  const expireSession = (reason: string = "Your admin session expired. Please sign in again.") => {
+    setStoredAdminSession(null);
+    setToken(null);
+    setMessage(reason);
+  };
+
   const loginMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       loginV2Admin(username, password),
@@ -33,15 +40,29 @@ export default function ManualReviewPage() {
       setMessage("Authenticated for v2 manual review.");
     },
     onError: (error: Error) => {
+      if (isAdminAuthError(error)) {
+        expireSession(error.message);
+        return;
+      }
       setMessage(error.message);
     },
   });
 
-  const { data, isLoading, refetch } = useQuery({
+  const reviewQuery = useQuery({
     queryKey: ["manual-review-page", token],
     queryFn: () => getV2ManualReviewQueue(token!, 200),
     enabled: Boolean(token),
   });
+
+  const data = reviewQuery.data;
+  const isLoading = reviewQuery.isLoading;
+  const refetch = reviewQuery.refetch;
+
+  useEffect(() => {
+    if (token && isAdminAuthError(reviewQuery.error)) {
+      expireSession(reviewQuery.error.message);
+    }
+  }, [reviewQuery.error, token]);
 
   const sweepMutation = useMutation({
     mutationFn: () => runV2DataQualitySweep(token!, 1000),
@@ -50,6 +71,10 @@ export default function ManualReviewPage() {
       refetch();
     },
     onError: (error: Error) => {
+      if (isAdminAuthError(error)) {
+        expireSession(error.message);
+        return;
+      }
       setMessage(error.message);
     },
   });

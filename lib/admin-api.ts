@@ -19,13 +19,19 @@ export interface V2RuntimeStatus {
   queue_health: {
     expired_leases: number;
   };
-  task_summary: Record<string, Record<string, number>>;
+  task_summary: V2TaskSummaryRow[];
   recent_tasks: Array<Record<string, unknown>>;
   recent_runs: Array<Record<string, unknown>>;
   dashboard_snapshot: {
     last_refreshed_at: string | null;
     needs_refresh: boolean | null;
   };
+}
+
+export interface V2TaskSummaryRow {
+  task_type: string;
+  status: string;
+  task_count: number;
 }
 
 export interface V2PlanDefinition {
@@ -61,6 +67,20 @@ function buildAdminHeaders(token?: string, extra?: HeadersInit): HeadersInit {
   };
 }
 
+export class AdminAuthError extends Error {
+  status: number;
+
+  constructor(message: string = "Session expired. Please sign in again.") {
+    super(message);
+    this.name = "AdminAuthError";
+    this.status = 401;
+  }
+}
+
+export function isAdminAuthError(error: unknown): error is AdminAuthError {
+  return error instanceof AdminAuthError || (error instanceof Error && error.name === "AdminAuthError");
+}
+
 async function adminRequest<T>(
   endpoint: string,
   token?: string,
@@ -73,7 +93,17 @@ async function adminRequest<T>(
 
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}));
-    throw new Error(detail.detail || `${response.status} ${response.statusText}`);
+    if (response.status === 401) {
+      setStoredAdminSession(null);
+      throw new AdminAuthError(detail.detail || "Session expired. Please sign in again.");
+    }
+
+    const error = new Error(detail.detail || `${response.status} ${response.statusText}`) as Error & {
+      status?: number;
+    };
+    error.name = "AdminRequestError";
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {

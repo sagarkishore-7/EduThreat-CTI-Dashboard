@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ADMIN_SESSION_KEY,
+  isAdminAuthError,
   getStoredAdminSession,
   getV2ConsistencyCandidates,
   getV2ManualReviewQueue,
@@ -51,6 +52,21 @@ export default function AdminPage() {
     setToken(getStoredAdminSession());
   }, []);
 
+  const expireSession = (message: string = "Your admin session expired. Please sign in again.") => {
+    setToken(null);
+    setStoredAdminSession(null);
+    queryClient.clear();
+    setActionState({ type: "error", message });
+  };
+
+  const handleAdminError = (error: Error) => {
+    if (isAdminAuthError(error)) {
+      expireSession(error.message);
+      return;
+    }
+    setActionState({ type: "error", message: error.message });
+  };
+
   const loginMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) =>
       loginV2Admin(username, password),
@@ -61,7 +77,7 @@ export default function AdminPage() {
       setActionState({ type: "success", message: "Logged into the v2 operations console." });
     },
     onError: (error: Error) => {
-      setActionState({ type: "error", message: error.message });
+      handleAdminError(error);
     },
   });
 
@@ -77,39 +93,72 @@ export default function AdminPage() {
     },
   });
 
-  const { data: preflight, refetch: refetchPreflight } = useQuery({
+  const preflightQuery = useQuery({
     queryKey: ["admin-v2-preflight", token],
     queryFn: () => getV2Preflight(token!),
     enabled: Boolean(token),
     refetchInterval: 60_000,
   });
 
-  const { data: status, refetch: refetchStatus } = useQuery({
+  const statusQuery = useQuery({
     queryKey: ["admin-v2-status", token],
     queryFn: () => getV2RuntimeStatus(token!),
     enabled: Boolean(token),
     refetchInterval: 30_000,
   });
 
-  const { data: plans, refetch: refetchPlans } = useQuery({
+  const plansQuery = useQuery({
     queryKey: ["admin-v2-plans", token],
     queryFn: () => getV2Plans(token!),
     enabled: Boolean(token),
   });
 
-  const { data: manualReview, refetch: refetchManualReview } = useQuery({
+  const manualReviewQuery = useQuery({
     queryKey: ["admin-v2-manual-review", token],
     queryFn: () => getV2ManualReviewQueue(token!, 25),
     enabled: Boolean(token),
     refetchInterval: 60_000,
   });
 
-  const { data: consistencyCandidates, refetch: refetchConsistency } = useQuery({
+  const consistencyQuery = useQuery({
     queryKey: ["admin-v2-consistency", token],
     queryFn: () => getV2ConsistencyCandidates(token!, { limit: 20, scan_limit: 500 }),
     enabled: Boolean(token),
     refetchInterval: 60_000,
   });
+
+  const preflight = preflightQuery.data;
+  const status = statusQuery.data;
+  const plans = plansQuery.data;
+  const manualReview = manualReviewQuery.data;
+  const consistencyCandidates = consistencyQuery.data;
+  const refetchPreflight = preflightQuery.refetch;
+  const refetchStatus = statusQuery.refetch;
+  const refetchPlans = plansQuery.refetch;
+  const refetchManualReview = manualReviewQuery.refetch;
+  const refetchConsistency = consistencyQuery.refetch;
+
+  useEffect(() => {
+    const authError = [
+      preflightQuery.error,
+      statusQuery.error,
+      plansQuery.error,
+      manualReviewQuery.error,
+      consistencyQuery.error,
+    ].find(isAdminAuthError);
+
+    if (token && authError) {
+      expireSession(authError.message);
+    }
+  }, [
+    consistencyQuery.error,
+    manualReviewQuery.error,
+    plansQuery.error,
+    preflightQuery.error,
+    queryClient,
+    statusQuery.error,
+    token,
+  ]);
 
   const planMutation = useMutation({
     mutationFn: ({ planName, paid }: { planName: string; paid?: boolean }) =>
@@ -122,7 +171,7 @@ export default function AdminPage() {
       refetchStatus();
     },
     onError: (error: Error) => {
-      setActionState({ type: "error", message: error.message });
+      handleAdminError(error);
     },
   });
 
@@ -137,7 +186,7 @@ export default function AdminPage() {
       refetchStatus();
     },
     onError: (error: Error) => {
-      setActionState({ type: "error", message: error.message });
+      handleAdminError(error);
     },
   });
 
@@ -152,7 +201,7 @@ export default function AdminPage() {
       refetchStatus();
     },
     onError: (error: Error) => {
-      setActionState({ type: "error", message: error.message });
+      handleAdminError(error);
     },
   });
 
@@ -169,14 +218,42 @@ export default function AdminPage() {
 
   const taskTypeSummary = useMemo(() => {
     if (!status?.task_summary) return [];
-    return Object.entries(status.task_summary).map(([taskType, states]) => ({
-      taskType,
-      queued: Number(states.queued || 0),
-      leased: Number(states.leased || 0),
-      completed: Number(states.completed || 0),
-      failed: Number(states.failed || 0),
-      deadLetter: Number(states.dead_letter || 0),
-    }));
+    const grouped = new Map<
+      string,
+      {
+        taskType: string;
+        queued: number;
+        leased: number;
+        completed: number;
+        failed: number;
+        deadLetter: number;
+      }
+    >();
+
+    for (const row of status.task_summary) {
+      const existing = grouped.get(row.task_type) || {
+        taskType: row.task_type,
+        queued: 0,
+        leased: 0,
+        completed: 0,
+        failed: 0,
+        deadLetter: 0,
+      };
+
+      const count = Number(row.task_count || 0);
+      if (row.status === "queued") existing.queued += count;
+      if (row.status === "leased") existing.leased += count;
+      if (row.status === "completed") existing.completed += count;
+      if (row.status === "failed") existing.failed += count;
+      if (row.status === "dead_letter") existing.deadLetter += count;
+      grouped.set(row.task_type, existing);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => {
+      const totalA = a.queued + a.leased + a.completed + a.failed + a.deadLetter;
+      const totalB = b.queued + b.leased + b.completed + b.failed + b.deadLetter;
+      return totalB - totalA;
+    });
   }, [status?.task_summary]);
 
   const progressMetrics = useMemo(() => {
