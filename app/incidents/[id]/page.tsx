@@ -1075,12 +1075,17 @@ export default function IncidentDetailPage() {
                         <div className="min-w-0">
                           <p className="text-[12px] font-semibold text-zinc-200">{difference.label}</p>
                           <p className="mt-1 text-[12px] text-zinc-400">
-                            Selected source:{" "}
+                            Canonical value:{" "}
                             <span className="text-cyan-300">
-                              {difference.selected_display_value || "Not disclosed"}
+                              {difference.resolved_display_value || "Not disclosed"}
                             </span>
-                            {difference.selected_source_name ? ` via ${difference.selected_source_name}` : ""}
+                            {difference.resolved_source_name ? ` via ${difference.resolved_source_name}` : ""}
                           </p>
+                          {difference.resolved_source_is_selected === false && (
+                            <p className="mt-1 text-[11px] text-amber-300">
+                              Backfilled from a supporting source because the selected article did not disclose this field.
+                            </p>
+                          )}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           <span className="tag bg-zinc-800 text-zinc-300 border-zinc-700">

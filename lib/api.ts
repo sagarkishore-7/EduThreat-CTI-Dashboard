@@ -135,6 +135,11 @@ export interface SourceDisclosureFieldDifference {
   selected_value?: unknown;
   selected_display_value?: string | null;
   selected_source_name?: string | null;
+  resolved_value?: unknown;
+  resolved_display_value?: string | null;
+  resolved_source_enrichment_id?: string | null;
+  resolved_source_name?: string | null;
+  resolved_source_is_selected?: boolean | null;
   sources_with_value: number;
   sources_missing_value: number;
   distinct_value_count: number;
