@@ -1011,6 +1011,121 @@ export default function IncidentDetailPage() {
             ) : null;
           })()}
 
+          {incident.source_disclosure?.selected_source_reason && (
+            <Section icon={Target} label="Why This Source Won">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <DF label="Selected Source" value={incident.source_disclosure.selected_source_reason.source_name} />
+                <DF
+                  label="Survivor Score"
+                  value={
+                    incident.source_disclosure.selected_source_reason.survivor_score != null
+                      ? String(incident.source_disclosure.selected_source_reason.survivor_score)
+                      : null
+                  }
+                />
+                <DF
+                  label="Fields Disclosed"
+                  value={
+                    incident.source_disclosure.selected_source_reason.field_count != null
+                      ? String(incident.source_disclosure.selected_source_reason.field_count)
+                      : null
+                  }
+                />
+                <DF
+                  label="Selection Basis"
+                  value={humanizeDisclosureKey(incident.source_disclosure.selected_source_reason.selection_basis)}
+                />
+              </div>
+
+              {incident.source_disclosure.selected_source_reason.why_selected && incident.source_disclosure.selected_source_reason.why_selected.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {incident.source_disclosure.selected_source_reason.why_selected.map((reason, idx) => (
+                    <span key={`${reason}-${idx}`} className="tag bg-cyan-500/8 text-cyan-300 border-cyan-500/20">
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {incident.source_disclosure.selected_source_reason.score_breakdown && Object.keys(incident.source_disclosure.selected_source_reason.score_breakdown).length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(incident.source_disclosure.selected_source_reason.score_breakdown)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([key, value]) => (
+                      <div key={key} className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2">
+                        <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-1">{humanizeScoreBreakdownKey(key)}</p>
+                        <p className={cn("text-[13px] font-medium", value >= 0 ? "text-zinc-300" : "text-red-300")}>
+                          {value >= 0 ? `+${value}` : value}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </Section>
+          )}
+
+          {(() => {
+            const differences = (incident.source_disclosure?.field_differences ?? []).filter((field) => field.has_disparity);
+            return differences.length > 0 ? (
+              <Section icon={Layers} label="Reporting Differences" count={differences.length}>
+                <div className="space-y-3">
+                  {differences.map((difference) => (
+                    <div key={difference.field} className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-semibold text-zinc-200">{difference.label}</p>
+                          <p className="mt-1 text-[12px] text-zinc-400">
+                            Selected source:{" "}
+                            <span className="text-cyan-300">
+                              {difference.selected_display_value || "Not disclosed"}
+                            </span>
+                            {difference.selected_source_name ? ` via ${difference.selected_source_name}` : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className="tag bg-zinc-800 text-zinc-300 border-zinc-700">
+                            {difference.sources_with_value} source{difference.sources_with_value === 1 ? "" : "s"} reported
+                          </span>
+                          {difference.sources_missing_value > 0 && (
+                            <span className="tag bg-amber-500/8 text-amber-300 border-amber-500/20">
+                              {difference.sources_missing_value} missing
+                            </span>
+                          )}
+                          {difference.distinct_value_count > 1 && (
+                            <span className="tag bg-rose-500/8 text-rose-300 border-rose-500/20">
+                              conflicting values
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {difference.reporting_sources.map((source, idx) => (
+                          <span
+                            key={`${difference.field}-${source.source_incident_id ?? idx}`}
+                            className={cn(
+                              "tag border",
+                              source.has_value
+                                ? source.is_primary_member
+                                  ? "bg-cyan-500/8 text-cyan-300 border-cyan-500/20"
+                                  : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                                : "bg-zinc-900 text-zinc-600 border-zinc-800"
+                            )}
+                          >
+                            {source.source_name}
+                            <span className="text-[9px] font-mono ml-1">
+                              {source.has_value ? source.display_value || "reported" : "not disclosed"}
+                            </span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            ) : null;
+          })()}
+
           {/* Data provenance */}
           {incident.sources && incident.sources.length > 0 && (
             <Section icon={Layers} label="Data Provenance">
@@ -1198,6 +1313,28 @@ function dedupeSourceUrls<T extends { resolved_url?: string; url?: string }>(sou
     deduped.push(sourceUrl);
   }
   return deduped;
+}
+
+function humanizeDisclosureKey(value?: string | null): string | null {
+  if (!value) return null;
+  return value.replace(/_/g, " ");
+}
+
+function humanizeScoreBreakdownKey(value: string): string {
+  const labels: Record<string, string> = {
+    source_rank: "Source Trust",
+    structured_field_coverage: "Field Coverage",
+    summary_richness: "Summary Depth",
+    timeline_depth: "Timeline Depth",
+    named_victim_bonus: "Named Victim",
+    incident_date_bonus: "Incident Date",
+    actor_or_family_bonus: "Actor/Family",
+    country_bonus: "Country",
+    identity_title_alignment_bonus: "Title Match",
+    identity_title_alignment_penalty: "Title Mismatch",
+    enrichment_confidence_bonus: "LLM Confidence",
+  };
+  return labels[value] || humanizeDisclosureKey(value) || value;
 }
 
 function ImpactCard({ icon: Icon, title, accent, fields }: {

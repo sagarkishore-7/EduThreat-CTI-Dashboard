@@ -99,6 +99,60 @@ export interface IncidentSource {
   source_urls?: IncidentSourceUrl[];
 }
 
+export interface SourceDisclosureScoreBreakdown {
+  [key: string]: number;
+}
+
+export interface SourceDisclosureSourceSummary {
+  source_enrichment_id?: string;
+  source_incident_id?: string;
+  source_name?: string;
+  source_group?: string;
+  raw_title?: string;
+  raw_subtitle?: string;
+  source_published_at?: string;
+  is_primary_member?: boolean;
+  survivor_score?: number;
+  score_breakdown?: SourceDisclosureScoreBreakdown;
+  field_count?: number;
+  disclosed_fields?: string[];
+  source_urls?: IncidentSourceUrl[];
+}
+
+export interface SourceDisclosureFieldSource {
+  source_enrichment_id?: string;
+  source_incident_id?: string;
+  source_name?: string;
+  is_primary_member?: boolean;
+  has_value?: boolean;
+  value?: unknown;
+  display_value?: string | null;
+}
+
+export interface SourceDisclosureFieldDifference {
+  field: string;
+  label: string;
+  selected_value?: unknown;
+  selected_display_value?: string | null;
+  selected_source_name?: string | null;
+  sources_with_value: number;
+  sources_missing_value: number;
+  distinct_value_count: number;
+  has_disparity: boolean;
+  reporting_sources: SourceDisclosureFieldSource[];
+}
+
+export interface SelectedSourceReason extends SourceDisclosureSourceSummary {
+  selection_basis?: string;
+  why_selected?: string[];
+}
+
+export interface SourceDisclosure {
+  selected_source_reason?: SelectedSourceReason | null;
+  source_summaries?: SourceDisclosureSourceSummary[];
+  field_differences?: SourceDisclosureFieldDifference[];
+}
+
 export interface IncidentDetail {
   incident_id: string;
   institution_name: string;
@@ -207,6 +261,7 @@ export interface IncidentDetail {
   llm_enriched: boolean;
   llm_enriched_at?: string;
   sources: IncidentSource[];
+  source_disclosure?: SourceDisclosure;
   notes?: string;
 }
 
