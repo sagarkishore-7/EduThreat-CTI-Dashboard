@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { AttackTelemetryOverlay } from "@/components/charts/AttackTelemetryOverlay";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { getCountryAnalytics, getPipelineResearchMetrics, getStats, type CountByCategory } from "@/lib/api";
 import { cn, formatNumber, formatPercent, getCountryFlag, getCountryRegion } from "@/lib/utils";
@@ -82,7 +81,7 @@ export default function MapPage() {
   }, [enrichedCountries]);
 
   const topCountry = countries[0];
-  const activeArcs = Math.min(ORIGIN_COUNT * 3, 12);
+  const activeArcs = Math.min(Math.max(countries.length - 1, 0), 7);
   const queuedBacklog = research?.pipeline_performance.queue_backlog_current
     .filter((row) => row.status === "queued")
     .reduce((sum, row) => sum + row.task_count, 0) || 0;
@@ -137,9 +136,9 @@ export default function MapPage() {
         <MapKpi
           icon={Orbit}
           tone="pulse"
-          label="Active arcs"
+          label="Active lanes"
           value={formatNumber(activeArcs)}
-          detail="Animated pressure routes"
+          detail="Projected correlation corridors"
         />
         <MapKpi
           icon={Layers3}
@@ -206,34 +205,13 @@ export default function MapPage() {
                 showTopCountries={false}
                 className="h-full border-0 bg-transparent p-0"
                 mapClassName="relative h-[520px]"
+                telemetryMode={mode}
+                showControls
               />
-              <AttackTelemetryOverlay countries={countries} mode={mode} />
-
-              {topCountry && (
-                <div className="absolute bottom-4 left-4 z-10 w-[240px] rounded-2xl border border-zinc-700/80 bg-[#080b12]/92 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.38)] backdrop-blur-xl">
-                  <div className="mb-3 flex items-center gap-3">
-                    <span className="text-2xl">
-                      {getCountryFlag(topCountry.country_code || topCountry.category, topCountry.flag_emoji)}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-zinc-100">{topCountry.category}</p>
-                      <p className="font-mono text-[11px] text-zinc-500">
-                        {groupedByRegion.find((region) => region.items.some((item) => item.category === topCountry.category))?.region || "Unknown region"}
-                      </p>
-                    </div>
-                  </div>
-                  <MapTooltipRow label="Total incidents" value={formatNumber(topCountry.count)} emphasis />
-                  <MapTooltipRow label="Corpus share" value={formatPercent(selectedShare * 100)} />
-                  <MapTooltipRow label="Geo rank" value="#1 open-country pressure" />
-                  <div className="mt-3 border-t border-zinc-800/80 pt-3 text-[11px] text-zinc-500">
-                    Click any illuminated country to open the filtered incident register.
-                  </div>
-                </div>
-              )}
 
               <div className="absolute bottom-4 right-4 z-10 flex flex-wrap items-center gap-4 rounded-2xl border border-zinc-700/80 bg-[#080b12]/92 px-4 py-3 text-[11px] text-zinc-400 backdrop-blur-xl">
                 <LegendItem swatch="bg-emerald-400" label="Open incident density" />
-                <LegendItem swatch="bg-indigo-400" label="Origin / pressure arcs" />
+                <LegendItem swatch="bg-indigo-400" label="Projected pressure lanes" />
                 <LegendItem swatch="bg-amber-400" label="Secondary hotspots" />
               </div>
             </div>
@@ -337,8 +315,6 @@ export default function MapPage() {
   );
 }
 
-const ORIGIN_COUNT = 4;
-
 function SegmentButton({
   label,
   active = false,
@@ -418,23 +394,6 @@ function MapKpi({
         </div>
       </div>
       <p className="text-xs text-zinc-500">{detail}</p>
-    </div>
-  );
-}
-
-function MapTooltipRow({
-  label,
-  value,
-  emphasis = false,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1.5 text-[11px]">
-      <span className="text-zinc-500">{label}</span>
-      <span className={cn("font-mono", emphasis ? "text-red-300" : "text-zinc-100")}>{value}</span>
     </div>
   );
 }

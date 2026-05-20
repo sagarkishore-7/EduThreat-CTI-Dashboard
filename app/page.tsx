@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { AttackTelemetryOverlay } from "@/components/charts/AttackTelemetryOverlay";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
 import { StatCard } from "@/components/StatCard";
@@ -187,8 +186,8 @@ export default function DashboardPage() {
                 showTopCountries={false}
                 className="border-0 bg-transparent p-0"
                 mapClassName="relative h-[410px]"
+                telemetryMode="arcs"
               />
-              <AttackTelemetryOverlay countries={data.incidents_by_country} mode="arcs" />
             </div>
           </div>
         </div>

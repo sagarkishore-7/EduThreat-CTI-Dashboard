@@ -1,24 +1,44 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import { geoCentroid } from "d3-geo";
 import {
   ComposableMap,
   Geographies,
   Geography,
+  Marker,
   ZoomableGroup,
+  useMapContext,
 } from "react-simple-maps";
 import type { CountByCategory } from "@/lib/api";
-import { COUNTRY_NAME_TO_CODE, getCountryFlag, formatNumber } from "@/lib/utils";
+import { cn, COUNTRY_NAME_TO_CODE, formatNumber, getCountryFlag } from "@/lib/utils";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const DEFAULT_CENTER: [number, number] = [10, 20];
+const DEFAULT_ZOOM = 1;
+
+type TelemetryMode = "none" | "choropleth" | "dots" | "arcs";
+
+type Hotspot = {
+  code: string;
+  name: string;
+  count: number;
+  percentage: number;
+  coordinates: [number, number];
+  tone: "threat" | "warn" | "info";
+};
+
+type ZoomState = {
+  coordinates: [number, number];
+  zoom: number;
+};
 
 // ISO 3166-1 numeric to alpha-2 mapping for matching
 const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "004": "AF", "008": "AL", "012": "DZ", "020": "AD", "024": "AO",
   "032": "AR", "036": "AU", "040": "AT", "048": "BH", "050": "BD",
   "056": "BE", "060": "BM", "068": "BO", "070": "BA", "076": "BR",
-  "100": "BG", "124": "CA", "152": "CL", "156": "CN",
-  "144": "LK",
+  "100": "BG", "124": "CA", "152": "CL", "156": "CN", "144": "LK",
   "170": "CO", "188": "CR", "191": "HR", "196": "CY", "203": "CZ",
   "208": "DK", "218": "EC", "222": "SV", "233": "EE", "246": "FI", "250": "FR",
   "276": "DE", "300": "GR", "344": "HK", "348": "HU", "352": "IS",
@@ -33,8 +53,8 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "705": "SI", "710": "ZA", "724": "ES", "752": "SE", "756": "CH",
   "788": "TN", "792": "TR", "804": "UA", "818": "EG", "826": "GB",
   "834": "TZ", "840": "US", "858": "UY", "704": "VN", "716": "ZW", "862": "VE",
-  "398": "KZ", "192": "CU", "760": "SY", "729": "SD",
-  "600": "PY", "417": "KG", "831": "GG", "214": "DO", "112": "BY",
+  "398": "KZ", "192": "CU", "760": "SY", "729": "SD", "600": "PY",
+  "417": "KG", "831": "GG", "214": "DO", "112": "BY",
 };
 
 interface WorldHeatmapProps {
@@ -44,6 +64,8 @@ interface WorldHeatmapProps {
   showTopCountries?: boolean;
   className?: string;
   mapClassName?: string;
+  telemetryMode?: TelemetryMode;
+  showControls?: boolean;
 }
 
 export function WorldHeatmap({
@@ -53,42 +75,67 @@ export function WorldHeatmap({
   showTopCountries = true,
   className,
   mapClassName,
+  telemetryMode = "none",
+  showControls = false,
 }: WorldHeatmapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
+  const [zoomState, setZoomState] = useState<ZoomState>({
+    coordinates: DEFAULT_CENTER,
+    zoom: DEFAULT_ZOOM,
+  });
 
-  // Build lookup: ISO alpha-2 code -> incident count
   const countByCode = useMemo(() => {
-    const map: Record<string, { count: number; name: string }> = {};
+    const map: Record<string, { count: number; name: string; percentage: number; flag?: string }> = {};
     data.forEach((item) => {
-      // Try country_code first, then lookup by name
-      const code = item.country_code || COUNTRY_NAME_TO_CODE[item.category];
+      const code = item.country_code?.toUpperCase() || COUNTRY_NAME_TO_CODE[item.category];
       if (code) {
-        map[code] = { count: item.count, name: item.category };
+        map[code] = {
+          count: item.count,
+          name: item.category,
+          percentage: item.percentage,
+          flag: item.flag_emoji,
+        };
       }
     });
     return map;
   }, [data]);
 
-  const maxCount = useMemo(
-    () => Math.max(...data.map((d) => d.count), 1),
-    [data]
-  );
+  const maxCount = useMemo(() => Math.max(...data.map((d) => d.count), 1), [data]);
+
+  const topCountry = data[0];
 
   function getColor(count: number): string {
-    if (count === 0) return "#1a1a2e";
-    const intensity = Math.pow(count / maxCount, 0.4); // Power scale for better distribution
-    // Dark blue -> cyan -> bright cyan gradient
-    const r = Math.round(6 + intensity * 0);
-    const g = Math.round(20 + intensity * 162);
-    const b = Math.round(40 + intensity * 172);
+    if (count === 0) return "#161a26";
+    const intensity = Math.pow(count / maxCount, 0.42);
+    const r = Math.round(10 + intensity * 18);
+    const g = Math.round(18 + intensity * 178);
+    const b = Math.round(34 + intensity * 188);
     return `rgb(${r}, ${g}, ${b})`;
   }
 
   function getStrokeColor(count: number): string {
-    return count > 0 ? "rgba(6, 182, 212, 0.4)" : "rgba(255,255,255,0.05)";
+    return count > 0 ? "rgba(77, 188, 255, 0.38)" : "rgba(255,255,255,0.05)";
   }
+
+  const zoomIn = () =>
+    setZoomState((current) => ({
+      ...current,
+      zoom: Math.min(Number((current.zoom * 1.35).toFixed(2)), 4.5),
+    }));
+
+  const zoomOut = () =>
+    setZoomState((current) => ({
+      ...current,
+      zoom: Math.max(Number((current.zoom / 1.35).toFixed(2)), 1),
+    }));
+
+  const resetView = () =>
+    setZoomState({
+      coordinates: DEFAULT_CENTER,
+      zoom: DEFAULT_ZOOM,
+    });
 
   return (
     <div className={className ?? "rounded-lg border border-zinc-800 bg-[#0c0c18] p-4"}>
@@ -101,98 +148,204 @@ export function WorldHeatmap({
             <h3 className="text-sm font-semibold text-zinc-200">Education Sector — Incident Heatmap</h3>
           </div>
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm" style={{ background: "#1a1a2e" }} />
-              <span>0</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount * 0.25) }} />
-              <span>Low</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount * 0.5) }} />
-              <span>Med</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount) }} />
-              <span>High</span>
-            </div>
+            <LegendSwatch color="#161a26" label="0" />
+            <LegendSwatch color={getColor(maxCount * 0.25)} label="Low" />
+            <LegendSwatch color={getColor(maxCount * 0.5)} label="Med" />
+            <LegendSwatch color={getColor(maxCount)} label="High" />
           </div>
         </div>
       )}
 
-      <div className={mapClassName ?? "relative h-[380px]"}>
+      <div className={cn("relative", mapClassName ?? "h-[380px]")}>
+        {showControls && (
+          <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
+            <MapControl label="+" onClick={zoomIn} />
+            <MapControl label="−" onClick={zoomOut} />
+            <MapControl label="⤧" onClick={resetView} compact />
+          </div>
+        )}
+
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
             scale: 130,
-            center: [10, 20],
+            center: DEFAULT_CENTER,
           }}
           style={{ width: "100%", height: "100%" }}
         >
-          <ZoomableGroup zoom={1} minZoom={1} maxZoom={5}>
+          <ZoomableGroup
+            center={zoomState.coordinates}
+            zoom={zoomState.zoom}
+            minZoom={1}
+            maxZoom={4.5}
+            onMoveEnd={(position) => {
+              setZoomState({
+                coordinates: position.coordinates as [number, number],
+                zoom: position.zoom,
+              });
+            }}
+          >
             <Geographies geography={GEO_URL}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const numericId = geo.id || geo.properties?.["ISO_A3_EH"];
-                  const alpha2 =
-                    NUMERIC_TO_ALPHA2[numericId] ||
-                    geo.properties?.["ISO_A2"] ||
-                    "";
-                  const info = countByCode[alpha2];
-                  const count = info?.count || 0;
-                  const countryName =
-                    info?.name || geo.properties?.name || "Unknown";
+              {({ geographies }) => {
+                const hotspots = geographies
+                  .map((geo) => {
+                    const numericId = String(geo.id || "");
+                    const alpha2 = NUMERIC_TO_ALPHA2[numericId] || geo.properties?.["ISO_A2"] || "";
+                    const info = countByCode[alpha2];
+                    if (!info || info.count <= 0) return null;
+                    const centroid = geoCentroid(geo as never) as [number, number];
+                    if (!Number.isFinite(centroid[0]) || !Number.isFinite(centroid[1])) return null;
+                    return {
+                      code: alpha2,
+                      name: info.name,
+                      count: info.count,
+                      percentage: info.percentage,
+                      coordinates: centroid,
+                    };
+                  })
+                  .filter(Boolean)
+                  .sort((a, b) => (b?.count || 0) - (a?.count || 0))
+                  .slice(0, 8)
+                  .map((item, index) => ({
+                    ...(item as NonNullable<typeof item>),
+                    tone: (index === 0 ? "threat" : index < 3 ? "warn" : "info") as Hotspot["tone"],
+                  })) as Hotspot[];
 
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={getColor(count)}
-                      stroke={getStrokeColor(count)}
-                      strokeWidth={0.5}
-                      style={{
-                        default: { outline: "none" },
-                        hover: {
-                          outline: "none",
-                          fill: count > 0 ? "#06b6d4" : "#2a2a4e",
-                          stroke: "#06b6d4",
-                          strokeWidth: 1,
-                          cursor: count > 0 ? "pointer" : "default",
-                        },
-                        pressed: { outline: "none" },
-                      }}
-                      onMouseEnter={(evt) => {
-                        const label = count > 0
-                          ? `${getCountryFlag(alpha2)} ${countryName}: ${count} incident${count !== 1 ? "s" : ""}`
-                          : `${countryName}: No incidents`;
-                        setTooltipContent(label);
-                        setTooltipPosition({
-                          x: evt.clientX,
-                          y: evt.clientY,
-                        });
-                        setShowTooltip(true);
-                      }}
-                      onMouseLeave={() => {
-                        setShowTooltip(false);
-                      }}
-                      onClick={() => {
-                        if (count > 0 && onCountryClick) {
-                          onCountryClick(countryName);
-                        }
-                      }}
-                    />
-                  );
-                })
-              }
+                const arcPairs =
+                  telemetryMode === "arcs"
+                    ? buildArcPairs(hotspots)
+                    : [];
+
+                return (
+                  <>
+                    {geographies.map((geo) => {
+                      const numericId = String(geo.id || "");
+                      const alpha2 = NUMERIC_TO_ALPHA2[numericId] || geo.properties?.["ISO_A2"] || "";
+                      const info = countByCode[alpha2];
+                      const count = info?.count || 0;
+                      const countryName = info?.name || geo.properties?.name || "Unknown";
+
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={getColor(count)}
+                          stroke={getStrokeColor(count)}
+                          strokeWidth={count > 0 ? 0.6 : 0.4}
+                          style={{
+                            default: { outline: "none" },
+                            hover: {
+                              outline: "none",
+                              fill: count > 0 ? "#1be7c8" : "#262d40",
+                              stroke: "#4dbcff",
+                              strokeWidth: 1,
+                              cursor: count > 0 ? "pointer" : "default",
+                            },
+                            pressed: { outline: "none" },
+                          }}
+                          onMouseEnter={(evt) => {
+                            const label = count > 0
+                              ? `${getCountryFlag(alpha2 || countryName, info?.flag)} ${countryName}: ${count} incident${count !== 1 ? "s" : ""}`
+                              : `${countryName}: No incidents`;
+                            setTooltipContent(label);
+                            setTooltipPosition({
+                              x: evt.clientX,
+                              y: evt.clientY,
+                            });
+                            setShowTooltip(true);
+                          }}
+                          onMouseLeave={() => setShowTooltip(false)}
+                          onClick={() => {
+                            if (count > 0 && onCountryClick) {
+                              onCountryClick(countryName);
+                            }
+                          }}
+                        />
+                      );
+                    })}
+
+                    {arcPairs.map((arc, index) => (
+                      <TelemetryArc
+                        key={`${arc.from.code}-${arc.to.code}`}
+                        from={arc.from.coordinates}
+                        to={arc.to.coordinates}
+                        tone={arc.to.tone}
+                        duration={3.4 + index * 0.45}
+                      />
+                    ))}
+
+                    {telemetryMode !== "none" &&
+                      hotspots.map((spot, index) => {
+                        const radius = scaledMarkerRadius(spot.count, hotspots[0]?.count || 1, zoomState.zoom);
+                        const showLabel = index < 5 || zoomState.zoom > 1.45;
+                        return (
+                          <Marker key={spot.code} coordinates={spot.coordinates}>
+                            <g className="pointer-events-none">
+                              <circle
+                                r={radius * 1.8}
+                                fill={spot.tone === "threat" ? "rgba(255,71,87,0.22)" : "rgba(77,188,255,0.18)"}
+                              />
+                              <circle r={radius} fill={toneColor(spot.tone)} opacity={0.78} />
+                              <circle r={Math.max(1.8, radius * 0.24)} fill="#f8fafc" />
+                              <circle r={radius} fill="none" stroke={toneColor(spot.tone)} opacity="0.72">
+                                <animate
+                                  attributeName="r"
+                                  from={radius.toString()}
+                                  to={(radius * 1.95).toString()}
+                                  dur={`${2.2 + index * 0.35}s`}
+                                  repeatCount="indefinite"
+                                />
+                                <animate
+                                  attributeName="opacity"
+                                  from="0.65"
+                                  to="0"
+                                  dur={`${2.2 + index * 0.35}s`}
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+                              {showLabel && (
+                                <text
+                                  y={-(radius + 8)}
+                                  textAnchor="middle"
+                                  fill={toneColor(spot.tone)}
+                                  fontSize={Math.max(8, 11 / Math.max(1, zoomState.zoom * 0.92))}
+                                  fontFamily="var(--font-geist-mono), monospace"
+                                  fontWeight="700"
+                                >
+                                  {spot.code} · {formatNumber(spot.count)}
+                                </text>
+                              )}
+                            </g>
+                          </Marker>
+                        );
+                      })}
+                  </>
+                );
+              }}
             </Geographies>
           </ZoomableGroup>
         </ComposableMap>
 
-        {/* Tooltip */}
+        {telemetryMode !== "none" && topCountry && (
+          <div className="absolute bottom-3 left-3 z-20 w-[230px] rounded-2xl border border-zinc-700/80 bg-[#080b12]/92 p-4 shadow-[0_18px_40px_rgba(0,0,0,0.38)] backdrop-blur-xl">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-xl">
+                {getCountryFlag(topCountry.country_code || topCountry.category, topCountry.flag_emoji)}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-zinc-100">{topCountry.category}</p>
+                <p className="text-[11px] font-mono text-zinc-500">Top open-country pressure</p>
+              </div>
+            </div>
+            <MetricRow label="Incident volume" value={formatNumber(topCountry.count)} highlight />
+            <MetricRow label="Corpus share" value={`${topCountry.percentage.toFixed(1)}%`} />
+            <MetricRow label="Map mode" value={telemetryMode.toUpperCase()} />
+          </div>
+        )}
+
         {showTooltip && (
           <div
-            className="fixed z-50 px-3 py-2 text-sm rounded-lg border pointer-events-none"
+            className="pointer-events-none fixed z-50 rounded-lg border px-3 py-2 text-sm"
             style={{
               left: tooltipPosition.x + 12,
               top: tooltipPosition.y - 30,
@@ -205,7 +358,6 @@ export function WorldHeatmap({
         )}
       </div>
 
-      {/* Top countries bar */}
       {showTopCountries && (
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {data.slice(0, 8).map((item) => (
@@ -227,6 +379,120 @@ export function WorldHeatmap({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function buildArcPairs(hotspots: Hotspot[]) {
+  const lead = hotspots[0];
+  if (!lead) return [];
+  return hotspots
+    .slice(1, 5)
+    .map((spot) => ({ from: lead, to: spot }))
+    .concat(
+      hotspots.length > 5
+        ? hotspots.slice(3, 6).map((spot, index) => ({
+            from: hotspots[Math.max(1, index + 1)],
+            to: spot,
+          }))
+        : [],
+    );
+}
+
+function scaledMarkerRadius(count: number, maxCount: number, zoom: number) {
+  const base = 6 + (count / Math.max(maxCount, 1)) * 12;
+  return base / Math.pow(Math.max(zoom, 1), 0.48);
+}
+
+function toneColor(tone: Hotspot["tone"]) {
+  if (tone === "threat") return "#ff4757";
+  if (tone === "warn") return "#ff8c42";
+  return "#4dbcff";
+}
+
+function TelemetryArc({
+  from,
+  to,
+  tone,
+  duration,
+}: {
+  from: [number, number];
+  to: [number, number];
+  tone: Hotspot["tone"];
+  duration: number;
+}) {
+  const { path } = useMapContext();
+  const pathData = useMemo(
+    () => path({ type: "LineString", coordinates: [from, to] }) || "",
+    [from, path, to],
+  );
+
+  const color = toneColor(tone);
+
+  if (!pathData) return null;
+
+  return (
+    <g className="pointer-events-none">
+      <path
+        d={pathData}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.15}
+        strokeDasharray="4 6"
+        opacity={0.28}
+      />
+      <circle r="2.6" fill={color} opacity="0.98">
+        <animateMotion dur={`${duration}s`} repeatCount="indefinite" path={pathData} />
+      </circle>
+    </g>
+  );
+}
+
+function LegendSwatch({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1">
+      <div className="h-3 w-3 rounded-sm" style={{ background: color }} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function MapControl({
+  label,
+  onClick,
+  compact = false,
+}: {
+  label: string;
+  onClick: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "grid place-items-center rounded-lg border border-zinc-700/80 bg-[#080b12]/92 text-zinc-200 backdrop-blur-xl transition-colors hover:border-emerald-400/35 hover:text-emerald-300",
+        compact ? "h-8 w-8 text-xs" : "h-9 w-9 text-sm",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+function MetricRow({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5 text-[11px]">
+      <span className="text-zinc-500">{label}</span>
+      <span className={cn("font-mono", highlight ? "text-red-300" : "text-zinc-100")}>{value}</span>
     </div>
   );
 }
