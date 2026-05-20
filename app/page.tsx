@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { AttackTelemetryOverlay } from "@/components/charts/AttackTelemetryOverlay";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
 import { StatCard } from "@/components/StatCard";
@@ -168,9 +169,27 @@ export default function DashboardPage() {
             </Link>
           </div>
           <div className="ops-panel-body">
-            <WorldHeatmap data={data.incidents_by_country} onCountryClick={(country) => {
-              window.location.href = `/incidents?country=${encodeURIComponent(country)}`;
-            }} />
+            <div className="relative overflow-hidden rounded-2xl border border-zinc-800/70 bg-[#0a0c14]">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(0,216,180,0.08),transparent_62%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(rgba(0,216,180,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(0,216,180,0.025)_1px,transparent_1px)] bg-[size:30px_30px] opacity-60" />
+              <div className="absolute left-4 top-4 z-10 flex items-center gap-2">
+                <span className="ops-chip ops-chip-brand">Live telemetry</span>
+                <span className="ops-chip">
+                  {formatNumber(data.incidents_by_country.length)} mapped countries
+                </span>
+              </div>
+              <WorldHeatmap
+                data={data.incidents_by_country}
+                onCountryClick={(country) => {
+                  window.location.href = `/incidents?country=${encodeURIComponent(country)}`;
+                }}
+                showHeader={false}
+                showTopCountries={false}
+                className="border-0 bg-transparent p-0"
+                mapClassName="relative h-[410px]"
+              />
+              <AttackTelemetryOverlay countries={data.incidents_by_country} mode="arcs" />
+            </div>
           </div>
         </div>
 

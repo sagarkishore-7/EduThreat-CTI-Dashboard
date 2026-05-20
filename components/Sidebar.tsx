@@ -17,13 +17,13 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { name: "Executive Briefing", href: "/",              icon: LayoutDashboard, group: "overview" },
-  { name: "Incidents",          href: "/incidents",     icon: FileText,        group: "overview" },
-  { name: "Analytics",          href: "/analytics",     icon: BarChart3,       group: "intel" },
-  { name: "Tradecraft",         href: "/attacks",       icon: AlertTriangle,   group: "intel" },
-  { name: "Ransomware",         href: "/ransomware",    icon: Lock,            group: "intel" },
-  { name: "Threat Actors",      href: "/threat-actors", icon: Users,           group: "intel" },
-  { name: "Geography",          href: "/map",           icon: Globe2,          group: "system" },
+  { name: "Dashboard",      href: "/",              icon: LayoutDashboard, group: "overview" },
+  { name: "Incidents",      href: "/incidents",     icon: FileText,        group: "overview" },
+  { name: "Analytics",      href: "/analytics",     icon: BarChart3,       group: "intel" },
+  { name: "Tradecraft",     href: "/attacks",       icon: AlertTriangle,   group: "intel" },
+  { name: "Ransomware",     href: "/ransomware",    icon: Lock,            group: "intel" },
+  { name: "Threat Actors",  href: "/threat-actors", icon: Users,           group: "intel" },
+  { name: "Geography",      href: "/map",           icon: Globe2,          group: "knowledge" },
 ];
 
 interface SidebarProps {
@@ -97,9 +97,9 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           ))}
 
           <p className="px-2 pt-4 pb-1.5 text-[9px] uppercase tracking-[0.18em] font-semibold text-zinc-600">
-            System
+            Knowledge
           </p>
-          {navigation.filter((n) => n.group === "system").map((item) => (
+          {navigation.filter((n) => n.group === "knowledge").map((item) => (
             <NavItem key={item.name} item={item} active={isActive(item.href)} onClick={handleNavClick} />
           ))}
         </nav>
@@ -112,7 +112,7 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               Live Runtime
             </div>
             <div className="min-w-0">
-              <p className="mt-2 text-[10px] text-zinc-400">Canonical intelligence layer active and collecting.</p>
+              <p className="mt-2 text-[10px] text-zinc-400">Canonical intelligence layer active, collecting, and shaping the merged incident graph.</p>
             </div>
           </div>
         </div>

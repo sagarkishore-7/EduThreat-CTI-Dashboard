@@ -40,9 +40,20 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
 interface WorldHeatmapProps {
   data: CountByCategory[];
   onCountryClick?: (country: string) => void;
+  showHeader?: boolean;
+  showTopCountries?: boolean;
+  className?: string;
+  mapClassName?: string;
 }
 
-export function WorldHeatmap({ data, onCountryClick }: WorldHeatmapProps) {
+export function WorldHeatmap({
+  data,
+  onCountryClick,
+  showHeader = true,
+  showTopCountries = true,
+  className,
+  mapClassName,
+}: WorldHeatmapProps) {
   const [tooltipContent, setTooltipContent] = useState("");
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [showTooltip, setShowTooltip] = useState(false);
@@ -80,35 +91,37 @@ export function WorldHeatmap({ data, onCountryClick }: WorldHeatmapProps) {
   }
 
   return (
-    <div className="bg-[#0c0c18] border border-zinc-800 rounded-lg p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-medium mb-0.5">
-            Global Threat Map
-          </p>
-          <h3 className="text-sm font-semibold text-zinc-200">Education Sector — Incident Heatmap</h3>
+    <div className={className ?? "rounded-lg border border-zinc-800 bg-[#0c0c18] p-4"}>
+      {showHeader && (
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-widest text-zinc-500">
+              Global Threat Map
+            </p>
+            <h3 className="text-sm font-semibold text-zinc-200">Education Sector — Incident Heatmap</h3>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <div className="h-3 w-3 rounded-sm" style={{ background: "#1a1a2e" }} />
+              <span>0</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount * 0.25) }} />
+              <span>Low</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount * 0.5) }} />
+              <span>Med</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-3 w-3 rounded-sm" style={{ background: getColor(maxCount) }} />
+              <span>High</span>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{ background: "#1a1a2e" }} />
-            <span>0</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{ background: getColor(maxCount * 0.25) }} />
-            <span>Low</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{ background: getColor(maxCount * 0.5) }} />
-            <span>Med</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded-sm" style={{ background: getColor(maxCount) }} />
-            <span>High</span>
-          </div>
-        </div>
-      </div>
+      )}
 
-      <div className="relative h-[380px]">
+      <div className={mapClassName ?? "relative h-[380px]"}>
         <ComposableMap
           projection="geoMercator"
           projectionConfig={{
@@ -193,25 +206,27 @@ export function WorldHeatmap({ data, onCountryClick }: WorldHeatmapProps) {
       </div>
 
       {/* Top countries bar */}
-      <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {data.slice(0, 8).map((item) => (
-          <button
-            key={item.category}
-            onClick={() => onCountryClick?.(item.category)}
-            className="flex items-center gap-2 p-2 rounded-lg hover:bg-secondary transition-colors text-left"
-          >
-            <span className="text-lg">
-              {getCountryFlag(item.category, item.flag_emoji)}
-            </span>
-            <div className="flex-1 min-w-0">
-              <span className="text-xs text-muted-foreground block truncate">
-                {item.category}
+      {showTopCountries && (
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {data.slice(0, 8).map((item) => (
+            <button
+              key={item.category}
+              onClick={() => onCountryClick?.(item.category)}
+              className="flex items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-secondary"
+            >
+              <span className="text-lg">
+                {getCountryFlag(item.category, item.flag_emoji)}
               </span>
-              <span className="text-sm font-semibold">{formatNumber(item.count)}</span>
-            </div>
-          </button>
-        ))}
-      </div>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-xs text-muted-foreground">
+                  {item.category}
+                </span>
+                <span className="text-sm font-semibold">{formatNumber(item.count)}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

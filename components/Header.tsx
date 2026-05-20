@@ -25,13 +25,13 @@ import {
 } from "@/lib/admin-api";
 
 const pageMeta: Record<string, { label: string; description: string }> = {
-  "/": { label: "Executive Briefing", description: "Analyst-ready education sector threat summary" },
+  "/": { label: "Dashboard", description: "Analyst-ready education sector threat summary" },
   "/incidents": { label: "Incidents", description: "Canonical incident register and searchable casework" },
   "/map": { label: "Geography", description: "Where retained education-sector pressure is concentrating" },
   "/attacks": { label: "Tradecraft", description: "Attack patterns, intrusion clusters, and access signals" },
   "/ransomware": { label: "Ransomware", description: "Family prevalence, extortion pressure, and victimization" },
   "/threat-actors": { label: "Threat Actors", description: "Attributed groups, targeting, and family overlap" },
-  "/analytics": { label: "Exposure", description: "Victimology, records exposure, and analyst workbook views" },
+  "/analytics": { label: "Analyst Workbook", description: "Victimology, records exposure, and intelligence coverage views" },
   "/admin": { label: "Operations", description: "Runtime health, collection plans, and quality controls" },
   "/admin/review": { label: "Manual Review", description: "Read-only queue for incidents that exhausted automation" },
 };

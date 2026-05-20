@@ -59,6 +59,14 @@ export interface V2ConsistencyCandidatesResponse {
   };
 }
 
+export interface V2RejectedEnrichmentsResponse {
+  items: Array<Record<string, unknown>>;
+  meta: {
+    limit: number;
+    returned: number;
+  };
+}
+
 function buildAdminHeaders(token?: string, extra?: HeadersInit): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -220,6 +228,13 @@ export async function getV2ManualReviewQueue(
   limit: number = 50,
 ): Promise<V2ManualReviewQueueResponse> {
   return adminRequest(`/api/admin/v2/manual-review-queue?limit=${limit}`, token);
+}
+
+export async function getV2RejectedEnrichments(
+  token: string,
+  limit: number = 50,
+): Promise<V2RejectedEnrichmentsResponse> {
+  return adminRequest(`/api/admin/v2/rejected-enrichments?limit=${limit}`, token);
 }
 
 export async function getV2ConsistencyCandidates(
