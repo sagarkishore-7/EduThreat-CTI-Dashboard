@@ -26,6 +26,7 @@ type Hotspot = {
   percentage: number;
   coordinates: [number, number];
   tone: "threat" | "warn" | "info";
+  rank: number;
 };
 
 type ZoomState = {
@@ -205,15 +206,15 @@ export function WorldHeatmap({
                   })
                   .filter(Boolean)
                   .sort((a, b) => (b?.count || 0) - (a?.count || 0))
-                  .slice(0, 8)
                   .map((item, index) => ({
                     ...(item as NonNullable<typeof item>),
-                    tone: (index === 0 ? "threat" : index < 3 ? "warn" : "info") as Hotspot["tone"],
+                    tone: (index === 0 ? "threat" : index < 5 ? "warn" : "info") as Hotspot["tone"],
+                    rank: index,
                   })) as Hotspot[];
 
                 const arcPairs =
                   telemetryMode === "arcs"
-                    ? buildArcPairs(hotspots)
+                    ? buildArcPairs(hotspots.slice(0, 8))
                     : [];
 
                 return (
@@ -277,17 +278,21 @@ export function WorldHeatmap({
                     {telemetryMode !== "none" &&
                       hotspots.map((spot, index) => {
                         const radius = scaledMarkerRadius(spot.count, hotspots[0]?.count || 1, zoomState.zoom);
-                        const showLabel = index < 5 || zoomState.zoom > 1.45;
+                        const showLabel =
+                          spot.rank < 6 || (zoomState.zoom > 1.55 && spot.rank < 18);
+                        const pulseOpacity =
+                          spot.rank < 3 ? 0.78 : spot.rank < 10 ? 0.56 : 0.38;
                         return (
                           <Marker key={spot.code} coordinates={spot.coordinates}>
                             <g className="pointer-events-none">
                               <circle
                                 r={radius * 1.8}
                                 fill={spot.tone === "threat" ? "rgba(255,71,87,0.22)" : "rgba(77,188,255,0.18)"}
+                                opacity={pulseOpacity}
                               />
-                              <circle r={radius} fill={toneColor(spot.tone)} opacity={0.78} />
+                              <circle r={radius} fill={toneColor(spot.tone)} opacity={pulseOpacity} />
                               <circle r={Math.max(1.8, radius * 0.24)} fill="#f8fafc" />
-                              <circle r={radius} fill="none" stroke={toneColor(spot.tone)} opacity="0.72">
+                              <circle r={radius} fill="none" stroke={toneColor(spot.tone)} opacity={Math.max(0.32, pulseOpacity)}>
                                 <animate
                                   attributeName="r"
                                   from={radius.toString()}
@@ -297,7 +302,7 @@ export function WorldHeatmap({
                                 />
                                 <animate
                                   attributeName="opacity"
-                                  from="0.65"
+                                  from={String(Math.max(0.32, pulseOpacity))}
                                   to="0"
                                   dur={`${2.2 + index * 0.35}s`}
                                   repeatCount="indefinite"
