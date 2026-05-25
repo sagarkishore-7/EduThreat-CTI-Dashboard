@@ -13,6 +13,9 @@ export interface V2RuntimeStatus {
   counts: {
     source_incidents: number;
     article_documents: number;
+    selected_article_sources?: number;
+    article_fetch_attempts?: number;
+    successful_article_fetch_attempts?: number;
     source_enrichments: number;
     canonical_incidents: number;
   };

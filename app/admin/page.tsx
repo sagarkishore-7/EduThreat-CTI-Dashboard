@@ -245,6 +245,9 @@ export default function AdminPage() {
     if (!counts) return null;
     const sourceIncidents = Number(counts.source_incidents || 0);
     const articleDocuments = Number(counts.article_documents || 0);
+    const selectedArticleSources = Number(counts.selected_article_sources ?? counts.article_documents ?? 0);
+    const articleFetchAttempts = Number(counts.article_fetch_attempts || 0);
+    const successfulArticleFetchAttempts = Number(counts.successful_article_fetch_attempts || 0);
     const sourceEnrichments = Number(counts.source_enrichments || 0);
     const canonicalIncidents = Number(counts.canonical_incidents || 0);
     const queuedWork = taskTypeSummary.reduce((sum, item) => sum + item.queued, 0);
@@ -253,10 +256,14 @@ export default function AdminPage() {
     return {
       sourceIncidents,
       articleDocuments,
+      selectedArticleSources,
+      articleFetchAttempts,
+      successfulArticleFetchAttempts,
       sourceEnrichments,
       canonicalIncidents,
-      fetchCoveragePct: sourceIncidents > 0 ? (articleDocuments / sourceIncidents) * 100 : 0,
-      enrichCoveragePct: articleDocuments > 0 ? (sourceEnrichments / articleDocuments) * 100 : 0,
+      fetchCoveragePct: sourceIncidents > 0 ? (selectedArticleSources / sourceIncidents) * 100 : 0,
+      fetchSuccessPct: articleFetchAttempts > 0 ? (successfulArticleFetchAttempts / articleFetchAttempts) * 100 : 0,
+      enrichCoveragePct: selectedArticleSources > 0 ? (sourceEnrichments / selectedArticleSources) * 100 : 0,
       canonicalYieldPct: sourceIncidents > 0 ? (canonicalIncidents / sourceIncidents) * 100 : 0,
       queuedWork,
       leasedWork,
@@ -377,7 +384,12 @@ export default function AdminPage() {
 
         <div className="grid gap-3 px-6 py-5 md:grid-cols-2 xl:grid-cols-6">
           <HealthCard label="Source incidents" value={formatNumber(progressMetrics?.sourceIncidents || 0)} detail="Raw source observations" tone="brand" />
-          <HealthCard label="Fetched articles" value={formatNumber(progressMetrics?.articleDocuments || 0)} detail={`${progressMetrics ? progressMetrics.fetchCoveragePct.toFixed(1) : "0.0"}% fetch coverage`} tone="info" />
+          <HealthCard
+            label="Selected article sources"
+            value={formatNumber(progressMetrics?.selectedArticleSources || 0)}
+            detail={`${progressMetrics ? progressMetrics.fetchCoveragePct.toFixed(1) : "0.0"}% source coverage · ${formatNumber(progressMetrics?.articleDocuments || 0)} docs retained`}
+            tone="info"
+          />
           <HealthCard label="Source enrichments" value={formatNumber(progressMetrics?.sourceEnrichments || 0)} detail={`${progressMetrics ? progressMetrics.enrichCoveragePct.toFixed(1) : "0.0"}% enrichment coverage`} tone="pulse" />
           <HealthCard label="Canonicals" value={formatNumber(progressMetrics?.canonicalIncidents || 0)} detail={`${progressMetrics ? progressMetrics.canonicalYieldPct.toFixed(1) : "0.0"}% corpus yield`} tone="threat" />
           <HealthCard label="Manual review" value={formatNumber(manualReview?.meta.returned || 0)} detail="Current queue sample" tone="warn" />
@@ -512,6 +524,8 @@ export default function AdminPage() {
               <MetaBox label="Alembic revision" value={dbRevision} tone="neutral" />
               <MetaBox label="Queued work" value={formatNumber(progressMetrics?.queuedWork || 0)} tone="neutral" />
               <MetaBox label="Leased work" value={formatNumber(progressMetrics?.leasedWork || 0)} tone="neutral" />
+              <MetaBox label="Fetch attempts" value={formatNumber(progressMetrics?.articleFetchAttempts || 0)} tone="neutral" />
+              <MetaBox label="Fetch success" value={`${progressMetrics ? progressMetrics.fetchSuccessPct.toFixed(1) : "0.0"}%`} tone={(progressMetrics?.fetchSuccessPct || 0) >= 70 ? "ok" : "warn"} />
               <MetaBox label="Expired leases" value={formatNumber(status?.queue_health.expired_leases || 0)} tone={(status?.queue_health.expired_leases || 0) > 0 ? "bad" : "ok"} />
               <MetaBox label="Preflight ready" value={String(Boolean(preflight?.ready))} tone={preflight?.ready ? "ok" : "warn"} />
             </div>

@@ -544,9 +544,17 @@ export interface PipelineResearchMetricsResponse {
     };
     tiers?: Array<{
       fetch_tier: string;
-      attempts_total: number;
+      attempts?: number;
+      attempts_total?: number;
+      attempt_share_pct?: number;
+      successes?: number;
       success_rate_pct: number;
+      selected_successes?: number;
       selected_successes_total?: number;
+      selected_share_pct?: number;
+      latency_ms?: Record<string, number>;
+      success_content_length_chars?: Record<string, number>;
+      selected_content_length_chars?: Record<string, number>;
       selected_avg_chars?: number;
     }>;
   };
