@@ -21,9 +21,7 @@ export default function ThreatActorIntelligencePage() {
     queryFn: () => getThreatActors(30),
   });
 
-  if (isLoading) return <PageSkeleton rows={4} />;
-
-  const actors = data?.threat_actors || [];
+  const actors = useMemo(() => data?.threat_actors || [], [data]);
   const leadActor = actors[0];
 
   const countryCounts = useMemo(() => {
@@ -45,6 +43,8 @@ export default function ThreatActorIntelligencePage() {
     }
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [actors]);
+
+  if (isLoading) return <PageSkeleton rows={4} />;
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
-import { getCountryAnalytics, getPipelineResearchMetrics, getStats, type CountByCategory } from "@/lib/api";
+import { getCountryAnalytics, getStats, type CountByCategory } from "@/lib/api";
 import { cn, formatNumber, formatPercent, getCountryFlag, getCountryRegion } from "@/lib/utils";
 import {
   Crosshair,
@@ -37,22 +37,12 @@ export default function MapPage() {
     queryFn: getStats,
   });
 
-  const researchQuery = useQuery({
-    queryKey: ["pipeline-research"],
-    queryFn: getPipelineResearchMetrics,
-  });
-
   const countryQuery = useQuery({
     queryKey: ["countries-full"],
     queryFn: () => getCountryAnalytics(200),
   });
 
-  if (statsQuery.isLoading || countryQuery.isLoading || researchQuery.isLoading) {
-    return <PageSkeleton rows={3} />;
-  }
-
   const stats = statsQuery.data;
-  const research = researchQuery.data;
   const countries = countryQuery.data?.data || [];
 
   const enrichedCountries = useMemo<CountryItem[]>(
@@ -80,11 +70,12 @@ export default function MapPage() {
       .sort((a, b) => b.total - a.total);
   }, [enrichedCountries]);
 
+  if (statsQuery.isLoading || countryQuery.isLoading) {
+    return <PageSkeleton rows={3} />;
+  }
+
   const topCountry = countries[0];
   const activeArcs = Math.min(Math.max(countries.length - 1, 0), 7);
-  const queuedBacklog = research?.pipeline_performance.queue_backlog_current
-    .filter((row) => row.status === "queued")
-    .reduce((sum, row) => sum + row.task_count, 0) || 0;
   const selectedShare = stats?.education_incidents
     ? (topCountry?.count || 0) / stats.education_incidents
     : 0;
@@ -143,9 +134,9 @@ export default function MapPage() {
         <MapKpi
           icon={Layers3}
           tone="info"
-          label="Queued backlog"
-          value={formatNumber(queuedBacklog)}
-          detail="Cross-lane tasks awaiting drain"
+          label="Regions"
+          value={formatNumber(groupedByRegion.length)}
+          detail="World regions with retained activity"
         />
       </div>
 

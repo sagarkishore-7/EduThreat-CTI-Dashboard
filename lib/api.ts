@@ -751,6 +751,49 @@ export async function getFilters(): Promise<FilterOptions> {
   return fetchAPI<FilterOptions>("/api/v2/filters");
 }
 
+export interface KpiTrend {
+  series: TimeSeriesPoint[];
+  values: number[];
+  total: number;
+  current: number;
+  previous: number;
+  delta_pct: number | null;
+}
+
+export type KpiTrendsResponse = Record<"incidents" | "ransomware" | "breaches" | "actors", KpiTrend>;
+
+export async function getKpiTrends(months: number = 12): Promise<KpiTrendsResponse> {
+  return fetchAPI<KpiTrendsResponse>(`/api/v2/analytics/kpi-trends?months=${months}`);
+}
+
+export interface FeedHealthItem {
+  source: string;
+  group: string;
+  events_total: number;
+  events_30d: number;
+  last_collected_at: string | null;
+  last_published_at: string | null;
+  age_days: number | null;
+  status: "healthy" | "stale" | "offline";
+}
+
+export interface FeedHealthResponse {
+  summary: {
+    feed_count: number;
+    healthy: number;
+    stale: number;
+    offline: number;
+    events_total: number;
+    events_30d: number;
+  };
+  by_group: Array<{ group: string; events: number }>;
+  feeds: FeedHealthItem[];
+}
+
+export async function getFeedHealth(limit: number = 50): Promise<FeedHealthResponse> {
+  return fetchAPI<FeedHealthResponse>(`/api/v2/analytics/feeds?limit=${limit}`);
+}
+
 export async function getThreatActors(limit: number = 20): Promise<ThreatActorsResponse> {
   return fetchAPI(`/api/v2/analytics/threat-actors?limit=${limit}`);
 }

@@ -4,6 +4,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { getIncident, API_BASE } from "@/lib/api";
+import { TlpBadge, deriveTlp } from "@/components/ui/TlpBadge";
 import {
   formatDate, formatNumber, formatCurrency, formatAttackCategory,
   getAttackTypeColor, getCountryFlag, cn,
@@ -348,7 +349,15 @@ export default function IncidentDetailPage() {
               </div>
 
               {/* Badge row */}
-              <div className="flex flex-wrap gap-1.5 mb-4">
+              <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                <TlpBadge
+                  level={deriveTlp({
+                    severity: incident.incident_severity,
+                    attackCategory: attackType,
+                    hasLeakSite: !!incident.leak_site_url,
+                    publicDisclosure: incident.transparency_metrics?.public_disclosure,
+                  })}
+                />
                 {incident.incident_severity && (() => {
                   const sevColor: Record<string, string> = {
                     critical: "bg-red-500/15 text-red-300 border-red-500/30",

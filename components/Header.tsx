@@ -24,16 +24,21 @@ import {
   setStoredAdminSession,
 } from "@/lib/admin-api";
 
-const pageMeta: Record<string, { label: string; description: string }> = {
-  "/": { label: "Dashboard", description: "Analyst-ready education sector threat summary" },
-  "/incidents": { label: "Incidents", description: "Canonical incident register and searchable casework" },
-  "/map": { label: "Geography", description: "Where retained education-sector pressure is concentrating" },
-  "/attacks": { label: "Tradecraft", description: "Attack patterns, intrusion clusters, and access signals" },
-  "/ransomware": { label: "Ransomware", description: "Family prevalence, extortion pressure, and victimization" },
-  "/threat-actors": { label: "Threat Actors", description: "Attributed groups, targeting, and family overlap" },
-  "/analytics": { label: "Analyst Workbook", description: "Victimology, records exposure, and intelligence coverage views" },
-  "/admin": { label: "Operations", description: "Runtime health, collection plans, and quality controls" },
-  "/admin/review": { label: "Manual Review", description: "Read-only queue for incidents that exhausted automation" },
+const pageMeta: Record<string, { label: string; description: string; group: string }> = {
+  "/": { label: "Dashboard", description: "Analyst-ready education sector threat summary", group: "Overview" },
+  "/incidents": { label: "Incidents", description: "Canonical incident register and searchable casework", group: "Overview" },
+  "/investigations": { label: "Investigations", description: "Campaign correlation and the canonical incident graph", group: "Overview" },
+  "/map": { label: "Geo Map", description: "Where retained education-sector pressure is concentrating", group: "Overview" },
+  "/attacks": { label: "Attack Intel", description: "Attack patterns, intrusion clusters, and access signals", group: "Intelligence" },
+  "/ransomware": { label: "Ransomware", description: "Family prevalence, extortion pressure, and victimization", group: "Intelligence" },
+  "/threat-actors": { label: "Threat Actors", description: "Attributed groups, targeting, and family overlap", group: "Intelligence" },
+  "/mitre": { label: "MITRE ATT&CK", description: "Observed tactic and technique coverage", group: "Intelligence" },
+  "/analytics": { label: "Analytics", description: "Victimology, records exposure, and intelligence coverage views", group: "Intelligence" },
+  "/reports": { label: "Reports", description: "Generated CTI bulletins, advisories, and actor profiles", group: "Knowledge" },
+  "/feeds": { label: "Intel Feeds", description: "Source ingestion health and enrichment pipeline", group: "Knowledge" },
+  "/components": { label: "Components", description: "Design-system primitives and UI building blocks", group: "System" },
+  "/admin": { label: "Admin", description: "Runtime health, collection plans, and quality controls", group: "System" },
+  "/admin/review": { label: "Manual Review", description: "Read-only queue for incidents that exhausted automation", group: "System" },
 };
 
 interface HeaderProps {
@@ -58,12 +63,13 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const isDetail = pathname.startsWith("/incidents/") && pathname !== "/incidents";
   const meta = isDetail
-    ? { label: "Incident Detail", description: "Structured case file and intelligence narrative" }
-    : (pageMeta[pathname] ?? { label: "EduThreat-CTI", description: "Education Sector CTI" });
+    ? { label: "Incident Detail", description: "Structured case file and intelligence narrative", group: "Overview" }
+    : (pageMeta[pathname] ?? { label: "EduThreat-CTI", description: "Education Sector CTI", group: "Overview" });
 
-  const breadcrumb = isDetail
-    ? [{ label: "Incidents", href: "/incidents" }, { label: "Detail" }]
-    : null;
+  // Breadcrumb in the design reads: EduThreat / <Group> / <Page>
+  const crumbs: { label: string; href?: string }[] = isDetail
+    ? [{ label: "EduThreat", href: "/" }, { label: "Incidents", href: "/incidents" }, { label: "Detail" }]
+    : [{ label: "EduThreat", href: "/" }, { label: meta.group }, { label: meta.label }];
 
   useEffect(() => {
     setToken(getStoredAdminSession());
@@ -95,6 +101,10 @@ export function Header({ onMenuClick }: HeaderProps) {
         setMenuOpen(false);
       }
       if (event.key === "/" && document.activeElement?.tagName !== "INPUT") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         inputRef.current?.focus();
       }
@@ -175,50 +185,45 @@ export function Header({ onMenuClick }: HeaderProps) {
         </button>
 
         <div className="min-w-0">
-          {breadcrumb ? (
-            <div className="flex items-center gap-1.5 text-[12px]">
-              {breadcrumb.map((crumb, i) => (
-                <span key={i} className="flex items-center gap-1.5">
-                  {i > 0 && <ChevronRight className="w-3 h-3 text-zinc-600 shrink-0" />}
-                  {crumb.href ? (
-                    <Link href={crumb.href} className="text-zinc-500 hover:text-emerald-300 transition-colors font-medium">
-                      {crumb.label}
-                    </Link>
-                  ) : (
-                    <span className="text-zinc-300 font-medium">{crumb.label}</span>
-                  )}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="hidden h-6 w-px bg-zinc-800 sm:block" />
-              <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Analyst Workspace</div>
-                <h1 className="truncate text-[14px] font-semibold text-zinc-100">{meta.label}</h1>
-              </div>
-              <span className="hidden sm:inline text-[11px] text-zinc-600 truncate">— {meta.description}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 text-[12.5px]">
+            {crumbs.map((crumb, i) => (
+              <span key={i} className="flex items-center gap-1.5">
+                {i > 0 && <span className="text-zinc-600">/</span>}
+                {crumb.href ? (
+                  <Link href={crumb.href} className="font-medium text-zinc-500 transition-colors hover:text-emerald-300">
+                    {crumb.label}
+                  </Link>
+                ) : (
+                  <span className={i === crumbs.length - 1 ? "font-semibold text-zinc-100" : "text-zinc-500"}>
+                    {crumb.label}
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+          <span className="hidden truncate text-[11px] text-zinc-600 md:block">{meta.description}</span>
         </div>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
         <form onSubmit={handleSearch} className="hidden sm:block">
-          <div className={`relative flex items-center transition-all duration-200 ${focused ? "w-56" : "w-44"}`}>
-            <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-600 pointer-events-none" />
+          <div className={`relative flex items-center transition-all duration-200 ${focused ? "w-80" : "w-64"}`}>
+            <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-zinc-600" />
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search…"
+              placeholder="Search incidents, actors, IOCs, CVEs…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              className="w-full rounded-md border border-zinc-800 bg-[#10131c]/90 py-2 pl-8 pr-3 text-[12px] text-zinc-200 placeholder:text-zinc-600 transition-colors focus:outline-none focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
+              className="w-full rounded-md border border-zinc-800 bg-[#10131c]/90 py-2 pl-8 pr-12 text-[12px] text-zinc-200 placeholder:text-zinc-600 transition-colors focus:border-emerald-400/40 focus:outline-none focus:ring-1 focus:ring-emerald-400/20"
             />
             {!focused && (
-              <span className="absolute right-2 text-[10px] text-zinc-700 font-mono pointer-events-none">/</span>
+              <span className="pointer-events-none absolute right-2 flex items-center gap-0.5">
+                <span className="rounded border border-zinc-700 bg-zinc-900/80 px-1 py-px font-mono text-[9px] text-zinc-500">⌘</span>
+                <span className="rounded border border-zinc-700 bg-zinc-900/80 px-1 py-px font-mono text-[9px] text-zinc-500">K</span>
+              </span>
             )}
           </div>
         </form>

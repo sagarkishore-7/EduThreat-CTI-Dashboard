@@ -58,10 +58,6 @@ export default function RansomwareIntelligencePage() {
     queryFn: () => getIncidents({ per_page: 120, sort_by: "incident_date", sort_order: "desc" }),
   });
 
-  if (loadingFamilies || loadingTrend || loadingRecent) {
-    return <PageSkeleton rows={4} />;
-  }
-
   const familyItems = families?.data || [];
   const recentRansomware = (recentIncidentsRaw?.incidents || []).filter(
     (incident) => Boolean(incident.ransomware_family),
@@ -78,6 +74,10 @@ export default function RansomwareIntelligencePage() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8);
   }, [recentRansomware]);
+
+  if (loadingFamilies || loadingTrend || loadingRecent) {
+    return <PageSkeleton rows={4} />;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

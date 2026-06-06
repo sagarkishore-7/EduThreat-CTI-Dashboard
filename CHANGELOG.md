@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-06-06
+
+### "Operations Room" Redesign
+
+A ground-up restyle of the platform into a stream-first, panel-rich CTI
+operations room, plus five new pages — implemented from a Claude Design handoff
+and wired entirely to live `/api/v2` data.
+
+#### Added
+- **Reusable design system** in `components/ui/` with tokens + component classes in `app/globals.css`:
+  - `OpsStrip` — live operations strip (headline counters, TLP marker, time-range selector, live UTC clock)
+  - `KpiTile` + `Sparkline` — KPI tiles with an inline trend sparkline and period-over-period delta
+  - `TrendChart` — brand-styled incident trend (area + line, spike marker)
+  - `MitreStrip` — 14-tactic ATT&CK heat strip (kill-chain ordered, intensity-scaled)
+  - `LiveFeed` — live event stream with severity pills and per-row TLP markers
+  - `TlpBadge` + `deriveTlp()` — TLP 2.0 markings (`RED/AMBER/AMBER+STRICT/GREEN/CLEAR`)
+  - `SeverityPill` + `severityFromCategory()` — severity banding
+  - `BarList`, `Card`/`CardHead`/`CardBody`
+- **New pages:**
+  - `/mitre` — MITRE ATT&CK coverage KPIs, observed-tactic strip, technique matrix, top techniques
+  - `/feeds` — per-source ingestion health, volume by source group, enrichment pipeline chain
+  - `/reports` — report templates, incident bulletins with export, sector advisories, actor profiles
+  - `/investigations` — force-directed actor → geography → ransomware-family knowledge graph with inspector
+  - `/components` — living design-system reference
+- **TLP markings** added across the dashboard feed, incidents table, incident detail, and reports.
+- KPI sparklines + per-KPI deltas via the new backend `GET /api/v2/analytics/kpi-trends`.
+- Intel-feed health via the new backend `GET /api/v2/analytics/feeds`.
+
+#### Changed
+- **Dashboard** rebuilt: ops strip → KPI tiles w/ sparklines → world telemetry map + live event stream → MITRE strip → incident trend + top actors + attack mix.
+- **Sidebar** regrouped into Overview / Intelligence / Knowledge / System with live badges and an `OPERATIONAL` status footer.
+- **Header** now shows an `EduThreat / <Group> / <Page>` breadcrumb and a ⌘K-focusable search.
+- **Incidents** table gained Severity and TLP columns.
+- Unified the palette on signal-mint `#00d8b4` + pulse-indigo `#818cf8` (replacing the older cyan accent); JetBrains Mono for all numerics.
+
+#### Fixed
+- **Rules-of-Hooks violation** on `/threat-actors` ("Rendered more hooks than during the previous render") — memo hooks were running after an early return.
+- Applied the same hook-ordering fix to `/ransomware` and `/map`.
+- `/map` no longer blocks rendering on (and no longer calls) the slow `pipeline-research` metrics endpoint.
+
 ## [2.4.0] - 2026-03-19
 
 ### Interactive Nivo Visualizations

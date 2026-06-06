@@ -2,6 +2,27 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 3.0.0 (2026-06-06)
+
+**Focus**: "Operations Room" redesign + 5 new pages
+
+### Key Features
+- Stream-first dashboard: live ops strip, KPI tiles with inline trend sparklines, world threat-telemetry map with attack arcs, live event stream, 14-tactic MITRE ATT&CK heat strip
+- Full TLP 2.0 marking system (`RED/AMBER/AMBER+STRICT/GREEN/CLEAR`) on dashboard feed, incidents table, incident detail, and reports
+- New reusable design system under `components/ui/` (OpsStrip, KpiTile, Sparkline, TrendChart, MitreStrip, LiveFeed, BarList, Card, TlpBadge, SeverityPill) with shared tokens in `app/globals.css`
+- 5 new pages: MITRE ATT&CK (`/mitre`), Intel Feeds (`/feeds`), Reports (`/reports`), Investigations knowledge graph (`/investigations`), and a living Components reference (`/components`)
+- Sidebar regrouped (Overview / Intelligence / Knowledge / System) with live badges + status footer; header breadcrumb + ⌘K search
+- Palette unified on signal-mint `#00d8b4` + pulse-indigo `#818cf8`; JetBrains Mono numerics
+
+### Backend dependencies
+- Requires backend endpoints `GET /api/v2/analytics/kpi-trends` and `GET /api/v2/analytics/feeds` (added alongside this release)
+
+### Fixes
+- Rules-of-Hooks violations on `/threat-actors`, `/ransomware`, `/map`
+- `/map` no longer depends on the slow `pipeline-research` endpoint
+
+---
+
 ## Version 2.4.0 (2026-03-19)
 
 **Focus**: Interactive Nivo Visualizations — Sankey, Sunburst, Chord, Network

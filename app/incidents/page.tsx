@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getFilters, getIncidents } from "@/lib/api";
+import { TlpBadge, deriveTlp } from "@/components/ui/TlpBadge";
+import { SeverityPill, severityFromCategory } from "@/components/ui/SeverityPill";
 import {
   cn,
   formatAttackCategory,
@@ -360,12 +362,13 @@ function IncidentsContent() {
                     <table className="ops-table">
                       <thead>
                         <tr>
+                          <th>Sev</th>
                           <th>Institution</th>
                           <th>Date</th>
                           <th>Attack</th>
                           <th>Threat Actor</th>
                           <th>Country</th>
-                          <th>Lineage</th>
+                          <th>TLP</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -437,8 +440,17 @@ function IncidentRow({
 }) {
   const attackType = incident.attack_category || incident.attack_type_hint;
   const detailHref = `/incidents/${incident.incident_id}${searchParams ? `?from=${encodeURIComponent(searchParams)}` : ""}`;
+  const sev = severityFromCategory(attackType);
+  const tlp = deriveTlp({
+    attackCategory: attackType,
+    severity: sev,
+    hasLeakSite: Boolean(incident.ransomware_family),
+  });
   return (
     <tr className={cn(visited && "opacity-65")}>
+      <td>
+        <SeverityPill severity={sev} />
+      </td>
       <td className="max-w-[320px]">
         <Link href={detailHref} className={cn("block text-sm font-semibold transition-colors hover:text-emerald-300", visited ? "text-zinc-400" : "text-zinc-100")}>
           {incident.institution_name}
@@ -464,8 +476,8 @@ function IncidentRow({
       <td className="whitespace-nowrap text-zinc-400">
         {incident.country ? `${getCountryFlag(incident.country_code || incident.country)} ${incident.country}` : "—"}
       </td>
-      <td className="font-mono text-zinc-500">
-        {incident.source_count && incident.source_count > 0 ? `${incident.source_count} sources` : "1 source"}
+      <td>
+        <TlpBadge level={tlp} />
       </td>
     </tr>
   );
