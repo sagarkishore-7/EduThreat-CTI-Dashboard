@@ -2,6 +2,18 @@
 
 Complete version history and release notes for EduThreat-CTI Dashboard.
 
+## Version 3.1.0 (2026-06-07)
+
+**Focus**: Performance — faster time-to-metrics + smaller bundles
+
+### Key Features
+- Lazy-loaded recharts on `/`, `/attacks`, `/ransomware` (~100 kB less First Load JS each); KPI sparklines are lightweight inline SVG so metrics paint first
+- React Query tuned: `gcTime` 10 min (instant back-nav), `retry: 1`, no refetch-on-reconnect
+- 25 s request timeout in the API client (no infinite spinners)
+- Removed unused `CountryChart` / `nivo-theme` components and 4 unused `@nivo/*` deps (26 packages pruned)
+
+---
+
 ## Version 3.0.0 (2026-06-06)
 
 **Focus**: "Operations Room" redesign + 5 new pages

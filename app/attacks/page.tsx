@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import {
   getAnalyticsBreakdowns,
@@ -12,9 +13,12 @@ import {
 } from "@/lib/api";
 import { PageHeader, PageSkeleton } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { AttackTypeChart } from "@/components/charts/AttackTypeChart";
-import { IncidentTimeChart } from "@/components/charts/IncidentTimeChart";
-import { InstitutionTypeChart } from "@/components/charts/InstitutionTypeChart";
+
+// recharts-backed charts are heavy; defer them so headline metrics paint first.
+const chartLoader = () => <div className="h-64 animate-pulse rounded bg-zinc-900/40" />;
+const AttackTypeChart = dynamic(() => import("@/components/charts/AttackTypeChart").then((m) => m.AttackTypeChart), { ssr: false, loading: chartLoader });
+const IncidentTimeChart = dynamic(() => import("@/components/charts/IncidentTimeChart").then((m) => m.IncidentTimeChart), { ssr: false, loading: chartLoader });
+const InstitutionTypeChart = dynamic(() => import("@/components/charts/InstitutionTypeChart").then((m) => m.InstitutionTypeChart), { ssr: false, loading: chartLoader });
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
 import { formatAttackCategory, formatNumber, formatPercent } from "@/lib/utils";
 import { AlertTriangle, Shield, Target, Users, Workflow } from "lucide-react";

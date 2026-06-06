@@ -11,12 +11,18 @@ import { KpiTile } from "@/components/ui/KpiTile";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { MitreStrip } from "@/components/ui/MitreStrip";
 import { LiveFeed } from "@/components/ui/LiveFeed";
-import { TrendChart } from "@/components/ui/TrendChart";
 import { BarList } from "@/components/ui/BarList";
 import { GraduationCap, Lock, Database, Users, ArrowRight, AlertTriangle } from "lucide-react";
 
 const WorldHeatmap = dynamic(() => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap), {
   ssr: false,
+});
+
+// recharts is heavy; defer it so KPI tiles (lightweight SVG sparklines) and the
+// map/feed paint first.
+const TrendChart = dynamic(() => import("@/components/ui/TrendChart").then((m) => m.TrendChart), {
+  ssr: false,
+  loading: () => <div className="h-[188px] animate-pulse rounded bg-zinc-900/40" />,
 });
 
 export default function DashboardPage() {

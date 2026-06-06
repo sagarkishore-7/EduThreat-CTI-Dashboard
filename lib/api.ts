@@ -615,14 +615,34 @@ export interface IncidentBreakdownFilters {
   date_to?: string;
 }
 
+/** Default request timeout (ms). Heavy analytics are cached server-side, so a
+ *  request that exceeds this is almost certainly stuck — fail fast rather than
+ *  leave the UI spinning. Override per-call via options.signal. */
+const DEFAULT_TIMEOUT_MS = 25_000;
+
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-  });
+  // Combine any caller-provided signal with a timeout signal.
+  const timeout = AbortSignal.timeout(DEFAULT_TIMEOUT_MS);
+  const signal = options?.signal
+    ? (AbortSignal as unknown as { any: (s: AbortSignal[]) => AbortSignal }).any([options.signal, timeout])
+    : timeout;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new Error(`API timeout after ${DEFAULT_TIMEOUT_MS / 1000}s: ${endpoint}`);
+    }
+    throw err;
+  }
 
   if (!response.ok) {
     throw new Error(`API Error: ${response.status} ${response.statusText}`);

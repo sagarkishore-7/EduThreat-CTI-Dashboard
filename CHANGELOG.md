@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-06-07
+
+### Performance: faster time-to-metrics + smaller bundles
+
+#### Changed
+- **Lazy-loaded recharts** on the dashboard and the analytics pages
+  (`/`, `/attacks`, `/ransomware`). recharts is the heaviest dependency; the
+  KPI tiles use lightweight inline SVG sparklines, so headline metrics now paint
+  before the chart library loads. First Load JS dropped ~100 kB on those pages
+  (`/` 223→121 kB, `/attacks` 230→120 kB, `/ransomware` 222→120 kB).
+- **React Query tuned for snappier navigation:** added `gcTime` (10 min cache
+  retention → instant back-navigation), `retry: 1` (fail fast instead of 3×
+  backoff), and `refetchOnReconnect: false`.
+- **Request timeout** in the API client (`AbortSignal.timeout`, 25 s) so a stuck
+  request fails fast instead of leaving the UI spinning.
+
+#### Removed
+- Unused chart components `CountryChart` and `nivo-theme`, and the unused
+  `@nivo/chord`, `@nivo/sankey`, `@nivo/sunburst`, `@nivo/treemap` dependencies
+  (only `@nivo/network` + `@nivo/core` are used) — 26 packages pruned.
+
 ## [3.0.0] - 2026-06-06
 
 ### "Operations Room" Redesign
