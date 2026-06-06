@@ -786,6 +786,90 @@ export async function getKpiTrends(months: number = 12): Promise<KpiTrendsRespon
   return fetchAPI<KpiTrendsResponse>(`/api/v2/analytics/kpi-trends?months=${months}`);
 }
 
+// ── Campaigns ─────────────────────────────────────────────────────────────
+export interface CampaignSummary {
+  campaign_id: string;
+  campaign_name: string;
+  campaign_type:
+    | "same_campaign"
+    | "shared_vendor_incident"
+    | "mass_exploitation"
+    | "actor_activity_wave"
+    | "roundup_not_campaign"
+    | "unrelated";
+  status: "candidate" | "analyst_reviewed" | "suppressed";
+  first_seen_date?: string | null;
+  last_seen_date?: string | null;
+  actors: string[];
+  vendors: string[];
+  platforms: string[];
+  cves: string[];
+  attack_categories: string[];
+  member_count: number;
+  confirmed_member_count: number;
+  confidence: number | null;
+  analyst_summary?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CampaignListResponse {
+  items: CampaignSummary[];
+  meta: { limit: number; offset: number; returned: number; total: number };
+}
+
+export type CampaignMemberRole =
+  | "direct_victim"
+  | "affected_via_vendor"
+  | "vendor_operator"
+  | "mentioned_only"
+  | "needs_review";
+
+export interface CampaignMembership {
+  membership_id: string;
+  canonical_incident_id: string;
+  role: CampaignMemberRole;
+  confidence: number | null;
+  review_status: string;
+  victim_name?: string | null;
+  canonical_status?: string | null;
+  reasons: string[];
+}
+
+export interface CampaignDetailResponse {
+  campaign: CampaignSummary;
+  memberships: CampaignMembership[];
+  evidence_items: unknown[];
+}
+
+export interface CampaignGraphNode {
+  id: string;
+  type: "campaign" | "vendor" | "actor" | "cve_or_product" | "platform" | "incident" | string;
+  label: string;
+  size: number;
+  confidence?: number;
+  status?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CampaignGraphResponse {
+  campaign: CampaignSummary;
+  nodes: CampaignGraphNode[];
+  edges: Array<{ source: string; target: string; [k: string]: unknown }>;
+  meta?: Record<string, unknown>;
+}
+
+export async function getCampaigns(limit = 50): Promise<CampaignListResponse> {
+  return fetchAPI<CampaignListResponse>(`/api/v2/campaigns?limit=${limit}`);
+}
+
+export async function getCampaignDetail(id: string): Promise<CampaignDetailResponse> {
+  return fetchAPI<CampaignDetailResponse>(`/api/v2/campaigns/${encodeURIComponent(id)}`);
+}
+
+export async function getCampaignGraph(id: string): Promise<CampaignGraphResponse> {
+  return fetchAPI<CampaignGraphResponse>(`/api/v2/campaigns/${encodeURIComponent(id)}/graph`);
+}
+
 export interface FeedHealthItem {
   source: string;
   group: string;

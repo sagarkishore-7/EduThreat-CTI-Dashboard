@@ -29,6 +29,7 @@ const pageMeta: Record<string, { label: string; description: string; group: stri
   "/incidents": { label: "Incidents", description: "Canonical incident register and searchable casework", group: "Overview" },
   "/investigations": { label: "Investigations", description: "Campaign correlation and the canonical incident graph", group: "Overview" },
   "/map": { label: "Geo Map", description: "Where retained education-sector pressure is concentrating", group: "Overview" },
+  "/campaigns": { label: "Campaigns", description: "Correlated multi-incident campaigns: actors, vendors, and victim institutions", group: "Intelligence" },
   "/attacks": { label: "Attack Intel", description: "Attack patterns, intrusion clusters, and access signals", group: "Intelligence" },
   "/ransomware": { label: "Ransomware", description: "Family prevalence, extortion pressure, and victimization", group: "Intelligence" },
   "/threat-actors": { label: "Threat Actors", description: "Attributed groups, targeting, and family overlap", group: "Intelligence" },

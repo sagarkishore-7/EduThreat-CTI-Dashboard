@@ -52,6 +52,7 @@ const NAV: NavGroup[] = [
   {
     group: "Intelligence",
     items: [
+      { name: "Campaigns", href: "/campaigns", icon: Layers },
       { name: "Attack Intel", href: "/attacks", icon: AlertTriangle },
       { name: "Threat Actors", href: "/threat-actors", icon: Users, badgeKey: "actors" },
       { name: "Ransomware", href: "/ransomware", icon: Lock, badgeKey: "ransomware" },
