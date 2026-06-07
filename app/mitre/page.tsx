@@ -170,6 +170,7 @@ export default function MitrePage() {
         <Card>
           <CardHead title="Tactic Coverage Detail" sub="Incidents and distinct techniques per tactic" />
           <CardBody className="p-0">
+            <div className="overflow-x-auto">
             <table className="ops-table text-[12px]">
               <thead>
                 <tr>
@@ -190,6 +191,7 @@ export default function MitrePage() {
                 ))}
               </tbody>
             </table>
+            </div>
           </CardBody>
         </Card>
       </div>

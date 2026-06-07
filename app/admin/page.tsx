@@ -382,7 +382,7 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="grid gap-3 px-6 py-5 md:grid-cols-2 xl:grid-cols-6">
+        <div className="grid gap-3 px-6 py-5 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
           <HealthCard label="Source incidents" value={formatNumber(progressMetrics?.sourceIncidents || 0)} detail="Raw source observations" tone="brand" />
           <HealthCard
             label="Selected article sources"

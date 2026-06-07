@@ -55,6 +55,7 @@ export function InstitutionTypeChart({ data }: InstitutionTypeChartProps) {
               nameKey="name"
               paddingAngle={2}
               stroke="none"
+              isAnimationActive={false}
             >
               {chartData.map((_entry, index) => (
                 <Cell

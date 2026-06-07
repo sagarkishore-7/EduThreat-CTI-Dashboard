@@ -947,7 +947,68 @@ export async function getAnalyticsBreakdowns(
   }
   if (filters.date_from) params.set("date_from", filters.date_from);
   if (filters.date_to) params.set("date_to", filters.date_to);
-  return fetchAPI<AnalyticsBreakdownsResponse>(withQuery("/api/v2/analytics/breakdowns", params));
+  const raw = await fetchAPI<RawBreakdownsResponse>(
+    withQuery("/api/v2/analytics/breakdowns", params),
+  );
+  return {
+    countries: normalizeBreakdown(raw.countries, "country"),
+    attack_categories: normalizeBreakdown(raw.attack_categories, "attack_category"),
+    institution_types: normalizeBreakdown(raw.institution_types, "institution_type"),
+    severities: normalizeBreakdown(raw.severities, "severity"),
+  };
+}
+
+interface RawBreakdownItem {
+  country?: string;
+  country_code?: string;
+  attack_category?: string;
+  institution_type?: string;
+  severity?: string;
+  incident_count?: number;
+  count?: number;
+  percentage?: number;
+  flag_emoji?: string;
+}
+
+interface RawBreakdownsResponse {
+  countries?: RawBreakdownItem[];
+  attack_categories?: RawBreakdownItem[];
+  institution_types?: RawBreakdownItem[];
+  severities?: RawBreakdownItem[];
+}
+
+/** Map the backend breakdown shape ({<dimension>, incident_count}) onto the
+ *  CountByCategory shape ({category, count, percentage}) the charts expect, and
+ *  compute the percentage when the backend omits it. */
+function normalizeBreakdown(
+  rows: RawBreakdownItem[] | undefined,
+  key: "country" | "attack_category" | "institution_type" | "severity",
+): CountByCategory[] {
+  if (!rows || rows.length === 0) return [];
+  const total = rows.reduce((sum, r) => sum + (r.incident_count ?? r.count ?? 0), 0) || 1;
+  // Merge case-insensitive duplicates (the backend stores e.g. both
+  // "university" and "University"); keep the first-seen casing as the label.
+  const merged = new Map<string, { category: string; count: number; country_code?: string; flag_emoji?: string }>();
+  for (const r of rows) {
+    const label = (r[key] ?? "").toString().trim() || "Unknown";
+    const dedupeKey = label.toLowerCase();
+    const count = r.incident_count ?? r.count ?? 0;
+    const existing = merged.get(dedupeKey);
+    if (existing) {
+      existing.count += count;
+    } else {
+      merged.set(dedupeKey, { category: label, count, country_code: r.country_code, flag_emoji: r.flag_emoji });
+    }
+  }
+  return Array.from(merged.values())
+    .sort((a, b) => b.count - a.count)
+    .map((m) => ({
+      category: m.category,
+      count: m.count,
+      percentage: Math.round((m.count / total) * 1000) / 10,
+      country_code: m.country_code,
+      flag_emoji: m.flag_emoji,
+    }));
 }
 
 export async function getIncidentTrend(

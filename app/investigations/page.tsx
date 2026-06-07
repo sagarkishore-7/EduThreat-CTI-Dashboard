@@ -147,6 +147,7 @@ export default function InvestigationsPage() {
       <Card>
         <CardHead title="Tracked Actors" sub={`${formatNumber(data?.total ?? 0)} attributed groups in the canonical set`} />
         <CardBody className="p-0">
+          <div className="overflow-x-auto">
           <table className="ops-table text-[12px]">
             <thead>
               <tr>
@@ -167,6 +168,7 @@ export default function InvestigationsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </CardBody>
       </Card>
     </div>
