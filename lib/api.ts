@@ -979,15 +979,18 @@ interface RawBreakdownsResponse {
 
 /** Map the backend breakdown shape ({<dimension>, incident_count}) onto the
  *  CountByCategory shape ({category, count, percentage}) the charts expect, and
- *  compute the percentage when the backend omits it. */
+ *  compute the percentage when the backend omits it.
+ *
+ *  The backend now serves breakdowns from the normalized star-schema layer
+ *  (one row per controlled-vocabulary value), so this is a straight field map.
+ *  A defensive case-insensitive merge is retained so any legacy mixed-case rows
+ *  from the fallback path still collapse rather than double-count. */
 function normalizeBreakdown(
   rows: RawBreakdownItem[] | undefined,
   key: "country" | "attack_category" | "institution_type" | "severity",
 ): CountByCategory[] {
   if (!rows || rows.length === 0) return [];
   const total = rows.reduce((sum, r) => sum + (r.incident_count ?? r.count ?? 0), 0) || 1;
-  // Merge case-insensitive duplicates (the backend stores e.g. both
-  // "university" and "University"); keep the first-seen casing as the label.
   const merged = new Map<string, { category: string; count: number; country_code?: string; flag_emoji?: string }>();
   for (const r of rows) {
     const label = (r[key] ?? "").toString().trim() || "Unknown";
