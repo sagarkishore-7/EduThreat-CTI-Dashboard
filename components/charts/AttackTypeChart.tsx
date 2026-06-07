@@ -88,7 +88,7 @@ export function AttackTypeChart({ data }: AttackTypeChartProps) {
               tick={{ fill: "#71717a" }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="value" radius={[0, 3, 3, 0]} maxBarSize={16}>
+            <Bar dataKey="value" radius={[0, 3, 3, 0]} maxBarSize={16} isAnimationActive={false}>
               {chartData.map((_, index) => (
                 <Cell
                   key={`cell-${index}`}
