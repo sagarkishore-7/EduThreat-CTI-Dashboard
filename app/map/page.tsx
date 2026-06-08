@@ -19,9 +19,14 @@ import {
   Radar,
 } from "lucide-react";
 
-const WorldHeatmap = dynamic(
-  () => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap),
-  { ssr: false },
+const ThreatGlobe = dynamic(
+  () => import("@/components/charts/ThreatGlobe").then((m) => m.ThreatGlobe),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid h-full w-full place-items-center text-sm text-zinc-600">Loading globe…</div>
+    ),
+  },
 );
 
 type Mode = "choropleth" | "dots" | "arcs";
@@ -191,15 +196,10 @@ export default function MapPage() {
             </div>
 
             <div className="relative h-[520px]">
-              <WorldHeatmap
+              <ThreatGlobe
                 data={countries}
                 onCountryClick={(country) => router.push(`/incidents?country=${encodeURIComponent(country)}`)}
-                showHeader={false}
-                showTopCountries={false}
-                className="h-full border-0 bg-transparent p-0"
-                mapClassName="relative h-[520px]"
-                telemetryMode={mode}
-                showControls
+                mode={mode}
               />
 
               <div className="absolute bottom-4 right-4 z-10 flex flex-wrap items-center gap-4 rounded-2xl border border-zinc-700/80 bg-[#080b12]/92 px-4 py-3 text-[11px] text-zinc-400 backdrop-blur-xl">

@@ -15,8 +15,11 @@ import { LiveFeed } from "@/components/ui/LiveFeed";
 import { BarList } from "@/components/ui/BarList";
 import { GraduationCap, Lock, Database, Users, ArrowRight, AlertTriangle } from "lucide-react";
 
-const WorldHeatmap = dynamic(() => import("@/components/charts/WorldHeatmap").then((m) => m.WorldHeatmap), {
+const ThreatGlobe = dynamic(() => import("@/components/charts/ThreatGlobe").then((m) => m.ThreatGlobe), {
   ssr: false,
+  loading: () => (
+    <div className="grid h-full w-full place-items-center text-sm text-zinc-600">Loading globe…</div>
+  ),
 });
 
 // recharts is heavy; defer it so KPI tiles (lightweight SVG sparklines) and the
@@ -166,16 +169,12 @@ export default function DashboardPage() {
             }
           />
           <div className="relative min-h-0 flex-1 overflow-hidden">
-            <WorldHeatmap
+            <ThreatGlobe
               data={data.incidents_by_country}
               onCountryClick={(country) => {
                 window.location.href = `/incidents?country=${encodeURIComponent(country)}`;
               }}
-              showHeader={false}
-              showTopCountries={false}
-              className="h-full border-0 bg-transparent p-0"
-              mapClassName="relative h-full"
-              telemetryMode="arcs"
+              mode="arcs"
             />
           </div>
         </Card>
