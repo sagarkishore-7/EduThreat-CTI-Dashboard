@@ -380,12 +380,19 @@ body::after {
   letter-spacing: -0.025em; color: var(--c, var(--brand)); font-feature-settings: 'tnum' 1; }
 
 /* ── MITRE heat strip ── */
-.mitre-strip { display: grid; grid-template-columns: repeat(var(--cols, 14), minmax(0,1fr)); gap: 1.5px; }
-.mt-col { background: var(--void); border-radius: 3px; padding: 8px 5px 6px; position: relative; overflow: hidden; cursor: pointer; }
+/* Auto-fit columns so the strip wraps to multiple rows on narrow screens
+   instead of cramming all ~14 tactics into one unreadable row on mobile. */
+.mitre-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 4px; }
+.mt-col { background: var(--void); border-radius: 3px; padding: 8px 6px 6px; position: relative; overflow: hidden; cursor: pointer; min-width: 0; }
 .mt-col:hover { outline: 1px solid var(--brand); }
 .mt-col::before { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--brand) calc(var(--i, 0) * 1%), transparent); }
-.mt-col .mt-lbl { position: relative; font-size: 8.5px; color: #8189a0; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.1; min-height: 22px; }
+.mt-col .mt-lbl { position: relative; font-size: 9px; color: #8189a0; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.15; min-height: 22px; word-break: break-word; }
 .mt-col .mt-cnt { position: relative; font-family: var(--font-mono, monospace); font-size: 14px; font-weight: 700; color: #e6e8ef; margin-top: 4px; line-height: 1; }
+@media (min-width: 768px) {
+  .mitre-strip { grid-template-columns: repeat(var(--cols, 14), minmax(0,1fr)); gap: 1.5px; }
+  .mt-col { padding: 8px 5px 6px; }
+  .mt-col .mt-lbl { font-size: 8.5px; letter-spacing: 0.04em; }
+}
 .mt-col .mt-bars { position: relative; display: flex; gap: 1px; margin-top: 6px; }
 .mt-col .mt-bars span { flex: 1; height: 3px; background: rgba(255,255,255,.08); border-radius: 1px; }
 .mt-col .mt-bars span.hot { background: var(--brand); }
