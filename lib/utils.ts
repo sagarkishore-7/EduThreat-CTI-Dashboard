@@ -312,6 +312,27 @@ export const COUNTRY_CODE_TO_REGION: Record<string, string> = {
   ZW: "Africa",
   RU: "Europe",
   UA: "Europe",
+  // Additional coverage so no incident country falls into "Other" (the API now
+  // also serves an authoritative region; this is the local fallback).
+  AF: "Asia Pacific", TJ: "Asia Pacific", UZ: "Asia Pacific", TM: "Asia Pacific",
+  AM: "Asia Pacific", AZ: "Asia Pacific", GE: "Asia Pacific", MN: "Asia Pacific",
+  NP: "Asia Pacific", KH: "Asia Pacific", LA: "Asia Pacific", MM: "Asia Pacific",
+  BN: "Asia Pacific", MV: "Asia Pacific", BT: "Asia Pacific", MO: "Asia Pacific",
+  FJ: "Asia Pacific", PG: "Asia Pacific", GU: "Asia Pacific",
+  BB: "Latin America", BS: "Latin America", GY: "Latin America", KN: "Latin America",
+  TT: "Latin America", HT: "Latin America", PA: "Latin America",
+  GT: "Latin America", HN: "Latin America", NI: "Latin America", VE: "Latin America",
+  AG: "Latin America", LC: "Latin America", GD: "Latin America", DM: "Latin America",
+  AW: "Latin America", KY: "Latin America", BZ: "Latin America", SR: "Latin America",
+  AL: "Europe", RS: "Europe", MK: "Europe", ME: "Europe", MD: "Europe",
+  XK: "Europe", AD: "Europe", MC: "Europe", SM: "Europe", JE: "Europe",
+  IM: "Europe", GI: "Europe", FO: "Europe",
+  YE: "Middle East",
+  AO: "Africa", BW: "Africa", CM: "Africa", CD: "Africa", CI: "Africa",
+  SN: "Africa", RW: "Africa", ML: "Africa", MZ: "Africa", NA: "Africa",
+  SO: "Africa", SS: "Africa", BF: "Africa", BJ: "Africa", MW: "Africa",
+  MR: "Africa", MU: "Africa", SC: "Africa", CV: "Africa", SZ: "Africa",
+  LS: "Africa", GA: "Africa", GM: "Africa", GN: "Africa",
 };
 
 export function getCountryRegion(country: string | undefined | null, countryCode?: string): string {
