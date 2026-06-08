@@ -86,14 +86,6 @@ export function WorldHeatmap({
     coordinates: DEFAULT_CENTER,
     zoom: DEFAULT_ZOOM,
   });
-  // Reshuffle the random arc routes periodically so the telemetry continuously
-  // cycles through *all* incident countries rather than fixed pairs.
-  const [arcSeed, setArcSeed] = useState(0);
-  useEffect(() => {
-    if (telemetryMode !== "arcs") return;
-    const id = setInterval(() => setArcSeed((s) => s + 1), 4200);
-    return () => clearInterval(id);
-  }, [telemetryMode]);
 
   const countByCode = useMemo(() => {
     const map: Record<string, { count: number; name: string; percentage: number; flag?: string }> = {};
@@ -220,10 +212,12 @@ export function WorldHeatmap({
                     rank: index,
                   })) as Hotspot[];
 
+                // Stable pool of arc routes across many incident countries.
+                // Each arc runs its own independent launch -> travel -> fade
+                // lifecycle (staggered), so the telemetry is continuously alive
+                // without a synchronized reshuffle that snaps everything at once.
                 const arcPairs =
-                  telemetryMode === "arcs"
-                    ? buildRandomArcPairs(hotspots, arcSeed)
-                    : [];
+                  telemetryMode === "arcs" ? buildArcPool(hotspots) : [];
 
                 return (
                   <>
@@ -273,15 +267,17 @@ export function WorldHeatmap({
                       );
                     })}
 
-                    {/* The arcSeed in the key remounts the routes on each reshuffle
-                        so the travel animation replays for the new random set. */}
+                    {/* Stable keys (no remount) — each arc self-animates a
+                        continuous launch -> travel -> fade lifecycle, staggered
+                        so the set never snaps all at once. */}
                     {arcPairs.map((arc, index) => (
                       <TelemetryArc
-                        key={`${arcSeed}-${arc.from.code}-${arc.to.code}`}
+                        key={`${arc.from.code}-${arc.to.code}`}
                         from={arc.from.coordinates}
                         to={arc.to.coordinates}
                         tone={arc.to.tone}
-                        duration={2.8 + index * 0.4}
+                        index={index}
+                        total={arcPairs.length}
                       />
                     ))}
 
@@ -299,9 +295,11 @@ export function WorldHeatmap({
                       ).map((spot) => {
                         const r = Math.max(1.6, 2.4 / Math.max(1, zoomState.zoom * 0.6));
                         return (
-                          <Marker key={`node-${arcSeed}-${spot.code}`} coordinates={spot.coordinates}>
+                          <Marker key={`node-${spot.code}`} coordinates={spot.coordinates}>
                             <g className="pointer-events-none">
-                              <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16} />
+                              <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16}>
+                                <animate attributeName="opacity" values="0.05;0.22;0.05" dur="3.6s" repeatCount="indefinite" />
+                              </circle>
                               <circle r={r} fill={toneColor(spot.tone)} opacity={0.85} />
                             </g>
                           </Marker>
@@ -420,18 +418,21 @@ function seededRandom(seed: number) {
   };
 }
 
-// Build a fresh set of RANDOM source -> destination arcs drawn from *all* the
-// countries that have incidents (not a fixed top-N from a constant origin). Each
-// reshuffle (new seed) picks different pairs, so the telemetry continuously
-// cycles through the whole active country set. Higher-incident countries are
-// lightly favoured as origins so the routes still read as "pressure" flows.
-function buildRandomArcPairs(hotspots: Hotspot[], seed: number) {
+// Build a STABLE pool of source -> destination arcs spanning many incident
+// countries. Stable (seeded from the hotspot set, not a ticking counter) so the
+// React keys don't change and arcs never remount/snap — each arc instead runs
+// its own continuous launch->travel->fade lifecycle. Origins are weighted by
+// incident count so routes read as "pressure" flows; destinations are uniform
+// across all countries so the whole active set is represented over time.
+function buildArcPool(hotspots: Hotspot[]) {
   if (hotspots.length < 2) return [];
-  const rand = seededRandom(seed + 1);
-  const arcCount = Math.min(6, Math.max(2, Math.floor(hotspots.length / 2)));
+  // Seed from the participating country codes so the pool is deterministic for a
+  // given dataset (no flicker on re-render) yet varies as the data changes.
+  const seed =
+    hotspots.slice(0, 12).reduce((acc, h) => acc + h.code.charCodeAt(0) * (h.count + 1), 7) >>> 0;
+  const rand = seededRandom(seed);
+  const arcCount = Math.min(12, Math.max(4, Math.floor(hotspots.length * 0.7)));
 
-  // Weighted pick of an origin (by incident count); uniform pick of a distinct
-  // destination across all countries.
   const weights = hotspots.map((h) => Math.sqrt(Math.max(1, h.count)));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   const pickWeighted = () => {
@@ -446,11 +447,11 @@ function buildRandomArcPairs(hotspots: Hotspot[], seed: number) {
   const pairs: { from: Hotspot; to: Hotspot }[] = [];
   const seen = new Set<string>();
   let guard = 0;
-  while (pairs.length < arcCount && guard++ < arcCount * 12) {
+  while (pairs.length < arcCount && guard++ < arcCount * 14) {
     const fromIdx = pickWeighted();
     const toIdx = Math.floor(rand() * hotspots.length);
     if (fromIdx === toIdx) continue;
-    const key = fromIdx < toIdx ? `${fromIdx}-${toIdx}` : `${toIdx}-${fromIdx}`;
+    const key = `${pairs.length}:${hotspots[fromIdx].code}-${hotspots[toIdx].code}`;
     if (seen.has(key)) continue;
     seen.add(key);
     pairs.push({ from: hotspots[fromIdx], to: hotspots[toIdx] });
@@ -473,35 +474,101 @@ function TelemetryArc({
   from,
   to,
   tone,
-  duration,
+  index,
+  total,
 }: {
   from: [number, number];
   to: [number, number];
   tone: Hotspot["tone"];
-  duration: number;
+  index: number;
+  total: number;
 }) {
-  const { path } = useMapContext();
-  const pathData = useMemo(
-    () => path({ type: "LineString", coordinates: [from, to] }) || "",
-    [from, path, to],
-  );
+  const ctx = useMapContext() as any;
+  // Build a CURVED arc (quadratic bezier bowed away from the midpoint) between
+  // the projected endpoints — the classic threat-map look — rather than the
+  // straight Mercator line.
+  const pathData = useMemo(() => {
+    const projection = ctx?.projection;
+    if (typeof projection !== "function") return "";
+    const a = projection(from);
+    const b = projection(to);
+    if (!a || !b || !Number.isFinite(a[0]) || !Number.isFinite(b[0])) return "";
+    const [x1, y1] = a;
+    const [x2, y2] = b;
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const dist = Math.hypot(dx, dy) || 1;
+    // Perpendicular offset for the control point; longer arcs bow more.
+    const bow = Math.min(dist * 0.28, 70);
+    const cx = mx - (dy / dist) * bow;
+    const cy = my - (dx / dist) * -bow;
+    return `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+  }, [ctx, from, to]);
 
   const color = toneColor(tone);
+
+  // Each arc has its own lifecycle phase so the pool launches continuously,
+  // never all at once. Cycle: draw-in -> particle travel -> fade-out -> idle.
+  const cycle = 7 + (index % 4) * 0.9; // 7–9.7s, varied per arc
+  const begin = -((index / Math.max(total, 1)) * cycle).toFixed(2); // negative = pre-staggered
+  const travel = cycle * 0.42;
 
   if (!pathData) return null;
 
   return (
     <g className="pointer-events-none">
+      {/* Faint full path so the route reads even between pulses. */}
+      <path d={pathData} fill="none" stroke={color} strokeWidth={0.6} opacity={0.1} />
+      {/* Bright segment that draws in (dashoffset 1->0) then fades — the launch. */}
       <path
         d={pathData}
         fill="none"
         stroke={color}
-        strokeWidth={1.15}
-        strokeDasharray="4 6"
-        opacity={0.28}
-      />
-      <circle r="2.6" fill={color} opacity="0.98">
-        <animateMotion dur={`${duration}s`} repeatCount="indefinite" path={pathData} />
+        strokeWidth={1.3}
+        strokeLinecap="round"
+        pathLength={1}
+        strokeDasharray="1 1"
+        style={{ filter: `drop-shadow(0 0 2px ${color})` }}
+      >
+        <animate
+          attributeName="stroke-dashoffset"
+          values="1; 0; 0"
+          keyTimes="0; 0.5; 1"
+          dur={`${cycle}s`}
+          begin={`${begin}s`}
+          repeatCount="indefinite"
+        />
+        <animate
+          attributeName="opacity"
+          values="0; 0.85; 0.85; 0"
+          keyTimes="0; 0.12; 0.55; 0.74"
+          dur={`${cycle}s`}
+          begin={`${begin}s`}
+          repeatCount="indefinite"
+        />
+      </path>
+      {/* Travelling particle that arrives at the destination during the launch. */}
+      <circle r="2.4" fill={color} opacity="0">
+        <animate
+          attributeName="opacity"
+          values="0; 1; 1; 0"
+          keyTimes="0; 0.1; 0.5; 0.6"
+          dur={`${cycle}s`}
+          begin={`${begin}s`}
+          repeatCount="indefinite"
+        />
+        <animateMotion
+          dur={`${travel}s`}
+          begin={`${begin}s`}
+          repeatCount="indefinite"
+          path={pathData}
+          keyPoints="0;1"
+          keyTimes="0;1"
+          calcMode="spline"
+          keySplines="0.4 0 0.2 1"
+        />
       </circle>
     </g>
   );

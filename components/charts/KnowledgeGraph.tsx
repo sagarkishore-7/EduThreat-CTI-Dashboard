@@ -175,16 +175,34 @@ export function KnowledgeGraph({
       ctx.strokeStyle = "rgba(8,11,18,0.85)";
       ctx.stroke();
 
-      // Labels: always for the lit/large nodes, otherwise only when zoomed in.
-      const showLabel = lit && (node.id === active || (node.val ?? 4) >= 6 || globalScale > 1.4);
+      // Labels: hovered/active node + neighbours always; the rest reveal as you
+      // zoom in (so a dense graph isn't a wall of text). Density threshold scales
+      // with the node's weight so the big hubs label first.
+      const weight = node.val ?? 4;
+      const showLabel =
+        lit &&
+        (node.id === active ||
+          (active != null) ||
+          weight >= 8 ||
+          globalScale > 1.2 ||
+          (weight >= 5 && globalScale > 0.9));
       if (showLabel) {
-        const fontSize = Math.max(3.5, 11 / globalScale);
+        // Constant ON-SCREEN size: the canvas is pre-scaled by globalScale, so
+        // dividing by it keeps the rendered font ~constant at every zoom level
+        // (the previous Math.max floor made text balloon when zoomed in).
+        const fontSize = 11 / globalScale;
         ctx.font = `${fontSize}px var(--font-geist-mono), ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillStyle = "rgba(228,228,231,0.92)";
-        const text = label.length > 26 ? label.slice(0, 24) + "…" : label;
-        ctx.fillText(text, node.x, node.y + r + 1.5);
+        const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
+        const ty = node.y + r + 2 / globalScale;
+        // Dark halo behind the label so names stay legible over links/nodes.
+        ctx.lineWidth = 2.6 / globalScale;
+        ctx.strokeStyle = "rgba(8,11,18,0.9)";
+        ctx.lineJoin = "round";
+        ctx.strokeText(text, node.x, ty);
+        ctx.fillStyle = node.id === active ? "#f4f4f5" : "rgba(228,228,231,0.9)";
+        ctx.fillText(text, node.x, ty);
       }
       ctx.globalAlpha = 1;
     },
