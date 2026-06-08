@@ -49,7 +49,9 @@ export default function MapPage() {
     () =>
       countries.map((country) => ({
         ...country,
-        region: getCountryRegion(country.category, country.country_code),
+        // Prefer the authoritative region the API now derives from the normalized
+        // country_code; fall back to the local lookup only if absent.
+        region: country.region || getCountryRegion(country.category, country.country_code),
       })),
     [countries],
   );
