@@ -56,15 +56,23 @@ export default function CampaignsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const campaigns = useMemo(() => data?.items ?? [], [data]);
+
+  // Group campaigns into related families so fragments of one real campaign
+  // (e.g. the actor "wave" and CVE "exposure" views of the same event) render as
+  // one entry instead of duplicate rows. Falls back to one-campaign-per-family
+  // when metadata.family_id is absent (older data), so behaviour is unchanged
+  // until the backend correlation rerun populates it.
+  const families = useMemo(() => buildFamilies(campaigns), [campaigns]);
+
   const counts = useMemo(() => {
     const byType: Record<string, number> = {};
     let members = 0;
-    for (const c of campaigns) {
-      byType[c.campaign_type] = (byType[c.campaign_type] || 0) + 1;
-      members += c.member_count;
+    for (const f of families) {
+      byType[f.primary.campaign_type] = (byType[f.primary.campaign_type] || 0) + 1;
+      members += f.primary.member_count; // primary only — fragments overlap
     }
     return { byType, members };
-  }, [campaigns]);
+  }, [families]);
 
   if (isLoading) return <PageSkeleton rows={4} />;
   if (error || !data) {
@@ -79,13 +87,13 @@ export default function CampaignsPage() {
     );
   }
 
-  const selected = selectedId ?? campaigns[0]?.campaign_id ?? null;
+  const selected = selectedId ?? families[0]?.primary.campaign_id ?? null;
 
   return (
     <div className="animate-fade-in space-y-3.5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
-          { label: "Campaigns", value: formatNumber(campaigns.length), icon: Layers, accent: "var(--brand)" },
+          { label: "Campaigns", value: formatNumber(families.length), icon: Layers, accent: "var(--brand)" },
           { label: "Linked Incidents", value: formatNumber(counts.members), icon: Building2, accent: "var(--pulse)" },
           { label: "Mass Exploitation", value: formatNumber(counts.byType.mass_exploitation || 0), icon: Crosshair, accent: "var(--threat)" },
           { label: "Vendor Incidents", value: formatNumber(counts.byType.shared_vendor_incident || 0), icon: Share2, accent: "var(--warn)" },
@@ -107,8 +115,13 @@ export default function CampaignsPage() {
         <Card className="flex max-h-[760px] flex-col">
           <CardHead title="Correlated Campaigns" sub="Deterministic clusters · click to inspect" accentDot="brand" />
           <div className="flex-1 overflow-y-auto">
-            {campaigns.map((c) => (
-              <CampaignRow key={c.campaign_id} c={c} active={c.campaign_id === selected} onClick={() => setSelectedId(c.campaign_id)} />
+            {families.map((f) => (
+              <FamilyRow
+                key={f.familyId}
+                family={f}
+                selected={selected}
+                onSelect={(id) => setSelectedId(id)}
+              />
             ))}
           </div>
         </Card>
@@ -122,12 +135,83 @@ export default function CampaignsPage() {
   );
 }
 
-function CampaignRow({ c, active, onClick }: { c: CampaignSummary; active: boolean; onClick: () => void }) {
+interface Family {
+  familyId: string;
+  primary: CampaignSummary;
+  related: CampaignSummary[]; // non-primary fragments of the same real campaign
+}
+
+function buildFamilies(campaigns: CampaignSummary[]): Family[] {
+  const groups = new Map<string, CampaignSummary[]>();
+  for (const c of campaigns) {
+    const fid = (c.metadata?.["family_id"] as string | undefined) || c.campaign_id;
+    (groups.get(fid) ?? groups.set(fid, []).get(fid)!).push(c);
+  }
+  const families: Family[] = [];
+  for (const [familyId, members] of Array.from(groups.entries())) {
+    // Primary = flagged primary, else the largest membership.
+    const sorted = [...members].sort((a, b) => b.member_count - a.member_count);
+    const primary =
+      members.find((m: CampaignSummary) => m.metadata?.["is_primary_in_family"] === true) ?? sorted[0];
+    const related = sorted.filter((m: CampaignSummary) => m.campaign_id !== primary.campaign_id);
+    families.push({ familyId, primary, related });
+  }
+  // Order by the primary's membership, like the original list ordering.
+  return families.sort((a, b) => b.primary.member_count - a.primary.member_count);
+}
+
+function FamilyRow({
+  family,
+  selected,
+  onSelect,
+}: {
+  family: Family;
+  selected: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const { primary, related } = family;
+  const activeId = [primary, ...related].some((c) => c.campaign_id === selected)
+    ? selected
+    : null;
+  return (
+    <div className="border-b border-zinc-800/70">
+      <CampaignRow
+        c={primary}
+        active={primary.campaign_id === selected}
+        bordered={false}
+        onClick={() => onSelect(primary.campaign_id)}
+      />
+      {related.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-2.5 -mt-1">
+          <span className="text-[10px] uppercase tracking-wider text-zinc-600">Related views</span>
+          {related.map((r) => (
+            <button
+              key={r.campaign_id}
+              onClick={() => onSelect(r.campaign_id)}
+              className={
+                "rounded border px-1.5 py-0.5 text-[10px] transition-colors " +
+                (r.campaign_id === activeId
+                  ? "border-emerald-400/40 text-emerald-300"
+                  : "border-zinc-800 text-zinc-400 hover:border-emerald-400/30 hover:text-emerald-300")
+              }
+              title={r.campaign_name}
+            >
+              {TYPE_LABEL[r.campaign_type] || r.campaign_type}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CampaignRow({ c, active, onClick, bordered = true }: { c: CampaignSummary; active: boolean; onClick: () => void; bordered?: boolean }) {
   return (
     <button
       onClick={onClick}
       className={
-        "block w-full border-b border-zinc-800/70 px-3.5 py-3 text-left transition-colors " +
+        "block w-full px-3.5 py-3 text-left transition-colors " +
+        (bordered ? "border-b border-zinc-800/70 " : "") +
         (active ? "bg-emerald-400/10" : "hover:bg-[#161a26]")
       }
     >
