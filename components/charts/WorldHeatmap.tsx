@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { geoCentroid } from "d3-geo";
 import {
   ComposableMap,
@@ -212,13 +212,6 @@ export function WorldHeatmap({
                     rank: index,
                   })) as Hotspot[];
 
-                // Stable pool of arc routes across many incident countries.
-                // Each arc runs its own independent launch -> travel -> fade
-                // lifecycle (staggered), so the telemetry is continuously alive
-                // without a synchronized reshuffle that snaps everything at once.
-                const arcPairs =
-                  telemetryMode === "arcs" ? buildArcPool(hotspots) : [];
-
                 return (
                   <>
                     {geographies.map((geo) => {
@@ -267,44 +260,14 @@ export function WorldHeatmap({
                       );
                     })}
 
-                    {/* Stable keys (no remount) — each arc self-animates a
-                        continuous launch -> travel -> fade lifecycle, staggered
-                        so the set never snaps all at once. */}
-                    {arcPairs.map((arc, index) => (
-                      <TelemetryArc
-                        key={`${arc.from.code}-${arc.to.code}`}
-                        from={arc.from.coordinates}
-                        to={arc.to.coordinates}
-                        tone={arc.to.tone}
-                        index={index}
-                        total={arcPairs.length}
-                      />
-                    ))}
-
-                    {/* Endpoint nodes for the *active* arc routes only: subtle,
-                        unlabeled anchors so the travelling arcs read as pressure
-                        routes between the currently-highlighted countries. */}
-                    {telemetryMode === "arcs" &&
-                      Array.from(
-                        new Map(
-                          arcPairs.flatMap((arc) => [
-                            [arc.from.code, arc.from],
-                            [arc.to.code, arc.to],
-                          ]),
-                        ).values(),
-                      ).map((spot) => {
-                        const r = Math.max(1.6, 2.4 / Math.max(1, zoomState.zoom * 0.6));
-                        return (
-                          <Marker key={`node-${spot.code}`} coordinates={spot.coordinates}>
-                            <g className="pointer-events-none">
-                              <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16}>
-                                <animate attributeName="opacity" values="0.05;0.22;0.05" dur="3.6s" repeatCount="indefinite" />
-                              </circle>
-                              <circle r={r} fill={toneColor(spot.tone)} opacity={0.85} />
-                            </g>
-                          </Marker>
-                        );
-                      })}
+                    {/* Continuous telemetry: a fixed set of arc "slots", each of
+                        which independently respawns with a NEW weighted-random
+                        source -> destination pair when its lifecycle ends. New
+                        routes launch constantly and the visible set keeps
+                        changing — never a fixed pool repeating the same paths. */}
+                    {telemetryMode === "arcs" && (
+                      <ArcStream hotspots={hotspots} zoom={zoomState.zoom} />
+                    )}
 
                     {/* Density dots: pulsing markers WITHOUT code/number labels.
                         Only in "dots" mode (choropleth and arcs show no dots). */}
@@ -407,56 +370,154 @@ export function WorldHeatmap({
   );
 }
 
-// Deterministic-per-seed PRNG so a given reshuffle is stable across re-renders
-// but varies every interval tick.
-function seededRandom(seed: number) {
-  let s = (seed * 2654435761) % 2147483647;
-  if (s <= 0) s += 2147483646;
-  return () => {
-    s = (s * 16807) % 2147483647;
-    return (s - 1) / 2147483646;
-  };
-}
-
-// Build a STABLE pool of source -> destination arcs spanning many incident
-// countries. Stable (seeded from the hotspot set, not a ticking counter) so the
-// React keys don't change and arcs never remount/snap — each arc instead runs
-// its own continuous launch->travel->fade lifecycle. Origins are weighted by
-// incident count so routes read as "pressure" flows; destinations are uniform
-// across all countries so the whole active set is represented over time.
-function buildArcPool(hotspots: Hotspot[]) {
-  if (hotspots.length < 2) return [];
-  // Seed from the participating country codes so the pool is deterministic for a
-  // given dataset (no flicker on re-render) yet varies as the data changes.
-  const seed =
-    hotspots.slice(0, 12).reduce((acc, h) => acc + h.code.charCodeAt(0) * (h.count + 1), 7) >>> 0;
-  const rand = seededRandom(seed);
-  const arcCount = Math.min(12, Math.max(4, Math.floor(hotspots.length * 0.7)));
-
+// Pick one weighted-random source -> destination pair from the incident
+// countries. Origins are weighted by sqrt(incident count) so busy countries
+// launch more arcs (routes read as "pressure" flows); destinations are uniform
+// so the whole active set gets represented over time.
+function pickArcPair(hotspots: Hotspot[]): { from: Hotspot; to: Hotspot } | null {
+  if (hotspots.length < 2) return null;
   const weights = hotspots.map((h) => Math.sqrt(Math.max(1, h.count)));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   const pickWeighted = () => {
-    let t = rand() * totalWeight;
+    let t = Math.random() * totalWeight;
     for (let i = 0; i < hotspots.length; i++) {
       t -= weights[i];
       if (t <= 0) return i;
     }
     return hotspots.length - 1;
   };
+  const fromIdx = pickWeighted();
+  let toIdx = Math.floor(Math.random() * hotspots.length);
+  if (toIdx === fromIdx) toIdx = (toIdx + 1) % hotspots.length;
+  return { from: hotspots[fromIdx], to: hotspots[toIdx] };
+}
 
-  const pairs: { from: Hotspot; to: Hotspot }[] = [];
-  const seen = new Set<string>();
-  let guard = 0;
-  while (pairs.length < arcCount && guard++ < arcCount * 14) {
-    const fromIdx = pickWeighted();
-    const toIdx = Math.floor(rand() * hotspots.length);
-    if (fromIdx === toIdx) continue;
-    const key = `${pairs.length}:${hotspots[fromIdx].code}-${hotspots[toIdx].code}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    pairs.push({ from: hotspots[fromIdx], to: hotspots[toIdx] });
-  }
-  return pairs;
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReduced(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+  return reduced;
+}
+
+type ArcSlot = {
+  slotId: number;
+  generation: number;
+  from: Hotspot;
+  to: Hotspot;
+};
+
+// Continuous telemetry: a fixed number of arc "slots", each of which respawns
+// with a fresh weighted-random pair when its lifecycle ends. Each respawn bumps
+// the slot's `generation` so ONLY that one arc remounts/animates the new path —
+// the others keep running, so new routes launch constantly and the set never
+// snaps all at once. With prefers-reduced-motion we render a calm static set
+// (no timers, no SMIL).
+function ArcStream({ hotspots, zoom }: { hotspots: Hotspot[]; zoom: number }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const [slots, setSlots] = useState<ArcSlot[]>([]);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  // The parent rebuilds `hotspots` (fresh array) on every render — zoom, pan,
+  // tooltip state, etc. Keep the latest in a ref so respawns read current data,
+  // and key the (re)initialise effect on a stable CONTENT signature so it only
+  // fires when the participating countries actually change (not every render,
+  // which would reset the timers and kill the animation).
+  const hotspotsRef = useRef(hotspots);
+  hotspotsRef.current = hotspots;
+  const signature = hotspots.map((h) => `${h.code}:${h.count}`).join("|");
+  const slotCount = Math.min(8, Math.max(3, Math.floor(hotspots.length * 0.6)));
+
+  useEffect(() => {
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    const current = hotspotsRef.current;
+    if (current.length < 2) {
+      setSlots([]);
+      return;
+    }
+    const initial: ArcSlot[] = [];
+    for (let i = 0; i < slotCount; i++) {
+      const pair = pickArcPair(current);
+      if (pair) initial.push({ slotId: i, generation: 0, from: pair.from, to: pair.to });
+    }
+    setSlots(initial);
+
+    if (reducedMotion) return; // static set — no respawns
+
+    const respawn = (slotId: number) => {
+      setSlots((prev) =>
+        prev.map((s) => {
+          if (s.slotId !== slotId) return s;
+          const pair = pickArcPair(hotspotsRef.current);
+          if (!pair) return s;
+          return { ...s, generation: s.generation + 1, from: pair.from, to: pair.to };
+        }),
+      );
+      schedule(slotId);
+    };
+    const schedule = (slotId: number) => {
+      const delay = 7000 + Math.random() * 3000; // 7–10s cadence
+      const t = setTimeout(() => respawn(slotId), delay);
+      timers.current.push(t);
+    };
+    // Pre-stagger first respawns so the pool launches continuously, not in unison.
+    initial.forEach((s) => {
+      const t = setTimeout(() => respawn(s.slotId), 1200 * s.slotId + Math.random() * 800);
+      timers.current.push(t);
+    });
+    return () => {
+      timers.current.forEach(clearTimeout);
+      timers.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature, reducedMotion, slotCount]);
+
+  const anchors = useMemo(() => {
+    const m = new Map<string, Hotspot>();
+    for (const s of slots) {
+      m.set(s.from.code, s.from);
+      m.set(s.to.code, s.to);
+    }
+    return Array.from(m.values());
+  }, [slots]);
+
+  return (
+    <>
+      {slots.map((s) => (
+        <TelemetryArc
+          key={`slot-${s.slotId}-${s.generation}`}
+          from={s.from.coordinates}
+          to={s.to.coordinates}
+          tone={s.to.tone}
+          index={s.slotId}
+          total={slotCount}
+          reducedMotion={reducedMotion}
+        />
+      ))}
+      {/* Subtle, unlabeled endpoint anchors for the currently-active routes. */}
+      {anchors.map((spot) => {
+        const r = Math.max(1.6, 2.4 / Math.max(1, zoom * 0.6));
+        return (
+          <Marker key={`node-${spot.code}`} coordinates={spot.coordinates}>
+            <g className="pointer-events-none">
+              <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16}>
+                {!reducedMotion && (
+                  <animate attributeName="opacity" values="0.05;0.22;0.05" dur="3.6s" repeatCount="indefinite" />
+                )}
+              </circle>
+              <circle r={r} fill={toneColor(spot.tone)} opacity={0.85} />
+            </g>
+          </Marker>
+        );
+      })}
+    </>
+  );
 }
 
 function scaledMarkerRadius(count: number, maxCount: number, zoom: number) {
@@ -476,12 +537,14 @@ function TelemetryArc({
   tone,
   index,
   total,
+  reducedMotion = false,
 }: {
   from: [number, number];
   to: [number, number];
   tone: Hotspot["tone"];
   index: number;
   total: number;
+  reducedMotion?: boolean;
 }) {
   const ctx = useMapContext() as any;
   // Build a CURVED arc (quadratic bezier bowed away from the midpoint) between
@@ -516,6 +579,15 @@ function TelemetryArc({
   const travel = cycle * 0.42;
 
   if (!pathData) return null;
+
+  // Reduced motion: render a calm static route (no draw-in, particle, or fade).
+  if (reducedMotion) {
+    return (
+      <g className="pointer-events-none">
+        <path d={pathData} fill="none" stroke={color} strokeWidth={0.8} opacity={0.4} />
+      </g>
+    );
+  }
 
   return (
     <g className="pointer-events-none">
