@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { geoCentroid } from "d3-geo";
 import {
   ComposableMap,
@@ -86,6 +86,14 @@ export function WorldHeatmap({
     coordinates: DEFAULT_CENTER,
     zoom: DEFAULT_ZOOM,
   });
+  // Reshuffle the random arc routes periodically so the telemetry continuously
+  // cycles through *all* incident countries rather than fixed pairs.
+  const [arcSeed, setArcSeed] = useState(0);
+  useEffect(() => {
+    if (telemetryMode !== "arcs") return;
+    const id = setInterval(() => setArcSeed((s) => s + 1), 4200);
+    return () => clearInterval(id);
+  }, [telemetryMode]);
 
   const countByCode = useMemo(() => {
     const map: Record<string, { count: number; name: string; percentage: number; flag?: string }> = {};
@@ -214,7 +222,7 @@ export function WorldHeatmap({
 
                 const arcPairs =
                   telemetryMode === "arcs"
-                    ? buildArcPairs(hotspots.slice(0, 8))
+                    ? buildRandomArcPairs(hotspots, arcSeed)
                     : [];
 
                 return (
@@ -265,23 +273,33 @@ export function WorldHeatmap({
                       );
                     })}
 
+                    {/* The arcSeed in the key remounts the routes on each reshuffle
+                        so the travel animation replays for the new random set. */}
                     {arcPairs.map((arc, index) => (
                       <TelemetryArc
-                        key={`${arc.from.code}-${arc.to.code}`}
+                        key={`${arcSeed}-${arc.from.code}-${arc.to.code}`}
                         from={arc.from.coordinates}
                         to={arc.to.coordinates}
                         tone={arc.to.tone}
-                        duration={3.4 + index * 0.45}
+                        duration={2.8 + index * 0.4}
                       />
                     ))}
 
-                    {/* Endpoint nodes for arc routes: subtle, unlabeled anchors so
-                        the travelling arcs read as pressure routes between hotspots. */}
+                    {/* Endpoint nodes for the *active* arc routes only: subtle,
+                        unlabeled anchors so the travelling arcs read as pressure
+                        routes between the currently-highlighted countries. */}
                     {telemetryMode === "arcs" &&
-                      hotspots.slice(0, 8).map((spot) => {
+                      Array.from(
+                        new Map(
+                          arcPairs.flatMap((arc) => [
+                            [arc.from.code, arc.from],
+                            [arc.to.code, arc.to],
+                          ]),
+                        ).values(),
+                      ).map((spot) => {
                         const r = Math.max(1.6, 2.4 / Math.max(1, zoomState.zoom * 0.6));
                         return (
-                          <Marker key={`node-${spot.code}`} coordinates={spot.coordinates}>
+                          <Marker key={`node-${arcSeed}-${spot.code}`} coordinates={spot.coordinates}>
                             <g className="pointer-events-none">
                               <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16} />
                               <circle r={r} fill={toneColor(spot.tone)} opacity={0.85} />
@@ -391,20 +409,53 @@ export function WorldHeatmap({
   );
 }
 
-function buildArcPairs(hotspots: Hotspot[]) {
-  const lead = hotspots[0];
-  if (!lead) return [];
-  return hotspots
-    .slice(1, 5)
-    .map((spot) => ({ from: lead, to: spot }))
-    .concat(
-      hotspots.length > 5
-        ? hotspots.slice(3, 6).map((spot, index) => ({
-            from: hotspots[Math.max(1, index + 1)],
-            to: spot,
-          }))
-        : [],
-    );
+// Deterministic-per-seed PRNG so a given reshuffle is stable across re-renders
+// but varies every interval tick.
+function seededRandom(seed: number) {
+  let s = (seed * 2654435761) % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+// Build a fresh set of RANDOM source -> destination arcs drawn from *all* the
+// countries that have incidents (not a fixed top-N from a constant origin). Each
+// reshuffle (new seed) picks different pairs, so the telemetry continuously
+// cycles through the whole active country set. Higher-incident countries are
+// lightly favoured as origins so the routes still read as "pressure" flows.
+function buildRandomArcPairs(hotspots: Hotspot[], seed: number) {
+  if (hotspots.length < 2) return [];
+  const rand = seededRandom(seed + 1);
+  const arcCount = Math.min(6, Math.max(2, Math.floor(hotspots.length / 2)));
+
+  // Weighted pick of an origin (by incident count); uniform pick of a distinct
+  // destination across all countries.
+  const weights = hotspots.map((h) => Math.sqrt(Math.max(1, h.count)));
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  const pickWeighted = () => {
+    let t = rand() * totalWeight;
+    for (let i = 0; i < hotspots.length; i++) {
+      t -= weights[i];
+      if (t <= 0) return i;
+    }
+    return hotspots.length - 1;
+  };
+
+  const pairs: { from: Hotspot; to: Hotspot }[] = [];
+  const seen = new Set<string>();
+  let guard = 0;
+  while (pairs.length < arcCount && guard++ < arcCount * 12) {
+    const fromIdx = pickWeighted();
+    const toIdx = Math.floor(rand() * hotspots.length);
+    if (fromIdx === toIdx) continue;
+    const key = fromIdx < toIdx ? `${fromIdx}-${toIdx}` : `${toIdx}-${fromIdx}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ from: hotspots[fromIdx], to: hotspots[toIdx] });
+  }
+  return pairs;
 }
 
 function scaledMarkerRadius(count: number, maxCount: number, zoom: number) {
