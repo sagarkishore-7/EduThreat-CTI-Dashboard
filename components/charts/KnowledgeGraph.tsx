@@ -187,22 +187,35 @@ export function KnowledgeGraph({
           globalScale > 1.2 ||
           (weight >= 5 && globalScale > 0.9));
       if (showLabel) {
-        // Constant ON-SCREEN size: the canvas is pre-scaled by globalScale, so
-        // dividing by it keeps the rendered font ~constant at every zoom level
-        // (the previous Math.max floor made text balloon when zoomed in).
-        const fontSize = 11 / globalScale;
-        ctx.font = `${fontSize}px var(--font-geist-mono), ui-monospace, monospace`;
+        // Constant ON-SCREEN label size, robustly. Instead of trusting
+        // `1/globalScale` (which can drift from the real canvas transform on
+        // HiDPI displays and made text balloon when zoomed in), we render the
+        // label in *screen space*: read the live transform, reset it to
+        // identity, draw at a fixed device-pixel font, then restore. The text is
+        // therefore pinned to ~11 CSS px at every zoom level regardless of DPR.
+        const m = ctx.getTransform();
+        const dpr = m.a; // device pixels per world unit on the x-axis
+        const sx = m.a * node.x + m.e;
+        const sy = m.d * node.y + m.f;
+        const screenR = r * dpr;
+        const dprFont = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1);
+        const fontPx = Math.round(11 * dprFont);
+        const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = `${fontPx}px var(--font-geist-mono), ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
-        const ty = node.y + r + 2 / globalScale;
+        const ty = sy + screenR + 3 * dprFont;
         // Dark halo behind the label so names stay legible over links/nodes.
-        ctx.lineWidth = 2.6 / globalScale;
+        ctx.lineWidth = 3 * dprFont;
         ctx.strokeStyle = "rgba(8,11,18,0.9)";
         ctx.lineJoin = "round";
-        ctx.strokeText(text, node.x, ty);
+        ctx.strokeText(text, sx, ty);
         ctx.fillStyle = node.id === active ? "#f4f4f5" : "rgba(228,228,231,0.9)";
-        ctx.fillText(text, node.x, ty);
+        ctx.fillText(text, sx, ty);
+        ctx.restore();
       }
       ctx.globalAlpha = 1;
     },
@@ -258,6 +271,8 @@ export function KnowledgeGraph({
           cooldownTicks={120}
           onEngineStop={handleEngineStop}
           d3VelocityDecay={0.28}
+          minZoom={0.4}
+          maxZoom={6}
         />
       )}
     </div>
