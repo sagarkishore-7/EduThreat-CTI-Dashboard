@@ -8,6 +8,7 @@ import { getDashboard, getKpiTrends, getMitreAnalytics } from "@/lib/api";
 import { formatNumber, formatAttackCategory } from "@/lib/utils";
 import { OpsStrip } from "@/components/ui/OpsStrip";
 import { KpiTile } from "@/components/ui/KpiTile";
+import { MotionList, MotionItem } from "@/components/motion/Motion";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { MitreStrip } from "@/components/ui/MitreStrip";
 import { LiveFeed } from "@/components/ui/LiveFeed";
@@ -97,48 +98,60 @@ export default function DashboardPage() {
       />
 
       {/* ── KPI TILES ── */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiTile
-          label="Education Incidents"
-          value={formatNumber(stats.education_incidents)}
-          icon={GraduationCap}
-          accent="brand"
-          trend={kpi?.incidents.values}
-          deltaPct={kpi?.incidents.delta_pct}
-          caption="vs prior 6mo"
-          href="/incidents"
-        />
-        <KpiTile
-          label="Active Ransomware"
-          value={formatNumber(intel.overview.ransomware_count)}
-          icon={Lock}
-          accent="threat"
-          trend={kpi?.ransomware.values}
-          deltaPct={kpi?.ransomware.delta_pct}
-          caption={`${formatNumber(stats.unique_ransomware_families)} families`}
-          href="/ransomware"
-        />
-        <KpiTile
-          label="Data Breaches"
-          value={formatNumber(intel.overview.breach_count)}
-          icon={Database}
-          accent="warn"
-          trend={kpi?.breaches.values}
-          deltaPct={kpi?.breaches.delta_pct}
-          caption={`${formatNumber(intel.exposure.known_record_events)} record events`}
-          href="/analytics"
-        />
-        <KpiTile
-          label="Threat Actors"
-          value={formatNumber(stats.unique_threat_actors)}
-          icon={Users}
-          accent="pulse"
-          trend={kpi?.actors.values}
-          deltaPct={kpi?.actors.delta_pct}
-          caption={`${formatNumber(intel.overview.actor_attributed_count)} attributed`}
-          href="/threat-actors"
-        />
-      </div>
+      <MotionList className="grid grid-cols-2 gap-3 xl:grid-cols-4" stagger={0.06}>
+        <MotionItem>
+          <KpiTile
+            label="Education Incidents"
+            value={formatNumber(stats.education_incidents)}
+            count={stats.education_incidents}
+            icon={GraduationCap}
+            accent="brand"
+            trend={kpi?.incidents.values}
+            deltaPct={kpi?.incidents.delta_pct}
+            caption="vs prior 6mo"
+            href="/incidents"
+          />
+        </MotionItem>
+        <MotionItem>
+          <KpiTile
+            label="Active Ransomware"
+            value={formatNumber(intel.overview.ransomware_count)}
+            count={intel.overview.ransomware_count}
+            icon={Lock}
+            accent="threat"
+            trend={kpi?.ransomware.values}
+            deltaPct={kpi?.ransomware.delta_pct}
+            caption={`${formatNumber(stats.unique_ransomware_families)} families`}
+            href="/ransomware"
+          />
+        </MotionItem>
+        <MotionItem>
+          <KpiTile
+            label="Data Breaches"
+            value={formatNumber(intel.overview.breach_count)}
+            count={intel.overview.breach_count}
+            icon={Database}
+            accent="warn"
+            trend={kpi?.breaches.values}
+            deltaPct={kpi?.breaches.delta_pct}
+            caption={`${formatNumber(intel.exposure.known_record_events)} record events`}
+            href="/analytics"
+          />
+        </MotionItem>
+        <MotionItem>
+          <KpiTile
+            label="Threat Actors"
+            value={formatNumber(stats.unique_threat_actors)}
+            count={stats.unique_threat_actors}
+            icon={Users}
+            accent="pulse"
+            trend={kpi?.actors.values}
+            deltaPct={kpi?.actors.delta_pct}
+            caption={`${formatNumber(intel.overview.actor_attributed_count)} attributed`}
+            href="/threat-actors"
+          />
+        </MotionItem>
+      </MotionList>
 
       {/* ── HERO: MAP + LIVE FEED ── */}
       <div className="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
