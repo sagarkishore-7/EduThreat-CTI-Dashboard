@@ -7,32 +7,16 @@ import {
   getCampaigns,
   getCampaignDetail,
   type CampaignSummary,
-  type CampaignGraphNode,
 } from "@/lib/api";
 import { PageSkeleton } from "@/components/PageHeader";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
 import { AlertTriangle, Share2, Layers, Building2, Crosshair } from "lucide-react";
 
-import type { ResponsiveNetwork as ResponsiveNetworkType } from "@nivo/network";
-
-const ResponsiveNetwork = dynamic(
-  () => import("@nivo/network").then((m) => m.ResponsiveNetwork),
+const KnowledgeGraph = dynamic(
+  () => import("@/components/charts/KnowledgeGraph").then((m) => m.KnowledgeGraph),
   { ssr: false },
-) as typeof ResponsiveNetworkType;
-
-interface GNode {
-  id: string;
-  type: string;
-  label: string;
-  size: number;
-  color: string;
-}
-interface GLink {
-  source: string;
-  target: string;
-  distance: number;
-}
+);
 
 const TYPE_LABEL: Record<string, string> = {
   mass_exploitation: "Mass Exploitation",
@@ -61,15 +45,6 @@ const ROLE_LABEL: Record<string, string> = {
   direct_victim: "Direct Victim",
   mentioned_only: "Mentioned",
   needs_review: "Needs Review",
-};
-
-const NODE_COLOR: Record<string, string> = {
-  campaign: "#00d8b4",
-  vendor: "#ff8c42",
-  actor: "#ff4757",
-  cve_or_product: "#ffd93d",
-  platform: "#818cf8",
-  incident: "#4dbcff",
 };
 
 export default function CampaignsPage() {
@@ -188,8 +163,13 @@ function CampaignDetail({ id }: { id: string }) {
   }, {});
   const graph = graphQuery.data
     ? {
-        nodes: graphQuery.data.nodes.map((n) => ({ ...n, color: NODE_COLOR[n.type] || "#8189a0" })),
-        links: graphQuery.data.edges.map((e) => ({ source: e.source, target: e.target, distance: 50 })),
+        nodes: graphQuery.data.nodes.map((n) => ({
+          id: n.id,
+          label: n.label,
+          type: n.type,
+          val: Math.max(3, n.size),
+        })),
+        links: graphQuery.data.edges.map((e) => ({ source: e.source, target: e.target })),
       }
     : null;
 
@@ -216,21 +196,8 @@ function CampaignDetail({ id }: { id: string }) {
 
         {/* Relationship graph */}
         {graph && graph.nodes.length > 1 && (
-          <div className="h-[280px] rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
-            <ResponsiveNetwork<GNode, GLink>
-              data={graph}
-              margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
-              linkDistance={(l) => l.distance}
-              centeringStrength={0.4}
-              repulsivity={24}
-              nodeSize={(n) => Math.min(22, 6 + n.size / 4)}
-              activeNodeSize={(n) => Math.min(30, 8 + n.size / 3)}
-              nodeColor={(n) => n.color}
-              nodeBorderWidth={1}
-              nodeBorderColor={{ from: "color", modifiers: [["darker", 0.6]] }}
-              linkColor={{ from: "source.color", modifiers: [["opacity", 0.3]] }}
-              linkThickness={1}
-            />
+          <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
+            <KnowledgeGraph nodes={graph.nodes} links={graph.links} height={420} />
           </div>
         )}
 

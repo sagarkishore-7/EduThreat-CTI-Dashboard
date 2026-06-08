@@ -19,6 +19,7 @@ const chartLoader = () => <div className="h-64 animate-pulse rounded bg-zinc-900
 const AttackTypeChart = dynamic(() => import("@/components/charts/AttackTypeChart").then((m) => m.AttackTypeChart), { ssr: false, loading: chartLoader });
 const IncidentTimeChart = dynamic(() => import("@/components/charts/IncidentTimeChart").then((m) => m.IncidentTimeChart), { ssr: false, loading: chartLoader });
 const InstitutionTypeChart = dynamic(() => import("@/components/charts/InstitutionTypeChart").then((m) => m.InstitutionTypeChart), { ssr: false, loading: chartLoader });
+const MitreMatrix = dynamic(() => import("@/components/charts/MitreMatrix").then((m) => m.MitreMatrix), { ssr: false, loading: chartLoader });
 import { RecentIncidentsList } from "@/components/RecentIncidentsList";
 import { formatAttackCategory, formatNumber, formatPercent } from "@/lib/utils";
 import { AlertTriangle, Shield, Target, Users, Workflow } from "lucide-react";
@@ -180,6 +181,20 @@ export default function AttackIntelligencePage() {
       </div>
 
       <IncidentTimeChart data={trend} />
+
+      {/* MITRE ATT&CK matrix — tactics in kill-chain order, top techniques as
+          frequency-coloured cells. Scrolls horizontally on small screens. */}
+      <div className="ops-panel">
+        <div className="ops-panel-head">
+          <div>
+            <p className="ops-subtle">MITRE ATT&CK Matrix</p>
+            <h2 className="ops-title">Observed techniques by tactic · cell intensity = incident frequency</h2>
+          </div>
+        </div>
+        <div className="ops-panel-body">
+          <MitreMatrix data={mitre} />
+        </div>
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
         <AttackTypeChart data={attackItems} />

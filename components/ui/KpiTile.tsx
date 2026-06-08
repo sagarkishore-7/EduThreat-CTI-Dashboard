@@ -1,7 +1,17 @@
+"use client";
+
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { Sparkline } from "./Sparkline";
-import { cn } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
+import { useCountUp } from "@/components/motion/Motion";
+
+/** Animated count-up value; falls back to the pre-formatted string. */
+function KpiValue({ value, count }: { value: string; count?: number }) {
+  const animated = useCountUp(count ?? 0);
+  if (count === undefined) return <>{value}</>;
+  return <>{formatNumber(animated)}</>;
+}
 
 export type KpiAccent = "brand" | "threat" | "warn" | "pulse" | "info";
 
@@ -16,6 +26,8 @@ const ACCENT: Record<KpiAccent, string> = {
 interface KpiTileProps {
   label: string;
   value: string;
+  /** Optional raw number; when set the value animates (count-up) on mount. */
+  count?: number;
   icon: LucideIcon;
   accent?: KpiAccent;
   /** Sparkline series (oldest → newest) */
@@ -37,6 +49,7 @@ interface KpiTileProps {
 export function KpiTile({
   label,
   value,
+  count,
   icon: Icon,
   accent = "brand",
   trend,
@@ -63,7 +76,7 @@ export function KpiTile({
           <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="kpi-val mt-2.5">{value}</div>
+      <div className="kpi-val mt-2.5"><KpiValue value={value} count={count} /></div>
       <div className="mt-2.5 flex items-end justify-between gap-2">
         <span className="font-mono text-[10.5px] font-bold inline-flex items-center gap-1" style={{ color: deltaColor }}>
           {hasDelta ? (

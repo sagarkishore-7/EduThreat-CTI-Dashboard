@@ -147,7 +147,7 @@ export function WorldHeatmap({
     });
 
   return (
-    <div className={className ?? "rounded-lg border border-zinc-800 bg-[#0c0c18] p-4"}>
+    <div className={cn("max-w-full overflow-hidden", className ?? "rounded-lg border border-zinc-800 bg-[#0c0c18] p-4")}>
       {showHeader && (
         <div className="mb-3 flex items-center justify-between">
           <div>
@@ -165,7 +165,7 @@ export function WorldHeatmap({
         </div>
       )}
 
-      <div className={cn("relative", mapClassName ?? "h-[380px]")}>
+      <div className={cn("relative w-full max-w-full overflow-hidden", mapClassName ?? "h-[380px]")}>
         {showControls && (
           <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
             <MapControl label="+" onClick={zoomIn} />
