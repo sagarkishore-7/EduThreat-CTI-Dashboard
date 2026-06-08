@@ -9,27 +9,12 @@ import { PageSkeleton } from "@/components/PageHeader";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
 import { Share2 } from "lucide-react";
+import type { KGNode, KGLink } from "@/components/charts/KnowledgeGraph";
 
-import type { ResponsiveNetwork as ResponsiveNetworkType } from "@nivo/network";
-
-const ResponsiveNetwork = dynamic(
-  () => import("@nivo/network").then((m) => m.ResponsiveNetwork),
+const KnowledgeGraph = dynamic(
+  () => import("@/components/charts/KnowledgeGraph").then((m) => m.KnowledgeGraph),
   { ssr: false },
-) as typeof ResponsiveNetworkType;
-
-interface GNode {
-  id: string;
-  kind: "actor" | "country" | "family";
-  size: number;
-  color: string;
-}
-interface GLink {
-  source: string;
-  target: string;
-  distance: number;
-}
-
-const COLOR = { actor: "#ff4757", country: "#00d8b4", family: "#818cf8" };
+);
 
 export default function InvestigationsPage() {
   const { data, isLoading } = useQuery({ queryKey: ["threat-actors", 14], queryFn: () => getThreatActors(14) });
@@ -37,22 +22,22 @@ export default function InvestigationsPage() {
 
   const graph = useMemo(() => {
     const actors = (data?.threat_actors ?? []).filter((a) => a.name && a.name.toLowerCase() !== "unknown").slice(0, 12);
-    const nodeMap = new Map<string, GNode>();
-    const links: GLink[] = [];
-    const add = (id: string, kind: GNode["kind"], size: number) => {
-      if (!nodeMap.has(id)) nodeMap.set(id, { id, kind, size, color: COLOR[kind] });
+    const nodeMap = new Map<string, KGNode>();
+    const links: KGLink[] = [];
+    const add = (id: string, label: string, type: KGNode["type"], val: number) => {
+      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, val });
     };
     for (const a of actors) {
-      add(a.name, "actor", Math.min(28, 12 + a.incident_count));
+      add(a.name, a.name, "actor", Math.min(28, 12 + a.incident_count));
       for (const c of (a.countries_targeted || []).slice(0, 4)) {
         if (!c) continue;
-        add(c, "country", 8);
-        links.push({ source: a.name, target: c, distance: 50 });
+        add(c, c, "country", 8);
+        links.push({ source: a.name, target: c });
       }
       for (const fam of (a.ransomware_families || []).slice(0, 3)) {
         if (!fam) continue;
-        add(`${fam} (family)`, "family", 7);
-        links.push({ source: a.name, target: `${fam} (family)`, distance: 45 });
+        add(`${fam} (family)`, fam, "family", 7);
+        links.push({ source: a.name, target: `${fam} (family)` });
       }
     }
     return { nodes: Array.from(nodeMap.values()), links };
@@ -70,33 +55,20 @@ export default function InvestigationsPage() {
           title="Investigation Canvas"
           sub="Actor → geography → ransomware-family relationship graph from the canonical set"
           accentDot="pulse"
-          actions={
-            <div className="flex items-center gap-3 text-[10.5px] text-zinc-400">
-              <span className="inline-flex items-center gap-1.5"><span className="dot" style={{ background: COLOR.actor }} /> Actor</span>
-              <span className="inline-flex items-center gap-1.5"><span className="dot" style={{ background: COLOR.country }} /> Country</span>
-              <span className="inline-flex items-center gap-1.5"><span className="dot" style={{ background: COLOR.family }} /> Family</span>
-            </div>
-          }
         />
         <CardBody className="p-0">
           <div className="grid xl:grid-cols-[1fr_320px]">
             <div className="h-[520px] border-b border-zinc-800/70 xl:border-b-0 xl:border-r">
               {graph.nodes.length > 0 ? (
-                <ResponsiveNetwork<GNode, GLink>
-                  data={graph}
-                  margin={{ top: 12, right: 12, bottom: 12, left: 12 }}
-                  linkDistance={(l) => l.distance}
-                  centeringStrength={0.32}
-                  repulsivity={26}
-                  nodeSize={(n) => n.size}
-                  activeNodeSize={(n) => n.size * 1.4}
-                  nodeColor={(n) => n.color}
-                  nodeBorderWidth={1}
-                  nodeBorderColor={{ from: "color", modifiers: [["darker", 0.6]] }}
-                  linkColor={{ from: "source.color", modifiers: [["opacity", 0.35]] }}
-                  linkThickness={1}
-                  onClick={(n) => {
-                    if (n.data.kind === "actor") setSelected(n.data.id);
+                <KnowledgeGraph
+                  nodes={graph.nodes}
+                  links={graph.links}
+                  height={520}
+                  highlightId={selected}
+                  onSelect={(id) => {
+                    // Only actors have an inspector; ignore country/family clicks.
+                    const node = graph.nodes.find((n) => n.id === id);
+                    setSelected(node?.type === "actor" ? id : null);
                   }}
                 />
               ) : (
