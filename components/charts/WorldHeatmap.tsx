@@ -275,11 +275,26 @@ export function WorldHeatmap({
                       />
                     ))}
 
-                    {telemetryMode !== "none" &&
+                    {/* Endpoint nodes for arc routes: subtle, unlabeled anchors so
+                        the travelling arcs read as pressure routes between hotspots. */}
+                    {telemetryMode === "arcs" &&
+                      hotspots.slice(0, 8).map((spot) => {
+                        const r = Math.max(1.6, 2.4 / Math.max(1, zoomState.zoom * 0.6));
+                        return (
+                          <Marker key={`node-${spot.code}`} coordinates={spot.coordinates}>
+                            <g className="pointer-events-none">
+                              <circle r={r * 2.2} fill={toneColor(spot.tone)} opacity={0.16} />
+                              <circle r={r} fill={toneColor(spot.tone)} opacity={0.85} />
+                            </g>
+                          </Marker>
+                        );
+                      })}
+
+                    {/* Density dots: pulsing markers WITHOUT code/number labels.
+                        Only in "dots" mode (choropleth and arcs show no dots). */}
+                    {telemetryMode === "dots" &&
                       hotspots.map((spot, index) => {
                         const radius = scaledMarkerRadius(spot.count, hotspots[0]?.count || 1, zoomState.zoom);
-                        const showLabel =
-                          spot.rank < 6 || (zoomState.zoom > 1.55 && spot.rank < 18);
                         const pulseOpacity =
                           spot.rank < 3 ? 0.78 : spot.rank < 10 ? 0.56 : 0.38;
                         return (
@@ -308,18 +323,6 @@ export function WorldHeatmap({
                                   repeatCount="indefinite"
                                 />
                               </circle>
-                              {showLabel && (
-                                <text
-                                  y={-(radius + 8)}
-                                  textAnchor="middle"
-                                  fill={toneColor(spot.tone)}
-                                  fontSize={Math.max(8, 11 / Math.max(1, zoomState.zoom * 0.92))}
-                                  fontFamily="var(--font-geist-mono), monospace"
-                                  fontWeight="700"
-                                >
-                                  {spot.code} · {formatNumber(spot.count)}
-                                </text>
-                              )}
                             </g>
                           </Marker>
                         );
