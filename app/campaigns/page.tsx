@@ -11,6 +11,7 @@ import {
 import { SplitSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
+import { buildFamilies, type CampaignFamily } from "@/lib/campaign-families";
 import { AlertTriangle, Share2, Layers, Building2, Crosshair } from "lucide-react";
 
 const KnowledgeGraph = dynamic(
@@ -135,37 +136,12 @@ export default function CampaignsPage() {
   );
 }
 
-interface Family {
-  familyId: string;
-  primary: CampaignSummary;
-  related: CampaignSummary[]; // non-primary fragments of the same real campaign
-}
-
-function buildFamilies(campaigns: CampaignSummary[]): Family[] {
-  const groups = new Map<string, CampaignSummary[]>();
-  for (const c of campaigns) {
-    const fid = (c.metadata?.["family_id"] as string | undefined) || c.campaign_id;
-    (groups.get(fid) ?? groups.set(fid, []).get(fid)!).push(c);
-  }
-  const families: Family[] = [];
-  for (const [familyId, members] of Array.from(groups.entries())) {
-    // Primary = flagged primary, else the largest membership.
-    const sorted = [...members].sort((a, b) => b.member_count - a.member_count);
-    const primary =
-      members.find((m: CampaignSummary) => m.metadata?.["is_primary_in_family"] === true) ?? sorted[0];
-    const related = sorted.filter((m: CampaignSummary) => m.campaign_id !== primary.campaign_id);
-    families.push({ familyId, primary, related });
-  }
-  // Order by the primary's membership, like the original list ordering.
-  return families.sort((a, b) => b.primary.member_count - a.primary.member_count);
-}
-
 function FamilyRow({
   family,
   selected,
   onSelect,
 }: {
-  family: Family;
+  family: CampaignFamily;
   selected: string | null;
   onSelect: (id: string) => void;
 }) {
