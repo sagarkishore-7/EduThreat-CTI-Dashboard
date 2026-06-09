@@ -22,7 +22,7 @@ const KnowledgeGraph = dynamic(
 const TYPE_LABEL: Record<string, string> = {
   mass_exploitation: "Mass Exploitation",
   shared_vendor_incident: "Shared Vendor",
-  same_campaign: "Same Campaign",
+  same_campaign: "Coordinated Campaign",
   actor_activity_wave: "Actor Wave",
   roundup_not_campaign: "Roundup",
   unrelated: "Unrelated",
