@@ -66,7 +66,7 @@ export function RansomwareChart({ data }: RansomwareChartProps) {
                     colors.text, colors.border,
                     "bg-current/5"
                   )}>
-                    {item.percentage}%
+                    {item.percentage.toFixed(1)}%
                   </span>
                 </div>
               </div>
