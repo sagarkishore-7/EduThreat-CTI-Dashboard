@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartsSkeleton } from "@/components/ui/Skeleton";
+import { Reveal } from "@/components/motion/Reveal";
 import { StatCard } from "@/components/StatCard";
 
 // recharts-backed charts are heavy; defer them so headline metrics paint first.
@@ -131,9 +132,9 @@ export default function RansomwareIntelligencePage() {
         />
       </div>
 
-      <IncidentTimeChart data={trend?.items || []} />
+      <Reveal><IncidentTimeChart data={trend?.items || []} /></Reveal>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <Reveal className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <RansomwareChart data={familyItems} />
         <div className="rounded-xl border border-zinc-800 bg-[#0d0d1a] p-5">
           <div className="mb-4">
@@ -162,9 +163,9 @@ export default function RansomwareIntelligencePage() {
             )}
           </div>
         </div>
-      </div>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <Reveal className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
           <RecentIncidentsList incidents={recentIncidents} />
         </div>
@@ -188,7 +189,7 @@ export default function RansomwareIntelligencePage() {
             </p>
           </div>
         </div>
-      </div>
+      </Reveal>
     </div>
   );
 }
