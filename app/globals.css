@@ -280,6 +280,22 @@ body::after {
   background: rgba(255, 255, 255, 0.02);
 }
 
+/* The base `.ops-table th` rule forces text-align:left, and its element+class
+   specificity (0,1,1) beats a plain `.text-right` utility (0,1,0) — so a
+   right-aligned numeric column ended up with a LEFT-aligned header sitting over
+   RIGHT-aligned values, which read as "out of place". Attribute selectors (which
+   also dodge Tailwind's utility-name circular-dependency check) raise the
+   specificity to (0,2,1) so an explicit alignment utility wins on both the
+   header and its cells, lining numeric columns up cleanly across every table. */
+.ops-table th[class~="text-right"],
+.ops-table td[class~="text-right"] {
+  text-align: right;
+}
+.ops-table th[class~="text-center"],
+.ops-table td[class~="text-center"] {
+  text-align: center;
+}
+
 .ops-bar-track {
   @apply h-2 overflow-hidden rounded-full bg-zinc-900/70;
 }
