@@ -281,7 +281,7 @@ function CampaignDetail({ id }: { id: string }) {
         {/* Relationship graph */}
         {graph && graph.nodes.length > 1 && (
           <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
-            <KnowledgeGraph nodes={graph.nodes} links={graph.links} height={420} />
+            <KnowledgeGraph nodes={graph.nodes} links={graph.links} height={560} minimalLabels />
           </div>
         )}
 

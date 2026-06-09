@@ -781,7 +781,10 @@ export interface KpiTrend {
   delta_pct: number | null;
 }
 
-export type KpiTrendsResponse = Record<"incidents" | "ransomware" | "breaches" | "actors", KpiTrend>;
+export type KpiTrendsResponse = Record<
+  "incidents" | "ransomware" | "breaches" | "actors" | "supply_chain" | "countries",
+  KpiTrend
+>;
 
 export async function getKpiTrends(months: number = 12): Promise<KpiTrendsResponse> {
   return fetchAPI<KpiTrendsResponse>(`/api/v2/analytics/kpi-trends?months=${months}`);
