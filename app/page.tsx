@@ -101,8 +101,8 @@ export default function DashboardPage() {
       />
 
       {/* ── KPI TILES ── */}
-      <MotionList className="grid grid-cols-2 gap-3 xl:grid-cols-4" stagger={0.06}>
-        <MotionItem>
+      <MotionList className="grid grid-cols-2 gap-3 auto-rows-fr xl:grid-cols-4" stagger={0.06}>
+        <MotionItem className="h-full min-w-0">
           <KpiTile
             label="Education Incidents"
             value={formatNumber(stats.education_incidents)}
@@ -115,7 +115,7 @@ export default function DashboardPage() {
             href="/incidents"
           />
         </MotionItem>
-        <MotionItem>
+        <MotionItem className="h-full min-w-0">
           <KpiTile
             label="Active Ransomware"
             value={formatNumber(intel.overview.ransomware_count)}
@@ -128,7 +128,7 @@ export default function DashboardPage() {
             href="/ransomware"
           />
         </MotionItem>
-        <MotionItem>
+        <MotionItem className="h-full min-w-0">
           <KpiTile
             label="Data Breaches"
             value={formatNumber(intel.overview.breach_count)}
@@ -141,7 +141,7 @@ export default function DashboardPage() {
             href="/analytics"
           />
         </MotionItem>
-        <MotionItem>
+        <MotionItem className="h-full min-w-0">
           <KpiTile
             label="Threat Actors"
             value={formatNumber(stats.unique_threat_actors)}
@@ -158,7 +158,7 @@ export default function DashboardPage() {
 
       {/* ── HERO: MAP + LIVE FEED ── */}
       <div className="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
-        <Card scanline className="flex h-[420px] flex-col">
+        <Card scanline className="flex h-[420px] min-w-0 flex-col overflow-hidden">
           <CardHead
             title="Global Threat Telemetry"
             sub="Live attack arcs · click a country to filter incidents"
@@ -179,7 +179,7 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        <Card className="flex h-[420px] flex-col">
+        <Card className="flex h-[420px] min-w-0 flex-col overflow-hidden">
           <CardHead
             title="Live Event Stream"
             sub="Most recent canonical incidents"
@@ -191,7 +191,7 @@ export default function DashboardPage() {
       </div>
 
       {/* ── MITRE STRIP ── */}
-      <Card>
+      <Card className="min-w-0 overflow-hidden">
         <CardHead
           title="MITRE ATT&CK · Observed Tactics"
           sub="Education sector · cell intensity = technique frequency"
@@ -204,14 +204,14 @@ export default function DashboardPage() {
 
       {/* ── TREND + ACTORS + ATTACK MIX ── */}
       <div className="grid gap-3 xl:grid-cols-[1.7fr_1fr_1fr]">
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHead title="Incidents Over Time" sub="24-month window · monthly count" />
           <CardBody>
             <TrendChart data={data.incidents_over_time} />
           </CardBody>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHead
             title="Top Threat Actors"
             sub="By verified attribution"
@@ -222,7 +222,7 @@ export default function DashboardPage() {
           </CardBody>
         </Card>
 
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHead title="Attack Category Mix" sub="Share of open canonical set" />
           <CardBody className="py-2">
             <BarList items={attackMix} />

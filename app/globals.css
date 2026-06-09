@@ -433,3 +433,14 @@ body::after {
 .bar-row .bar-track { grid-column: 1 / -1; height: 3px; background: var(--void); border-radius: 2px; overflow: hidden; }
 .bar-row .bar-fill { height: 100%; background: var(--c, var(--brand)); border-radius: 2px; box-shadow: 0 0 6px var(--c, var(--brand)); }
 .bar-row .bar-meta { font-size: 10px; color: #585f78; margin-top: 2px; }
+
+/* ── Mobile overflow guard ──
+   Grid/flex children default to min-width:auto, which stops them shrinking below
+   their content and lets wide elements (tables, charts, the WebGL globe, the
+   knowledge graph) push past the phone's screen width. Give every grid/flex
+   child a min-width:0 default. `:where()` carries zero specificity, so any
+   explicit `min-w-*` utility (e.g. a fixed sidebar) still overrides it, and
+   `shrink-0` children keep their width. This fixes horizontal overflow across
+   every page without per-grid edits. */
+:where(.grid) > *,
+:where(.flex) > * { min-width: 0; }
