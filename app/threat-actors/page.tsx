@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getThreatActors } from "@/lib/api";
-import { PageHeader, PageSkeleton } from "@/components/PageHeader";
+import { PageHeader } from "@/components/PageHeader";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/StatCard";
 import { cn, formatDate, formatNumber, getCountryFlag } from "@/lib/utils";
 import {
@@ -44,7 +45,7 @@ export default function ThreatActorIntelligencePage() {
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [actors]);
 
-  if (isLoading) return <PageSkeleton rows={4} />;
+  if (isLoading) return <TableSkeleton />;
 
   return (
     <div className="space-y-6 animate-fade-in">

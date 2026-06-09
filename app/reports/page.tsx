@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getDashboard, getThreatActors, API_BASE } from "@/lib/api";
-import { PageSkeleton } from "@/components/PageHeader";
+import { CardsSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { TlpBadge, deriveTlp } from "@/components/ui/TlpBadge";
 import { SeverityPill, severityFromCategory } from "@/components/ui/SeverityPill";
@@ -22,7 +22,7 @@ export default function ReportsPage() {
   const dashQuery = useQuery({ queryKey: ["dashboard"], queryFn: getDashboard });
   const actorsQuery = useQuery({ queryKey: ["threat-actors", 6], queryFn: () => getThreatActors(6) });
 
-  if (dashQuery.isLoading) return <PageSkeleton rows={4} />;
+  if (dashQuery.isLoading) return <CardsSkeleton />;
   if (!dashQuery.data) return null;
 
   const data = dashQuery.data;

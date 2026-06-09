@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { PageSkeleton } from "@/components/PageHeader";
+import { DashboardSkeleton } from "@/components/ui/Skeleton";
 import { getDashboard, getKpiTrends, getMitreAnalytics } from "@/lib/api";
 import { formatNumber, formatAttackCategory } from "@/lib/utils";
 import { OpsStrip } from "@/components/ui/OpsStrip";
@@ -38,7 +38,7 @@ export default function DashboardPage() {
     refetchInterval: 60_000,
   });
 
-  if (dashboardQuery.isLoading) return <PageSkeleton rows={4} />;
+  if (dashboardQuery.isLoading) return <DashboardSkeleton />;
 
   if (dashboardQuery.error || !dashboardQuery.data) {
     return (

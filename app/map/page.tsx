@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader, PageSkeleton } from "@/components/PageHeader";
+import { PageHeader } from "@/components/PageHeader";
+import { MapSkeleton } from "@/components/ui/Skeleton";
 import { getCountryAnalytics, getStats, type CountByCategory } from "@/lib/api";
 import { cn, formatNumber, formatPercent, getCountryFlag, getCountryRegion } from "@/lib/utils";
 import {
@@ -78,7 +79,7 @@ export default function MapPage() {
   }, [enrichedCountries]);
 
   if (statsQuery.isLoading || countryQuery.isLoading) {
-    return <PageSkeleton rows={3} />;
+    return <MapSkeleton />;
   }
 
   const topCountry = countries[0];

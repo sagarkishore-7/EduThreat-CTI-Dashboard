@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getThreatActors, getCampaigns } from "@/lib/api";
-import { PageSkeleton } from "@/components/PageHeader";
+import { GraphSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
 import { ENTITY_STYLE, type KGNode, type KGLink } from "@/components/charts/KnowledgeGraph";
@@ -80,7 +80,7 @@ export default function IntelGraphPage() {
     return { nodes: Array.from(nodeMap.values()), links };
   }, [actorsQuery.data, campaignsQuery.data, enabled, minIncidents]);
 
-  if (actorsQuery.isLoading || campaignsQuery.isLoading) return <PageSkeleton rows={4} />;
+  if (actorsQuery.isLoading || campaignsQuery.isLoading) return <GraphSkeleton />;
 
   const selectedNode = nodes.find((n) => n.id === selected);
 
