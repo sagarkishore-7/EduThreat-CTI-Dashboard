@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getMitreAnalytics } from "@/lib/api";
-import { ChartsSkeleton } from "@/components/ui/Skeleton";
+import { MatrixSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { MitreStrip } from "@/components/ui/MitreStrip";
 import { BarList } from "@/components/ui/BarList";
@@ -51,7 +51,7 @@ export default function MitrePage() {
     refetchInterval: 120_000,
   });
 
-  if (isLoading) return <ChartsSkeleton />;
+  if (isLoading) return <MatrixSkeleton />;
   if (error || !data) {
     return (
       <div className="flex h-full items-center justify-center">

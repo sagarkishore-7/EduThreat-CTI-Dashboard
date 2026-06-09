@@ -164,26 +164,48 @@ export function DashboardSkeleton() {
   );
 }
 
-export function TableSkeleton({ filters = true, rows = 10 }: { filters?: boolean; rows?: number }) {
+// `header` mirrors whether the real page renders a <PageHeader> — several pages
+// (mitre, campaigns, reports, feeds, investigations, intel-graph, incidents) have
+// none, so their skeleton must not show a phantom header block.
+
+export function TableSkeleton({
+  header = true,
+  filters = true,
+  rows = 10,
+}: {
+  header?: boolean;
+  filters?: boolean;
+  rows?: number;
+}) {
   return (
     <div className="space-y-4">
-      <SkeletonHeader controls={filters} />
+      {header && <SkeletonHeader controls={filters} />}
       <SkeletonKpiRow n={4} />
       <SkeletonTable rows={rows} />
     </div>
   );
 }
 
-export function GraphSkeleton() {
+export function GraphSkeleton({
+  header = true,
+  filters = true,
+  table = false,
+}: {
+  header?: boolean;
+  filters?: boolean;
+  table?: boolean;
+}) {
   return (
     <div className="space-y-4">
-      <SkeletonHeader controls />
+      {header && <SkeletonHeader controls />}
       <Card className="min-w-0 overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800/70 px-4 py-2.5">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <SkeletonBlock key={i} className="h-6 w-20" />
-          ))}
-        </div>
+        {filters && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-800/70 px-4 py-2.5">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBlock key={i} className="h-6 w-20" />
+            ))}
+          </div>
+        )}
         <div className="grid xl:grid-cols-[1fr_300px]">
           <SkeletonBlock className="h-[560px] w-full rounded-none" />
           <div className="space-y-3 border-t border-zinc-800/70 p-4 xl:border-l xl:border-t-0">
@@ -193,13 +215,15 @@ export function GraphSkeleton() {
           </div>
         </div>
       </Card>
+      {table && <SkeletonTable rows={8} />}
     </div>
   );
 }
 
-export function SplitSkeleton() {
+export function SplitSkeleton({ header = false }: { header?: boolean }) {
   return (
     <div className="space-y-3.5">
+      {header && <SkeletonHeader />}
       <SkeletonKpiRow n={4} />
       <div className="grid gap-3 xl:grid-cols-[1fr_1.25fr]">
         <SkeletonList rows={8} />
@@ -209,17 +233,44 @@ export function SplitSkeleton() {
   );
 }
 
-export function ChartsSkeleton({ kpis = 4 }: { kpis?: number }) {
+export function ChartsSkeleton({
+  header = true,
+  kpis = 4,
+  charts = 4,
+}: {
+  header?: boolean;
+  kpis?: number;
+  charts?: number;
+}) {
   return (
     <div className="space-y-4">
-      <SkeletonHeader controls />
+      {header && <SkeletonHeader controls />}
       <SkeletonKpiRow n={kpis} />
       <div className="grid gap-4 md:grid-cols-2">
-        <SkeletonChart />
-        <SkeletonChart />
-        <SkeletonChart />
-        <SkeletonChart />
+        {Array.from({ length: charts }).map((_, i) => (
+          <SkeletonChart key={i} />
+        ))}
       </div>
+    </div>
+  );
+}
+
+/** MITRE: KPI row + a tactics bar block + one full-width matrix (not 2×2 charts). */
+export function MatrixSkeleton() {
+  return (
+    <div className="space-y-4">
+      <SkeletonKpiRow n={4} />
+      <Card className="min-w-0 overflow-hidden">
+        <div className="border-b border-zinc-800/70 px-3.5 py-2.5">
+          <SkeletonBlock className="h-3 w-40" />
+        </div>
+        <div className="space-y-2 p-3.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonBlock key={i} className="h-4 w-full" />
+          ))}
+        </div>
+      </Card>
+      <SkeletonChart heightClass="h-[320px]" />
     </div>
   );
 }
@@ -239,14 +290,49 @@ export function MapSkeleton() {
   );
 }
 
-export function CardsSkeleton({ count = 6 }: { count?: number }) {
+export function CardsSkeleton({ header = true, count = 6 }: { header?: boolean; count?: number }) {
   return (
     <div className="space-y-4">
-      <SkeletonHeader />
+      {header && <SkeletonHeader />}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: count }).map((_, i) => (
           <SkeletonCard key={i} lines={5} />
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Reports: a template-row card + a 2-col (bulletins / advisories) split. */
+export function ReportsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Card className="min-w-0 overflow-hidden">
+        <div className="border-b border-zinc-800/70 px-3.5 py-2.5">
+          <SkeletonBlock className="h-3 w-40" />
+        </div>
+        <div className="grid gap-2.5 p-3.5 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonBlock key={i} className="h-16" />
+          ))}
+        </div>
+      </Card>
+      <div className="grid gap-3 xl:grid-cols-[1.5fr_1fr]">
+        <SkeletonCard lines={8} />
+        <SkeletonCard lines={8} />
+      </div>
+    </div>
+  );
+}
+
+/** Feeds: KPI row + a 2-col (bar-list card / table card). */
+export function FeedsSkeleton() {
+  return (
+    <div className="space-y-4">
+      <SkeletonKpiRow n={4} />
+      <div className="grid gap-3 xl:grid-cols-[1fr_1.8fr]">
+        <SkeletonCard lines={7} />
+        <SkeletonTable rows={9} />
       </div>
     </div>
   );

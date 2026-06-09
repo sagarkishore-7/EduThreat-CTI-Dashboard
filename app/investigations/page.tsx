@@ -43,7 +43,7 @@ export default function InvestigationsPage() {
     return { nodes: Array.from(nodeMap.values()), links };
   }, [data]);
 
-  if (isLoading) return <GraphSkeleton />;
+  if (isLoading) return <GraphSkeleton header={false} filters={false} table />;
 
   const actors = (data?.threat_actors ?? []).slice(0, 12);
   const selectedActor = actors.find((a) => a.name === selected);
