@@ -37,7 +37,7 @@ type ViewMode = "list" | "cards";
 
 export default function IncidentsPage() {
   return (
-    <Suspense fallback={<TableSkeleton />}>
+    <Suspense fallback={<TableSkeleton header={false} />}>
       <IncidentsContent />
     </Suspense>
   );

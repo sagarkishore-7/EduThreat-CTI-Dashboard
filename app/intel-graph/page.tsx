@@ -80,7 +80,7 @@ export default function IntelGraphPage() {
     return { nodes: Array.from(nodeMap.values()), links };
   }, [actorsQuery.data, campaignsQuery.data, enabled, minIncidents]);
 
-  if (actorsQuery.isLoading || campaignsQuery.isLoading) return <GraphSkeleton />;
+  if (actorsQuery.isLoading || campaignsQuery.isLoading) return <GraphSkeleton header={false} />;
 
   const selectedNode = nodes.find((n) => n.id === selected);
 

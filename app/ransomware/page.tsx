@@ -81,7 +81,7 @@ export default function RansomwareIntelligencePage() {
   }, [recentRansomware]);
 
   if (loadingFamilies || loadingTrend || loadingRecent) {
-    return <ChartsSkeleton kpis={5} />;
+    return <ChartsSkeleton kpis={5} charts={5} />;
   }
 
   return (

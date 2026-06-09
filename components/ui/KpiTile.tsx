@@ -22,7 +22,7 @@ const ACCENT: Record<KpiAccent, string> = {
   info: "#4dbcff",
 };
 
-interface KpiTileProps {
+export interface KpiTileProps {
   label: string;
   value: string;
   /** Optional raw number; when set the value animates (count-up) on mount. */

@@ -474,21 +474,22 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
         </div>
       )}
 
-      {/* Top-hotspot readout card. */}
+      {/* Top-hotspot readout card. Compact on phones (narrower, smaller, the
+          secondary rows are hidden) so it doesn't overlap the globe sphere. */}
       {hotspots[0] && (
-        <div className="pointer-events-none absolute bottom-3 left-3 z-10 w-[210px] rounded-2xl border border-zinc-700/80 bg-[#080b12]/90 p-3.5 backdrop-blur-xl">
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-xl">{getCountryFlag(hotspots[0].code || hotspots[0].name, countByCode[hotspots[0].code]?.flag)}</span>
+        <div className="pointer-events-none absolute bottom-2 left-2 z-10 w-[150px] rounded-xl border border-zinc-700/80 bg-[#080b12]/90 p-2 backdrop-blur-xl sm:bottom-3 sm:left-3 sm:w-[210px] sm:rounded-2xl sm:p-3.5">
+          <div className="flex items-center gap-1.5 sm:mb-1.5 sm:gap-2">
+            <span className="text-base sm:text-xl">{getCountryFlag(hotspots[0].code || hotspots[0].name, countByCode[hotspots[0].code]?.flag)}</span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-zinc-100">{hotspots[0].name}</p>
-              <p className="text-[11px] font-mono text-zinc-500">Top open-country pressure</p>
+              <p className="truncate text-[12px] font-semibold text-zinc-100 sm:text-sm">{hotspots[0].name}</p>
+              <p className="hidden font-mono text-[11px] text-zinc-500 sm:block">Top open-country pressure</p>
             </div>
           </div>
-          <div className="flex items-center justify-between py-1 text-[11px]">
-            <span className="text-zinc-500">Incident volume</span>
+          <div className="mt-1 flex items-center justify-between text-[10px] sm:mt-0 sm:py-1 sm:text-[11px]">
+            <span className="text-zinc-500">Incidents</span>
             <span className="font-mono text-red-300">{formatNumber(hotspots[0].count)}</span>
           </div>
-          <div className="flex items-center justify-between py-1 text-[11px]">
+          <div className="hidden items-center justify-between py-1 text-[11px] sm:flex">
             <span className="text-zinc-500">View</span>
             <span className="font-mono text-zinc-100">{mode.toUpperCase()}</span>
           </div>

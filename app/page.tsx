@@ -7,7 +7,8 @@ import { DashboardSkeleton } from "@/components/ui/Skeleton";
 import { getDashboard, getKpiTrends, getMitreAnalytics } from "@/lib/api";
 import { formatNumber, formatAttackCategory } from "@/lib/utils";
 import { OpsStrip } from "@/components/ui/OpsStrip";
-import { KpiTile } from "@/components/ui/KpiTile";
+import { KpiTile, type KpiTileProps } from "@/components/ui/KpiTile";
+import { RotatingKpiTile } from "@/components/ui/RotatingKpiTile";
 import { MotionList, MotionItem } from "@/components/motion/Motion";
 import { Reveal } from "@/components/motion/Reveal";
 import { ChartReveal } from "@/components/motion/ChartReveal";
@@ -15,7 +16,7 @@ import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { MitreStrip } from "@/components/ui/MitreStrip";
 import { LiveFeed } from "@/components/ui/LiveFeed";
 import { BarList } from "@/components/ui/BarList";
-import { GraduationCap, Lock, Database, Users, ArrowRight, AlertTriangle } from "lucide-react";
+import { GraduationCap, Lock, Database, Users, ArrowRight, AlertTriangle, Boxes, Activity, Globe2, Crosshair } from "lucide-react";
 
 const ThreatGlobe = dynamic(() => import("@/components/charts/ThreatGlobe").then((m) => m.ThreatGlobe), {
   ssr: false,
@@ -67,7 +68,81 @@ export default function DashboardPage() {
   const incidentsDenom = Math.max(1, stats.education_incidents);
   const attributionRate = (intel.overview.actor_attributed_count / incidentsDenom) * 100;
   const disclosureCoverage = (intel.exposure.known_record_events / incidentsDenom) * 100;
+  const supplyChainShare = (intel.overview.vendor_linked_count / incidentsDenom) * 100;
   const fmtPct = (n: number) => `${n.toFixed(1)}%`;
+
+  // Rotating KPI faces — surface more CTI coverage metrics in two compact tiles
+  // that cycle. All derived from the existing payload.
+  const coverageFaces: KpiTileProps[] = [
+    {
+      label: "Attribution Rate",
+      value: fmtPct(attributionRate),
+      count: attributionRate,
+      valueFormat: fmtPct,
+      icon: Users,
+      accent: "pulse",
+      trend: kpi?.actors.values,
+      deltaPct: kpi?.actors.delta_pct,
+      invertDelta: false,
+      caption: `${formatNumber(intel.overview.actor_attributed_count)} attributed`,
+      href: "/threat-actors",
+    },
+    {
+      label: "Disclosure Coverage",
+      value: fmtPct(disclosureCoverage),
+      count: disclosureCoverage,
+      valueFormat: fmtPct,
+      icon: Database,
+      accent: "info",
+      trend: kpi?.breaches.values,
+      deltaPct: kpi?.breaches.delta_pct,
+      invertDelta: false,
+      caption: `${formatNumber(intel.exposure.known_record_events)} with record data`,
+      href: "/analytics",
+    },
+    {
+      label: "Supply-chain Exposure",
+      value: fmtPct(supplyChainShare),
+      count: supplyChainShare,
+      valueFormat: fmtPct,
+      icon: Boxes,
+      accent: "warn",
+      caption: `${formatNumber(intel.overview.vendor_linked_count)} vendor-linked`,
+      href: "/incidents?has_vendor=true",
+    },
+  ];
+  const tempoFaces: KpiTileProps[] = [
+    {
+      label: "Last 90 Days",
+      value: formatNumber(intel.tempo.recent_90d_count),
+      count: intel.tempo.recent_90d_count,
+      icon: Activity,
+      accent: "threat",
+      deltaPct: intel.tempo.recent_change_pct ?? null,
+      caption: "recent tempo",
+      href: "/incidents",
+    },
+    {
+      label: "Countries Affected",
+      value: formatNumber(stats.countries_affected),
+      count: stats.countries_affected,
+      icon: Globe2,
+      accent: "brand",
+      invertDelta: false,
+      caption: "distinct geographies",
+      href: "/map",
+    },
+    {
+      label: "Threat Actors",
+      value: formatNumber(stats.unique_threat_actors),
+      count: stats.unique_threat_actors,
+      icon: Crosshair,
+      accent: "pulse",
+      invertDelta: false,
+      caption: `${formatNumber(stats.unique_ransomware_families)} families`,
+      href: "/threat-actors",
+    },
+  ];
 
   const mitreTactics = (mitreQuery.data?.tactics ?? []).map((t) => ({
     tactic: t.tactic,
@@ -140,34 +215,10 @@ export default function DashboardPage() {
           />
         </MotionItem>
         <MotionItem className="h-full min-w-0">
-          <KpiTile
-            label="Attribution Rate"
-            value={fmtPct(attributionRate)}
-            count={attributionRate}
-            valueFormat={fmtPct}
-            icon={Users}
-            accent="pulse"
-            trend={kpi?.actors.values}
-            deltaPct={kpi?.actors.delta_pct}
-            invertDelta={false}
-            caption={`${formatNumber(intel.overview.actor_attributed_count)} attributed`}
-            href="/threat-actors"
-          />
+          <RotatingKpiTile items={coverageFaces} />
         </MotionItem>
         <MotionItem className="h-full min-w-0">
-          <KpiTile
-            label="Disclosure Coverage"
-            value={fmtPct(disclosureCoverage)}
-            count={disclosureCoverage}
-            valueFormat={fmtPct}
-            icon={Database}
-            accent="info"
-            trend={kpi?.breaches.values}
-            deltaPct={kpi?.breaches.delta_pct}
-            invertDelta={false}
-            caption={`${formatNumber(intel.exposure.known_record_events)} with record data`}
-            href="/analytics"
-          />
+          <RotatingKpiTile items={tempoFaces} />
         </MotionItem>
       </MotionList>
 
