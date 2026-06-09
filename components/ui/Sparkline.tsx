@@ -62,9 +62,18 @@ export function Sparkline({
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      {fill && <path d={areaPath} fill={`url(#spark-${gradId})`} />}
-      <path d={linePath} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round" />
-      {showDot && <circle cx={last[0]} cy={last[1]} r={2} fill={color} />}
+      {fill && <path d={areaPath} fill={`url(#spark-${gradId})`} className="spark-fill" />}
+      <path
+        d={linePath}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        pathLength={1}
+        className="spark-line"
+      />
+      {showDot && <circle cx={last[0]} cy={last[1]} r={2} fill={color} className="spark-dot" />}
     </svg>
   );
 }

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartsSkeleton } from "@/components/ui/Skeleton";
+import { Reveal } from "@/components/motion/Reveal";
 import { StatCard } from "@/components/StatCard";
 import { getAnalyticsBreakdowns, getDashboard } from "@/lib/api";
 import { formatDate, formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
@@ -106,7 +107,7 @@ export default function ImpactAnalyticsPage() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Reveal className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <WorkbookPanel
           eyebrow="Victimology"
           title="Who absorbs the pressure"
@@ -143,9 +144,9 @@ export default function ImpactAnalyticsPage() {
             ))}
           </div>
         </WorkbookPanel>
-      </div>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Reveal className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <WorkbookPanel
           eyebrow="Tradecraft"
           title="How operations are delivered"
@@ -180,9 +181,9 @@ export default function ImpactAnalyticsPage() {
             ))}
           </div>
         </WorkbookPanel>
-      </div>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Reveal className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <WorkbookPanel
           eyebrow="Attribution"
           title="Who appears most often"
@@ -227,9 +228,9 @@ export default function ImpactAnalyticsPage() {
             ))}
           </div>
         </WorkbookPanel>
-      </div>
+      </Reveal>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <Reveal className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <WorkbookPanel
           eyebrow="Exposure"
           title="Exact record-loss events"
@@ -305,7 +306,7 @@ export default function ImpactAnalyticsPage() {
             </div>
           </div>
         </WorkbookPanel>
-      </div>
+      </Reveal>
     </div>
   );
 }

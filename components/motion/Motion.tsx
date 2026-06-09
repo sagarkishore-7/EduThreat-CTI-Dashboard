@@ -1,7 +1,11 @@
 "use client";
 
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { animate, motion, useMotionValue, useReducedMotion, useTransform, type Variants } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+
+/* ── Shared motion tokens — one timing language across the app ── */
+export const EASE_OUT = [0.22, 1, 0.36, 1] as const;
+export const DUR = { fast: 0.3, base: 0.5, slow: 0.7 } as const;
 
 /**
  * Staggered entrance container. Children wrapped in <MotionItem> reveal in
@@ -84,6 +88,39 @@ export function useCountUp(target: number, durationMs = 900): number {
   }, [target, durationMs, reduce]);
 
   return value;
+}
+
+/**
+ * Smooth count-up rendered through a framer-motion MotionValue, so the number
+ * animates without re-rendering its parent every frame (the old `useCountUp`
+ * setState-per-frame loop is what made the KPI numbers feel jittery). Tween +
+ * ease-out over ~1.4s. Honours reduced-motion (shows the final value instantly).
+ */
+export function CountUp({
+  value,
+  format,
+  durationMs = 1400,
+  className,
+}: {
+  value: number;
+  format: (n: number) => string;
+  durationMs?: number;
+  className?: string;
+}) {
+  const reduce = useReducedMotion();
+  const mv = useMotionValue(reduce ? value : 0);
+  const out = useTransform(mv, (v) => format(v));
+
+  useEffect(() => {
+    if (reduce) {
+      mv.set(value);
+      return;
+    }
+    const controls = animate(mv, value, { duration: durationMs / 1000, ease: EASE_OUT });
+    return () => controls.stop();
+  }, [value, durationMs, reduce, mv]);
+
+  return <motion.span className={className}>{out}</motion.span>;
 }
 
 /** Fade/scale wrapper for charts so they draw in rather than pop. */

@@ -65,6 +65,9 @@ export function TrendChart({ data, height = 188 }: { data: TimeSeriesPoint[]; he
             fill="url(#trendGrad)"
             dot={false}
             activeDot={{ r: 3.5, fill: "#00d8b4", stroke: "#08090f", strokeWidth: 1.5 }}
+            isAnimationActive
+            animationDuration={1200}
+            animationEasing="ease-out"
           />
         </AreaChart>
       </ResponsiveContainer>
