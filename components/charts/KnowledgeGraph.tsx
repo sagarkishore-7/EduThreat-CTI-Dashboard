@@ -226,7 +226,7 @@ export function KnowledgeGraph({
         const sx = m.a * node.x + m.e;
         const sy = m.d * node.y + m.f;
         const onScreenR = r * m.a;
-        const PX = 15; // constant CSS px on screen at every zoom
+        const PX = 30; // constant on-screen label size at every zoom
         const fontDev = PX * ratio;
         const text = label.length > 30 ? label.slice(0, 28) + "…" : label;
 
