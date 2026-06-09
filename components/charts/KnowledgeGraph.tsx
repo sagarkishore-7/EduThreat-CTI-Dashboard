@@ -232,7 +232,12 @@ export function KnowledgeGraph({
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = `${fontDev}px var(--font-geist-mono), ui-monospace, monospace`;
+        // NOTE: Canvas 2D does NOT resolve CSS custom properties — a font string
+        // containing `var(--font-geist-mono)` is invalid, silently ignored, and
+        // leaves ctx.font at the default "10px sans-serif". That single bug made
+        // every label render ~10px regardless of the size we computed. Use a
+        // concrete monospace stack so the size actually takes effect.
+        ctx.font = `${fontDev}px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         const ty = sy + onScreenR + 5 * ratio;
