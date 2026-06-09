@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { ChartsSkeleton } from "@/components/ui/Skeleton";
+import { Reveal } from "@/components/motion/Reveal";
 import { StatCard } from "@/components/StatCard";
 
 // recharts-backed charts are heavy; defer them so headline metrics paint first.
@@ -181,7 +182,7 @@ export default function AttackIntelligencePage() {
         />
       </div>
 
-      <IncidentTimeChart data={trend} />
+      <Reveal><IncidentTimeChart data={trend} /></Reveal>
 
       {/* MITRE ATT&CK matrix — tactics in kill-chain order, top techniques as
           frequency-coloured cells. Scrolls horizontally on small screens. */}
