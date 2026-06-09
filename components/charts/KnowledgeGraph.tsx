@@ -212,7 +212,7 @@ export function KnowledgeGraph({
       const showLabel =
         active != null
           ? lit
-          : weight >= 11 || globalScale > 1.5 || (weight >= 7 && globalScale > 1.0);
+          : weight >= 13 || globalScale > 1.8 || (weight >= 8 && globalScale > 1.2);
       if (showLabel) {
         // Constant on-screen label size that is smooth across zoom and does NOT
         // grow when zooming in. We render in *screen space* (reset the transform
@@ -226,7 +226,7 @@ export function KnowledgeGraph({
         const sx = m.a * node.x + m.e;
         const sy = m.d * node.y + m.f;
         const onScreenR = r * m.a;
-        const PX = 16; // constant on-screen label size at every zoom
+        const PX = 11; // constant on-screen label size at every zoom
         const fontDev = PX * ratio;
         const text = label.length > 30 ? label.slice(0, 28) + "…" : label;
 
