@@ -143,6 +143,22 @@ body::after {
 .status-pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+/* ── Sparkline draw-in ─────────────────────────────────────────
+   The KPI sparkline line draws left→right on first paint (pathLength=1 +
+   dashoffset 1→0), with the area fill and end dot fading in behind it. */
+@keyframes spark-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.spark-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: spark-draw 1.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.spark-fill { opacity: 0; animation: fade-in 0.8s ease-out 0.5s forwards; }
+.spark-dot  { opacity: 0; animation: fade-in 0.3s ease-out 1s forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .spark-line { stroke-dashoffset: 0; animation: none; }
+  .spark-fill, .spark-dot { opacity: 1; animation: none; }
+}
+
 /* ── Skeleton shimmer ──────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }

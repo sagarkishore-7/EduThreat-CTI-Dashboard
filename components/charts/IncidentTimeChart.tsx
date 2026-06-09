@@ -114,7 +114,7 @@ export function IncidentTimeChart({ data }: IncidentTimeChartProps) {
               fill="url(#timeGradient)"
               dot={false}
               activeDot={{ r: 4, fill: "#06b6d4", stroke: "#0c0c18", strokeWidth: 2 }}
-              isAnimationActive={false}
+              isAnimationActive animationDuration={1100} animationEasing="ease-out"
             />
           </AreaChart>
         </ResponsiveContainer>

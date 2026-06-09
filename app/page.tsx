@@ -9,6 +9,8 @@ import { formatNumber, formatAttackCategory } from "@/lib/utils";
 import { OpsStrip } from "@/components/ui/OpsStrip";
 import { KpiTile } from "@/components/ui/KpiTile";
 import { MotionList, MotionItem } from "@/components/motion/Motion";
+import { Reveal } from "@/components/motion/Reveal";
+import { ChartReveal } from "@/components/motion/ChartReveal";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { MitreStrip } from "@/components/ui/MitreStrip";
 import { LiveFeed } from "@/components/ui/LiveFeed";
@@ -58,6 +60,15 @@ export default function DashboardPage() {
   const stats = data.stats;
   const intel = data.intelligence_summary;
   const kpi = kpiQuery.data;
+
+  // CTI coverage KPIs (higher = better): how often we can name the actor behind
+  // an attack, and how often record/data impact is actually disclosed. Derived
+  // from the existing payload; rising values are GOOD (green delta).
+  const incidentsDenom = Math.max(1, stats.education_incidents);
+  const attributionRate = (intel.overview.actor_attributed_count / incidentsDenom) * 100;
+  const disclosureCoverage = (intel.exposure.known_record_events / incidentsDenom) * 100;
+  const fmtPct = (n: number) => `${n.toFixed(1)}%`;
+
   const mitreTactics = (mitreQuery.data?.tactics ?? []).map((t) => ({
     tactic: t.tactic,
     count: t.incident_count,
@@ -130,28 +141,32 @@ export default function DashboardPage() {
         </MotionItem>
         <MotionItem className="h-full min-w-0">
           <KpiTile
-            label="Data Breaches"
-            value={formatNumber(intel.overview.breach_count)}
-            count={intel.overview.breach_count}
-            icon={Database}
-            accent="warn"
-            trend={kpi?.breaches.values}
-            deltaPct={kpi?.breaches.delta_pct}
-            caption={`${formatNumber(intel.exposure.known_record_events)} record events`}
-            href="/analytics"
-          />
-        </MotionItem>
-        <MotionItem className="h-full min-w-0">
-          <KpiTile
-            label="Threat Actors"
-            value={formatNumber(stats.unique_threat_actors)}
-            count={stats.unique_threat_actors}
+            label="Attribution Rate"
+            value={fmtPct(attributionRate)}
+            count={attributionRate}
+            valueFormat={fmtPct}
             icon={Users}
             accent="pulse"
             trend={kpi?.actors.values}
             deltaPct={kpi?.actors.delta_pct}
+            invertDelta={false}
             caption={`${formatNumber(intel.overview.actor_attributed_count)} attributed`}
             href="/threat-actors"
+          />
+        </MotionItem>
+        <MotionItem className="h-full min-w-0">
+          <KpiTile
+            label="Disclosure Coverage"
+            value={fmtPct(disclosureCoverage)}
+            count={disclosureCoverage}
+            valueFormat={fmtPct}
+            icon={Database}
+            accent="info"
+            trend={kpi?.breaches.values}
+            deltaPct={kpi?.breaches.delta_pct}
+            invertDelta={false}
+            caption={`${formatNumber(intel.exposure.known_record_events)} with record data`}
+            href="/analytics"
           />
         </MotionItem>
       </MotionList>
@@ -191,23 +206,27 @@ export default function DashboardPage() {
       </div>
 
       {/* ── MITRE STRIP ── */}
-      <Card className="min-w-0 overflow-hidden">
-        <CardHead
-          title="MITRE ATT&CK · Observed Tactics"
-          sub="Education sector · cell intensity = technique frequency"
-          actions={<Link href="/mitre" className="ops-chip ops-chip-pulse">Open matrix →</Link>}
-        />
-        <CardBody>
-          <MitreStrip tactics={mitreTactics} />
-        </CardBody>
-      </Card>
+      <Reveal>
+        <Card className="min-w-0 overflow-hidden">
+          <CardHead
+            title="MITRE ATT&CK · Observed Tactics"
+            sub="Education sector · cell intensity = technique frequency"
+            actions={<Link href="/mitre" className="ops-chip ops-chip-pulse">Open matrix →</Link>}
+          />
+          <CardBody>
+            <MitreStrip tactics={mitreTactics} />
+          </CardBody>
+        </Card>
+      </Reveal>
 
       {/* ── TREND + ACTORS + ATTACK MIX ── */}
-      <div className="grid gap-3 xl:grid-cols-[1.7fr_1fr_1fr]">
+      <Reveal className="grid gap-3 xl:grid-cols-[1.7fr_1fr_1fr]">
         <Card className="min-w-0 overflow-hidden">
           <CardHead title="Incidents Over Time" sub="24-month window · monthly count" />
           <CardBody>
-            <TrendChart data={data.incidents_over_time} />
+            <ChartReveal minHeight={188}>
+              <TrendChart data={data.incidents_over_time} />
+            </ChartReveal>
           </CardBody>
         </Card>
 
@@ -228,7 +247,7 @@ export default function DashboardPage() {
             <BarList items={attackMix} />
           </CardBody>
         </Card>
-      </div>
+      </Reveal>
     </div>
   );
 }
