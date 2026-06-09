@@ -107,6 +107,9 @@ export default function DashboardPage() {
       valueFormat: fmtPct,
       icon: Boxes,
       accent: "warn",
+      // Vendor-linked incidents are predominantly breach disclosures, so the
+      // breach monthly series is the closest available trend.
+      trend: kpi?.breaches.values,
       caption: `${formatNumber(intel.overview.vendor_linked_count)} vendor-linked`,
       href: "/incidents?has_vendor=true",
     },
@@ -118,6 +121,8 @@ export default function DashboardPage() {
       count: intel.tempo.recent_90d_count,
       icon: Activity,
       accent: "threat",
+      // Recent tempo is monthly incident volume — the incidents series is exact.
+      trend: kpi?.incidents.values,
       deltaPct: intel.tempo.recent_change_pct ?? null,
       caption: "recent tempo",
       href: "/incidents",
@@ -129,6 +134,8 @@ export default function DashboardPage() {
       icon: Globe2,
       accent: "brand",
       invertDelta: false,
+      // Geographic spread tracks overall incident volume (closest series).
+      trend: kpi?.incidents.values,
       caption: "distinct geographies",
       href: "/map",
     },
@@ -139,6 +146,8 @@ export default function DashboardPage() {
       icon: Crosshair,
       accent: "pulse",
       invertDelta: false,
+      // Distinct-actor monthly series — exact for this metric.
+      trend: kpi?.actors.values,
       caption: `${formatNumber(stats.unique_ransomware_families)} families`,
       href: "/threat-actors",
     },
