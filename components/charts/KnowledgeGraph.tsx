@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forceCollide } from "d3-force";
 
 // react-force-graph-2d touches window/canvas — load it client-only.
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
@@ -61,6 +62,12 @@ export const ENTITY_STYLE: Record<string, { color: string; label: string }> = {
 
 function entityColor(type: string, explicit?: string): string {
   return explicit || ENTITY_STYLE[type]?.color || "#8189a0";
+}
+
+// Drawn node radius — shared by the renderer, the pointer hit-area and the
+// collision force so the layout spacing matches what's painted.
+function nodeRadius(node: { val?: number }): number {
+  return 3 + Math.sqrt(node.val ?? 4) * 1.6;
 }
 
 interface KnowledgeGraphProps {
@@ -150,6 +157,26 @@ export function KnowledgeGraph({
     fgRef.current?.zoomToFit?.(420, 60);
   }, []);
 
+  // Spread nodes so dense graphs (campaign detail, intel-graph) don't overlap:
+  // stronger repulsion scaled by node count, longer links, and a collision force
+  // sized to the drawn node radius + label padding. Reheat so it re-lays out.
+  // Runs once the graph has mounted (width > 0 → fgRef set) and whenever the data
+  // changes.
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg || width === 0) return;
+    const n = graphData.nodes.length;
+    const charge = fg.d3Force?.("charge");
+    if (charge) {
+      charge.strength(Math.max(-430, -95 - n * 1.6));
+      charge.distanceMax?.(640);
+    }
+    const link = fg.d3Force?.("link");
+    if (link) link.distance(38 + Math.min(30, n * 0.32)).strength(0.5);
+    fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 13).strength(0.9));
+    fg.d3ReheatSimulation?.();
+  }, [graphData, width]);
+
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const r = 3 + Math.sqrt(node.val ?? 4) * 1.6;
@@ -199,7 +226,11 @@ export function KnowledgeGraph({
         const sy = m.d * node.y + m.f;
         const screenR = r * dpr;
         const dprFont = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1);
-        const fontPx = Math.round(11 * dprFont);
+        // Zoom-responsive but clamped: ~13px floor (readable on a dense graph),
+        // grows moderately as you zoom in so zooming actually helps read tight
+        // clusters, hard-capped at 22px so it can never balloon like before.
+        const cssPx = Math.min(22, Math.max(13, 13 * Math.sqrt(globalScale)));
+        const fontPx = Math.round(cssPx * dprFont);
         const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
 
         ctx.save();
@@ -207,9 +238,9 @@ export function KnowledgeGraph({
         ctx.font = `${fontPx}px var(--font-geist-mono), ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const ty = sy + screenR + 3 * dprFont;
+        const ty = sy + screenR + Math.round(cssPx * 0.32) * dprFont;
         // Dark halo behind the label so names stay legible over links/nodes.
-        ctx.lineWidth = 3 * dprFont;
+        ctx.lineWidth = Math.max(2.5, cssPx * 0.26) * dprFont;
         ctx.strokeStyle = "rgba(8,11,18,0.9)";
         ctx.lineJoin = "round";
         ctx.strokeText(text, sx, ty);
