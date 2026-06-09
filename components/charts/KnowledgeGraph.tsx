@@ -174,14 +174,20 @@ export function KnowledgeGraph({
     const fg = fgRef.current;
     if (!fg || width === 0) return;
     const n = graphData.nodes.length;
+    // The campaign/intel graphs are largely hub-and-spoke (one campaign node with
+    // every member linked to it), so leaves land on a single ring at the link
+    // distance and crowd. Counter it with (a) a much larger link distance that
+    // grows with node count → a bigger ring with more circumference to spread on,
+    // and (b) stronger repulsion so leaves push apart around that ring. The
+    // collision force keeps node+label boxes from overlapping.
     const charge = fg.d3Force?.("charge");
     if (charge) {
-      charge.strength(Math.max(-430, -95 - n * 1.6));
-      charge.distanceMax?.(640);
+      charge.strength(Math.max(-1200, -180 - n * 7));
+      charge.distanceMax?.(900);
     }
     const link = fg.d3Force?.("link");
-    if (link) link.distance(38 + Math.min(30, n * 0.32)).strength(0.5);
-    fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 13).strength(0.9));
+    if (link) link.distance(70 + Math.min(170, n * 4)).strength(0.45);
+    fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1));
     fg.d3ReheatSimulation?.();
   }, [graphData, width]);
 
