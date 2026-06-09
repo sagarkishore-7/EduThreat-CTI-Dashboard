@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getFilters, getIncidents } from "@/lib/api";
 import { TlpBadge, deriveTlp } from "@/components/ui/TlpBadge";
 import { SeverityPill, severityFromCategory } from "@/components/ui/SeverityPill";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import {
   cn,
   formatAttackCategory,
@@ -36,7 +37,7 @@ type ViewMode = "list" | "cards";
 
 export default function IncidentsPage() {
   return (
-    <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<TableSkeleton />}>
       <IncidentsContent />
     </Suspense>
   );
@@ -661,11 +662,3 @@ function LoadingState() {
   );
 }
 
-function PageSkeleton() {
-  return (
-    <div className="space-y-4 animate-pulse">
-      <div className="h-32 rounded-2xl border border-zinc-800 bg-zinc-900/40" />
-      <div className="h-[720px] rounded-2xl border border-zinc-800 bg-zinc-900/40" />
-    </div>
-  );
-}

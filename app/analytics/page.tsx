@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { PageHeader, PageSkeleton } from "@/components/PageHeader";
+import { PageHeader } from "@/components/PageHeader";
+import { ChartsSkeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/StatCard";
 import { getAnalyticsBreakdowns, getDashboard } from "@/lib/api";
 import { formatDate, formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
@@ -25,7 +26,7 @@ export default function ImpactAnalyticsPage() {
   });
 
   if (loadingDashboard || loadingBreakdowns || !dashboard) {
-    return <PageSkeleton rows={4} />;
+    return <ChartsSkeleton />;
   }
 
   const intelligence = dashboard.intelligence_summary;

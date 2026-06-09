@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getFeedHealth } from "@/lib/api";
-import { PageSkeleton } from "@/components/PageHeader";
+import { TableSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { BarList } from "@/components/ui/BarList";
 import { formatNumber } from "@/lib/utils";
@@ -27,7 +27,7 @@ export default function FeedsPage() {
     refetchInterval: 60_000,
   });
 
-  if (isLoading) return <PageSkeleton rows={4} />;
+  if (isLoading) return <TableSkeleton />;
   if (error || !data) {
     return (
       <div className="flex h-full items-center justify-center">

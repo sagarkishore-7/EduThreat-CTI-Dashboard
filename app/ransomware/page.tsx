@@ -10,7 +10,8 @@ import {
   getStats,
   type RecentIncident,
 } from "@/lib/api";
-import { PageHeader, PageSkeleton } from "@/components/PageHeader";
+import { PageHeader } from "@/components/PageHeader";
+import { ChartsSkeleton } from "@/components/ui/Skeleton";
 import { StatCard } from "@/components/StatCard";
 
 // recharts-backed charts are heavy; defer them so headline metrics paint first.
@@ -80,7 +81,7 @@ export default function RansomwareIntelligencePage() {
   }, [recentRansomware]);
 
   if (loadingFamilies || loadingTrend || loadingRecent) {
-    return <PageSkeleton rows={4} />;
+    return <ChartsSkeleton kpis={5} />;
   }
 
   return (

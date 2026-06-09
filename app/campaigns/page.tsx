@@ -8,7 +8,7 @@ import {
   getCampaignDetail,
   type CampaignSummary,
 } from "@/lib/api";
-import { PageSkeleton } from "@/components/PageHeader";
+import { SplitSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, formatPercent, getCountryFlag } from "@/lib/utils";
 import { AlertTriangle, Share2, Layers, Building2, Crosshair } from "lucide-react";
@@ -74,7 +74,7 @@ export default function CampaignsPage() {
     return { byType, members };
   }, [families]);
 
-  if (isLoading) return <PageSkeleton rows={4} />;
+  if (isLoading) return <SplitSkeleton />;
   if (error || !data) {
     return (
       <div className="flex h-full items-center justify-center">

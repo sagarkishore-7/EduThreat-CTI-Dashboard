@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getThreatActors } from "@/lib/api";
-import { PageSkeleton } from "@/components/PageHeader";
+import { GraphSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
 import { Share2 } from "lucide-react";
@@ -43,7 +43,7 @@ export default function InvestigationsPage() {
     return { nodes: Array.from(nodeMap.values()), links };
   }, [data]);
 
-  if (isLoading) return <PageSkeleton rows={4} />;
+  if (isLoading) return <GraphSkeleton />;
 
   const actors = (data?.threat_actors ?? []).slice(0, 12);
   const selectedActor = actors.find((a) => a.name === selected);
