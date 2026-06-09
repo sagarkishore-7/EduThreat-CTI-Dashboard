@@ -205,35 +205,45 @@ export function KnowledgeGraph({
       // Labels: hovered/active node + neighbours always; the rest reveal as you
       // zoom in (so a dense graph isn't a wall of text). Density threshold scales
       // with the node's weight so the big hubs label first.
+      // Label density: keep the on-screen set sparse so labels never overlap.
+      // When hovering, label the focused node + its neighbours (the lit set).
+      // Otherwise label only the prominent hubs, revealing more as you zoom in.
       const weight = node.val ?? 4;
       const showLabel =
-        lit &&
-        (node.id === active ||
-          (active != null) ||
-          weight >= 7 ||
-          globalScale > 1.0 ||
-          (weight >= 5 && globalScale > 0.7));
+        active != null
+          ? lit
+          : weight >= 11 || globalScale > 1.5 || (weight >= 7 && globalScale > 1.0);
       if (showLabel) {
-        // Draw the label in WORLD space (no transform reset). force-graph already
-        // scales the whole canvas by `globalScale`, so a font of `PX/globalScale`
-        // renders at a constant ~PX on screen at *every* zoom level — readable,
-        // never ballooning, never shrinking. This is the canonical, reliable
-        // approach; the earlier screen-space/devicePixelRatio trickery rendered
-        // unpredictably across displays.
-        const PX = 17;
-        const fontWorld = PX / globalScale;
+        // Constant on-screen label size that is smooth across zoom and does NOT
+        // grow when zooming in. We render in *screen space* (reset the transform
+        // to identity, draw in device pixels) so the size is independent of zoom,
+        // and we derive the device-pixel ratio from the LIVE transform
+        // (`m.a / globalScale`) rather than `window.devicePixelRatio` — the latter
+        // doesn't always match force-graph's canvas scaling, which is what made
+        // earlier attempts render too small.
+        const m = ctx.getTransform();
+        const ratio = m.a / (globalScale || 1); // device px per CSS px
+        const sx = m.a * node.x + m.e;
+        const sy = m.d * node.y + m.f;
+        const onScreenR = r * m.a;
+        const PX = 15; // constant CSS px on screen at every zoom
+        const fontDev = PX * ratio;
         const text = label.length > 30 ? label.slice(0, 28) + "…" : label;
-        ctx.font = `${fontWorld}px var(--font-geist-mono), ui-monospace, monospace`;
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.font = `${fontDev}px var(--font-geist-mono), ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const ty = node.y + r + 4 / globalScale;
+        const ty = sy + onScreenR + 5 * ratio;
         // Dark halo behind the label so names stay legible over links/nodes.
-        ctx.lineWidth = 3.5 / globalScale;
+        ctx.lineWidth = 3 * ratio;
         ctx.strokeStyle = "rgba(8,11,18,0.92)";
         ctx.lineJoin = "round";
-        ctx.strokeText(text, node.x, ty);
+        ctx.strokeText(text, sx, ty);
         ctx.fillStyle = node.id === active ? "#ffffff" : "rgba(236,236,239,0.96)";
-        ctx.fillText(text, node.x, ty);
+        ctx.fillText(text, sx, ty);
+        ctx.restore();
       }
       ctx.globalAlpha = 1;
     },
