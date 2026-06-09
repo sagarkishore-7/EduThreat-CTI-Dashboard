@@ -107,9 +107,9 @@ export default function DashboardPage() {
       valueFormat: fmtPct,
       icon: Boxes,
       accent: "warn",
-      // Vendor-linked incidents are predominantly breach disclosures, so the
-      // breach monthly series is the closest available trend.
-      trend: kpi?.breaches.values,
+      // Dedicated monthly vendor/supply-chain incident series.
+      trend: kpi?.supply_chain?.values,
+      deltaPct: kpi?.supply_chain?.delta_pct,
       caption: `${formatNumber(intel.overview.vendor_linked_count)} vendor-linked`,
       href: "/incidents?has_vendor=true",
     },
@@ -134,8 +134,9 @@ export default function DashboardPage() {
       icon: Globe2,
       accent: "brand",
       invertDelta: false,
-      // Geographic spread tracks overall incident volume (closest series).
-      trend: kpi?.incidents.values,
+      // Dedicated monthly distinct-countries series.
+      trend: kpi?.countries?.values,
+      deltaPct: kpi?.countries?.delta_pct,
       caption: "distinct geographies",
       href: "/map",
     },

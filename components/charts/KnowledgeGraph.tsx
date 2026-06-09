@@ -75,7 +75,7 @@ function entityGlyph(type: string): string {
 // Drawn node radius — shared by the renderer, the pointer hit-area and the
 // collision force so the layout spacing matches what's painted.
 function nodeRadius(node: { val?: number }): number {
-  return 3 + Math.sqrt(node.val ?? 4) * 1.6;
+  return 2.5 + Math.sqrt(node.val ?? 4) * 1.25;
 }
 
 interface KnowledgeGraphProps {
@@ -89,6 +89,11 @@ interface KnowledgeGraphProps {
   className?: string;
   /** Show the entity-type legend overlay (default true). */
   showLegend?: boolean;
+  /**
+   * Dense hub-and-spoke graphs (campaign detail) where the surrounding card
+   * already lists the entities: label nothing by default, reveal on hover only.
+   */
+  minimalLabels?: boolean;
 }
 
 export function KnowledgeGraph({
@@ -99,6 +104,7 @@ export function KnowledgeGraph({
   highlightId = null,
   className,
   showLegend = true,
+  minimalLabels = false,
 }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -193,7 +199,7 @@ export function KnowledgeGraph({
 
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      const r = 3 + Math.sqrt(node.val ?? 4) * 1.6;
+      const r = 2.5 + Math.sqrt(node.val ?? 4) * 1.25;
       const lit = isLit(node.id);
       const color = entityColor(node.type, node.color);
       const label: string = node.label ?? node.id;
@@ -221,22 +227,37 @@ export function KnowledgeGraph({
       // Glyph sized to the node; scales with the node on zoom like the rest of
       // the graph. Falls back to a coloured dot if the glyph can't render.
       const glyph = entityGlyph(node.type);
-      ctx.font = `${r * 1.25}px ${EMOJI_FONT}`;
+      const glyphSize = r * 1.15;
+      ctx.font = `${glyphSize}px ${EMOJI_FONT}`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(glyph, node.x, node.y);
+      // Emoji glyphs sit slightly high against the "middle" baseline, so nudge
+      // down a touch to optically centre them inside the ring.
+      ctx.fillText(glyph, node.x, node.y + glyphSize * 0.06);
 
-      // Labels: hovered/active node + neighbours always; the rest reveal as you
-      // zoom in (so a dense graph isn't a wall of text). Density threshold scales
-      // with the node's weight so the big hubs label first.
       // Label density: keep the on-screen set sparse so labels never overlap.
-      // When hovering, label the focused node + its neighbours (the lit set).
-      // Otherwise label only the prominent hubs, revealing more as you zoom in.
+      // The campaign/intel graphs are hub-and-spoke with MANY leaf nodes
+      // (institutions / incidents); labelling them all is the "wall of text" that
+      // makes the graph look cluttered. So by default we only label the hub +
+      // anchor entities (campaign, vendor, actor, CVE, platform, family, …) and
+      // reveal the numerous leaf labels (institution / incident) only on hover or
+      // when zoomed in close. While hovering, label the focused node + neighbours.
       const weight = node.val ?? 4;
+      // Leaf entities (institutions/incidents) are numerous; mid entities
+      // (vendor/CVE/platform/family) cluster around a campaign hub. Labelling all
+      // of them is the "wall of text". By default label only the prominent hub
+      // entities (campaign + big actor/country hubs); reveal everything else on
+      // hover or when zoomed in. The campaign detail card already lists the
+      // vendors/CVEs/actors as chips, so the graph doesn't need their labels.
+      const isHub = node.type === "campaign" || node.type === "actor" || node.type === "country";
       const showLabel =
         active != null
           ? lit
-          : weight >= 13 || globalScale > 1.8 || (weight >= 8 && globalScale > 1.2);
+          : minimalLabels
+            ? globalScale > 2.4 // dense campaign graph: hover/zoom only
+            : isHub
+              ? weight >= 10 || globalScale > 1.0
+              : globalScale > 2.4;
       if (showLabel) {
         // Constant on-screen label size that is smooth across zoom and does NOT
         // grow when zooming in. We render in *screen space* (reset the transform
@@ -276,7 +297,7 @@ export function KnowledgeGraph({
       }
       ctx.globalAlpha = 1;
     },
-    [active, isLit],
+    [active, isLit, minimalLabels],
   );
 
   return (
@@ -306,7 +327,7 @@ export function KnowledgeGraph({
           nodeCanvasObjectMode={() => "replace"}
           nodeCanvasObject={drawNode}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
-            const r = 3 + Math.sqrt(node.val ?? 4) * 1.6;
+            const r = 2.5 + Math.sqrt(node.val ?? 4) * 1.25;
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(node.x, node.y, r + 2, 0, 2 * Math.PI);
