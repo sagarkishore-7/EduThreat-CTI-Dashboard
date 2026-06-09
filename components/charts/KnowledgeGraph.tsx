@@ -210,9 +210,9 @@ export function KnowledgeGraph({
         lit &&
         (node.id === active ||
           (active != null) ||
-          weight >= 8 ||
-          globalScale > 1.2 ||
-          (weight >= 5 && globalScale > 0.9));
+          weight >= 6 ||
+          globalScale > 0.75 ||
+          (weight >= 4 && globalScale > 0.55));
       if (showLabel) {
         // Constant ON-SCREEN label size, robustly. Instead of trusting
         // `1/globalScale` (which can drift from the real canvas transform on
@@ -228,8 +228,10 @@ export function KnowledgeGraph({
         const dprFont = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1);
         // Zoom-responsive but clamped: ~13px floor (readable on a dense graph),
         // grows moderately as you zoom in so zooming actually helps read tight
-        // clusters, hard-capped at 22px so it can never balloon like before.
-        const cssPx = Math.min(22, Math.max(13, 13 * Math.sqrt(globalScale)));
+        // clusters, hard-capped at 26px so it can never balloon like before.
+        // 15px floor so labels stay readable on the dense intel-graph even when
+        // the layout is zoomed out to fit.
+        const cssPx = Math.min(26, Math.max(15, 15 * Math.sqrt(globalScale)));
         const fontPx = Math.round(cssPx * dprFont);
         const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
 
