@@ -293,7 +293,15 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
     [countByCode, onCountryClick],
   );
   const ringMaxRadius = useCallback((d: any) => 3 + Math.min(7, (d.count / maxCount) * 7), [maxCount]);
-  const pointRadius = useCallback((d: any) => 0.3 + Math.min(0.9, (d.count / maxCount) * 0.9), [maxCount]);
+  const pointRadius = useCallback((d: any) => 0.45 + Math.min(1.1, (d.count / maxCount) * 1.1), [maxCount]);
+  // Float the markers clearly ABOVE the raised choropleth (incident-country
+  // polygons sit at altitude 0.012); a point at 0.01 was rendered *under* the
+  // country surface, so the dots looked like they were below the map and were
+  // barely visible.
+  const pointAltitude = useCallback(
+    (d: any) => 0.05 + Math.min(0.16, (d.count / maxCount) * 0.16),
+    [maxCount],
+  );
 
   // Dark globe material + atmosphere; auto-rotate; sensible initial POV.
   const globeMaterial = useMemo(() => {
@@ -355,7 +363,7 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
           pointLng={pointLngA}
           pointColor={pointColorA}
           pointRadius={pointRadius}
-          pointAltitude={0.01}
+          pointAltitude={pointAltitude}
           pointsMerge={false}
           // ── Telemetry arcs (arcs mode only) ──
           arcsData={arcs}
