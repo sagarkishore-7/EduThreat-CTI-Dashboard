@@ -205,46 +205,48 @@ export function KnowledgeGraph({
       // Labels: hovered/active node + neighbours always; the rest reveal as you
       // zoom in (so a dense graph isn't a wall of text). Density threshold scales
       // with the node's weight so the big hubs label first.
+      // Label density: keep the on-screen set sparse so labels never overlap.
+      // When hovering, label the focused node + its neighbours (the lit set).
+      // Otherwise label only the prominent hubs, revealing more as you zoom in.
       const weight = node.val ?? 4;
       const showLabel =
-        lit &&
-        (node.id === active ||
-          (active != null) ||
-          weight >= 8 ||
-          globalScale > 1.2 ||
-          (weight >= 5 && globalScale > 0.9));
+        active != null
+          ? lit
+          : weight >= 11 || globalScale > 1.5 || (weight >= 7 && globalScale > 1.0);
       if (showLabel) {
-        // Constant ON-SCREEN label size, robustly. Instead of trusting
-        // `1/globalScale` (which can drift from the real canvas transform on
-        // HiDPI displays and made text balloon when zoomed in), we render the
-        // label in *screen space*: read the live transform, reset it to
-        // identity, draw at a fixed device-pixel font, then restore. The text is
-        // therefore pinned to ~11 CSS px at every zoom level regardless of DPR.
+        // Constant on-screen label size that is smooth across zoom and does NOT
+        // grow when zooming in. We render in *screen space* (reset the transform
+        // to identity, draw in device pixels) so the size is independent of zoom,
+        // and we derive the device-pixel ratio from the LIVE transform
+        // (`m.a / globalScale`) rather than `window.devicePixelRatio` — the latter
+        // doesn't always match force-graph's canvas scaling, which is what made
+        // earlier attempts render too small.
         const m = ctx.getTransform();
-        const dpr = m.a; // device pixels per world unit on the x-axis
+        const ratio = m.a / (globalScale || 1); // device px per CSS px
         const sx = m.a * node.x + m.e;
         const sy = m.d * node.y + m.f;
-        const screenR = r * dpr;
-        const dprFont = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1);
-        // Zoom-responsive but clamped: ~13px floor (readable on a dense graph),
-        // grows moderately as you zoom in so zooming actually helps read tight
-        // clusters, hard-capped at 22px so it can never balloon like before.
-        const cssPx = Math.min(22, Math.max(13, 13 * Math.sqrt(globalScale)));
-        const fontPx = Math.round(cssPx * dprFont);
-        const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
+        const onScreenR = r * m.a;
+        const PX = 16; // constant on-screen label size at every zoom
+        const fontDev = PX * ratio;
+        const text = label.length > 30 ? label.slice(0, 28) + "…" : label;
 
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = `${fontPx}px var(--font-geist-mono), ui-monospace, monospace`;
+        // NOTE: Canvas 2D does NOT resolve CSS custom properties — a font string
+        // containing `var(--font-geist-mono)` is invalid, silently ignored, and
+        // leaves ctx.font at the default "10px sans-serif". That single bug made
+        // every label render ~10px regardless of the size we computed. Use a
+        // concrete monospace stack so the size actually takes effect.
+        ctx.font = `${fontDev}px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const ty = sy + screenR + Math.round(cssPx * 0.32) * dprFont;
+        const ty = sy + onScreenR + 5 * ratio;
         // Dark halo behind the label so names stay legible over links/nodes.
-        ctx.lineWidth = Math.max(2.5, cssPx * 0.26) * dprFont;
-        ctx.strokeStyle = "rgba(8,11,18,0.9)";
+        ctx.lineWidth = 3 * ratio;
+        ctx.strokeStyle = "rgba(8,11,18,0.92)";
         ctx.lineJoin = "round";
         ctx.strokeText(text, sx, ty);
-        ctx.fillStyle = node.id === active ? "#f4f4f5" : "rgba(228,228,231,0.9)";
+        ctx.fillStyle = node.id === active ? "#ffffff" : "rgba(236,236,239,0.96)";
         ctx.fillText(text, sx, ty);
         ctx.restore();
       }
