@@ -125,7 +125,12 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
 
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [features, setFeatures] = useState<any[]>([]);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+  // Hovered country → a leader-line callout anchored in the empty space beside
+  // the globe (instead of a cursor tooltip that overlapped the corner controls).
+  const [hover, setHover] = useState<
+    { lat: number; lng: number; flag: string; name: string; count: number } | null
+  >(null);
+  const [leader, setLeader] = useState<{ x: number; y: number; visible: boolean } | null>(null);
   const [arcs, setArcs] = useState<Arc[]>([]);
 
   // Measure container so the canvas fills it responsively.
@@ -269,18 +274,19 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
   const onPolygonHover = useCallback(
     (d: any) => {
       if (!d) {
-        setTooltip(null);
+        setHover(null);
         return;
       }
       const code = codeOf(d);
       const info = countByCode[code];
       const name = info?.name || d.properties?.name || "Unknown";
       const count = info?.count || 0;
-      const text =
-        count > 0
-          ? `${getCountryFlag(code || name, info?.flag)} ${name}: ${count} incident${count !== 1 ? "s" : ""}`
-          : `${name}: No incidents`;
-      setTooltip((t) => ({ x: t?.x ?? 0, y: t?.y ?? 0, text }));
+      const c = geoCentroid(d as never) as [number, number];
+      if (!Number.isFinite(c[0]) || !Number.isFinite(c[1])) {
+        setHover(null);
+        return;
+      }
+      setHover({ lat: c[1], lng: c[0], flag: getCountryFlag(code || name, info?.flag), name, count });
     },
     [countByCode],
   );
@@ -327,6 +333,54 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
       /* globe not ready yet */
     }
   }, [reducedMotion, size.w, size.h, features.length]);
+
+  // While a country is hovered: pause auto-rotation (so the callout is stable)
+  // and track the country's on-screen position via rAF, with a facing test so
+  // the leader line hides if the point rotates to the far side of the globe.
+  useEffect(() => {
+    const g = globeRef.current;
+    if (!g) return;
+    try {
+      const controls = g.controls?.();
+      if (controls) controls.autoRotate = !reducedMotion && !hover;
+    } catch {
+      /* ignore */
+    }
+    if (!hover) {
+      setLeader(null);
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      try {
+        const sc = g.getScreenCoords(hover.lat, hover.lng, 0.02);
+        const coords = g.getCoords(hover.lat, hover.lng, 0);
+        const cam = g.camera();
+        const pv = new THREE.Vector3(coords.x, coords.y, coords.z).normalize();
+        const cv = new THREE.Vector3().copy(cam.position).normalize();
+        const visible = pv.dot(cv) > 0.12;
+        if (sc && Number.isFinite(sc.x) && Number.isFinite(sc.y)) {
+          setLeader({ x: sc.x, y: sc.y, visible });
+        } else {
+          setLeader(null);
+        }
+      } catch {
+        setLeader(null);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [hover, reducedMotion]);
+
+  // Callout box geometry (right-side empty space beside the globe sphere).
+  const BOX_W = 212;
+  const BOX_RIGHT = 16;
+  const boxLeft = Math.max(12, size.w - BOX_RIGHT - BOX_W);
+  const boxTop = Math.round(size.h * 0.26);
+  const anchorX = boxLeft;
+  const anchorY = boxTop + 34;
+  const calloutVisible = !!hover && !!leader && leader.visible;
 
   return (
     <div ref={containerRef} className={cn("relative h-full w-full", className)}>
@@ -382,21 +436,41 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
         />
       )}
 
-      {/* Hover readout (tracked to the cursor over the globe). */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        onMouseMove={(e) => {
-          const rect = containerRef.current?.getBoundingClientRect();
-          if (!rect) return;
-          setTooltip((t) => (t ? { ...t, x: e.clientX - rect.left, y: e.clientY - rect.top } : t));
-        }}
-      />
-      {tooltip && (
+      {/* Hover callout: a leader line from the country out to a box in the empty
+          space beside the globe, so the readout never blocks the sphere or the
+          corner controls. */}
+      {calloutVisible && leader && (
+        <svg className="pointer-events-none absolute inset-0 z-20 h-full w-full" aria-hidden>
+          <line
+            x1={leader.x}
+            y1={leader.y}
+            x2={anchorX}
+            y2={anchorY}
+            stroke="#1be7c8"
+            strokeWidth={1}
+            strokeOpacity={0.7}
+            strokeDasharray="3 3"
+          />
+          <circle cx={leader.x} cy={leader.y} r={3.5} fill="#1be7c8" />
+          <circle cx={leader.x} cy={leader.y} r={6.5} fill="#1be7c8" opacity={0.25} />
+          <circle cx={anchorX} cy={anchorY} r={2.5} fill="#1be7c8" />
+        </svg>
+      )}
+      {calloutVisible && hover && (
         <div
-          className="pointer-events-none absolute z-20 rounded-lg border border-zinc-700/80 bg-[#0b0f17]/95 px-3 py-1.5 text-xs text-zinc-100 shadow-lg backdrop-blur"
-          style={{ left: Math.min(tooltip.x + 14, (size.w || 0) - 180), top: Math.max(tooltip.y - 10, 8) }}
+          className="pointer-events-none absolute z-20 rounded-xl border border-emerald-400/30 bg-[#0b0f17]/95 px-3.5 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+          style={{ left: boxLeft, top: boxTop, width: BOX_W }}
         >
-          {tooltip.text}
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{hover.flag}</span>
+            <p className="truncate text-sm font-semibold text-zinc-100">{hover.name}</p>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between">
+            <span className="text-[11px] uppercase tracking-wider text-zinc-500">Incidents</span>
+            <span className="font-mono text-base text-emerald-300">
+              {hover.count > 0 ? formatNumber(hover.count) : "—"}
+            </span>
+          </div>
         </div>
       )}
 
