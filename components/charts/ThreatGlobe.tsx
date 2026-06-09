@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import * as THREE from "three";
 import { geoCentroid } from "d3-geo";
@@ -38,14 +38,8 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
 // Contrasting multi-hue palette for the telemetry arcs — adjacent launches use
 // clearly different colours so the map reads as varied, not monotone.
 const ARC_PALETTE = [
-  "#22d3ee", // cyan
-  "#e879f9", // magenta
-  "#f59e0b", // amber
-  "#a78bfa", // violet
-  "#a3e635", // lime
-  "#fb7185", // rose
-  "#38bdf8", // sky
-  "#34d399", // emerald
+  "#22d3ee", "#e879f9", "#f59e0b", "#a78bfa",
+  "#a3e635", "#fb7185", "#38bdf8", "#34d399",
 ];
 
 type Hotspot = {
@@ -65,6 +59,7 @@ type Arc = {
   endLat: number;
   endLng: number;
   color: [string, string];
+  gap: number; // stable per-arc dash phase
 };
 
 function toneColor(tone: Hotspot["tone"]) {
@@ -72,6 +67,35 @@ function toneColor(tone: Hotspot["tone"]) {
   if (tone === "warn") return "#ff8c42";
   return "#4dbcff";
 }
+
+const codeOf = (geo: any): string =>
+  NUMERIC_TO_ALPHA2[String(geo.id || "")] || geo.properties?.["ISO_A2"] || "";
+
+// ── Stable accessor functions (module scope) ──────────────────────────────────
+// react-globe.gl re-applies any prop whose *reference* changes between renders;
+// re-applying an arc accessor rebuilds every arc's material and restarts its dash
+// animation in lockstep — the source of the stutter when arcs swap every couple
+// of seconds. Keeping these references constant means only `arcsData` changes on
+// a swap, so just the replaced arc restarts and the rest animate smoothly.
+const arcStartLat = (d: any) => d.startLat;
+const arcStartLng = (d: any) => d.startLng;
+const arcEndLat = (d: any) => d.endLat;
+const arcEndLng = (d: any) => d.endLng;
+const arcColorA = (d: any) => d.color;
+const arcGapA = (d: any) => d.gap;
+const ringLatA = (d: any) => d.lat;
+const ringLngA = (d: any) => d.lng;
+const ringColorA = (d: any) => {
+  const base = toneColor(d.tone);
+  return (t: number) => base + Math.round((1 - t) * 200).toString(16).padStart(2, "0");
+};
+const ringPeriodA = (d: any) => 900 + (d.rank % 4) * 250;
+const pointLatA = (d: any) => d.lat;
+const pointLngA = (d: any) => d.lng;
+const pointColorA = (d: any) => toneColor(d.tone);
+const polygonSideColorC = () => "rgba(0, 216, 180, 0.08)";
+const polygonStrokeColorC = () => "rgba(77, 188, 255, 0.25)";
+const EMPTY: any[] = [];
 
 interface ThreatGlobeProps {
   data: CountByCategory[];
@@ -146,18 +170,6 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
 
   const maxCount = useMemo(() => Math.max(...data.map((d) => d.count), 1), [data]);
 
-  const codeOf = (geo: any): string =>
-    NUMERIC_TO_ALPHA2[String(geo.id || "")] || geo.properties?.["ISO_A2"] || "";
-
-  function capColor(count: number): string {
-    if (count <= 0) return "rgba(22,26,38,0.85)";
-    const intensity = Math.pow(count / maxCount, 0.42);
-    const r = Math.round(10 + intensity * 18);
-    const g = Math.round(18 + intensity * 178);
-    const b = Math.round(34 + intensity * 188);
-    return `rgba(${r}, ${g}, ${b}, 0.92)`;
-  }
-
   // Incident-bearing countries → hotspots (centroid + tone by rank).
   const hotspots = useMemo<Hotspot[]>(() => {
     if (!features.length) return [];
@@ -178,16 +190,16 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
     }));
   }, [features, countByCode]);
 
-  // ── Continuous arc telemetry ──────────────────────────────────────────────
+  // ── Continuous arc telemetry (ONLY in "arcs" mode) ────────────────────────
   // Weighted-random source (by sqrt incident count) → uniform destination. Every
-  // ~2s we replace a couple of arcs with fresh pairs + colours, so routes keep
-  // changing; globe.gl animates the travelling dash natively (no pop/replay).
+  // ~2.4s we replace one arc with a fresh pair + colour, so routes keep changing
+  // without disturbing the others; globe.gl animates the travelling dash natively.
   const arcCount = Math.min(9, Math.max(3, Math.floor(hotspots.length * 0.7)));
   const arcIdRef = useRef(0);
   const colorIdxRef = useRef(0);
 
   useEffect(() => {
-    if (mode === "choropleth" || reducedMotion || hotspots.length < 2) {
+    if (mode !== "arcs" || reducedMotion || hotspots.length < 2) {
       setArcs([]);
       return;
     }
@@ -216,26 +228,72 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
         endLat: b.lat,
         endLng: b.lng,
         color: [c0, c0],
+        gap: Math.random(),
       };
     };
     setArcs(Array.from({ length: arcCount }, makeArc));
+    // Replace exactly one arc per tick (staggered) → smooth, continuously
+    // changing set rather than a synchronized reshuffle.
     const interval = setInterval(() => {
       setArcs((prev) => {
         if (prev.length === 0) return Array.from({ length: arcCount }, makeArc);
         const next = prev.slice();
-        // Replace 1–2 arcs each tick so the visible set keeps changing.
-        const replacements = 1 + Math.floor(Math.random() * 2);
-        for (let k = 0; k < replacements; k++) {
-          next[Math.floor(Math.random() * next.length)] = makeArc();
-        }
+        next[Math.floor(Math.random() * next.length)] = makeArc();
         return next;
       });
-    }, 2000);
+    }, 2400);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hotspots, mode, reducedMotion, arcCount]);
 
   const showRings = mode !== "choropleth" && !reducedMotion;
+  const points = mode === "dots" ? hotspots : EMPTY;
+
+  // ── Stable data-dependent accessors ──
+  const polygonAltitude = useCallback(
+    (d: any) => ((countByCode[codeOf(d)]?.count || 0) > 0 ? 0.012 : 0.006),
+    [countByCode],
+  );
+  const polygonCapColor = useCallback(
+    (d: any) => {
+      const count = countByCode[codeOf(d)]?.count || 0;
+      if (count <= 0) return "rgba(22,26,38,0.85)";
+      const intensity = Math.pow(count / maxCount, 0.42);
+      const r = Math.round(10 + intensity * 18);
+      const g = Math.round(18 + intensity * 178);
+      const b = Math.round(34 + intensity * 188);
+      return `rgba(${r}, ${g}, ${b}, 0.92)`;
+    },
+    [countByCode, maxCount],
+  );
+  const onPolygonHover = useCallback(
+    (d: any) => {
+      if (!d) {
+        setTooltip(null);
+        return;
+      }
+      const code = codeOf(d);
+      const info = countByCode[code];
+      const name = info?.name || d.properties?.name || "Unknown";
+      const count = info?.count || 0;
+      const text =
+        count > 0
+          ? `${getCountryFlag(code || name, info?.flag)} ${name}: ${count} incident${count !== 1 ? "s" : ""}`
+          : `${name}: No incidents`;
+      setTooltip((t) => ({ x: t?.x ?? 0, y: t?.y ?? 0, text }));
+    },
+    [countByCode],
+  );
+  const onPolygonClick = useCallback(
+    (d: any) => {
+      const info = countByCode[codeOf(d)];
+      const name = info?.name || d.properties?.name;
+      if ((info?.count || 0) > 0 && name && onCountryClick) onCountryClick(name);
+    },
+    [countByCode, onCountryClick],
+  );
+  const ringMaxRadius = useCallback((d: any) => 3 + Math.min(7, (d.count / maxCount) * 7), [maxCount]);
+  const pointRadius = useCallback((d: any) => 0.3 + Math.min(0.9, (d.count / maxCount) * 0.9), [maxCount]);
 
   // Dark globe material + atmosphere; auto-rotate; sensible initial POV.
   const globeMaterial = useMemo(() => {
@@ -276,54 +334,41 @@ export function ThreatGlobe({ data, onCountryClick, className, mode = "arcs" }: 
           atmosphereAltitude={0.16}
           // ── Choropleth (country polygons) ──
           polygonsData={features}
-          polygonAltitude={(d: any) => (countByCode[codeOf(d)]?.count > 0 ? 0.012 : 0.006)}
-          polygonCapColor={(d: any) => capColor(countByCode[codeOf(d)]?.count || 0)}
-          polygonSideColor={() => "rgba(0, 216, 180, 0.08)"}
-          polygonStrokeColor={() => "rgba(77, 188, 255, 0.25)"}
+          polygonAltitude={polygonAltitude}
+          polygonCapColor={polygonCapColor}
+          polygonSideColor={polygonSideColorC}
+          polygonStrokeColor={polygonStrokeColorC}
           polygonsTransitionDuration={0}
-          onPolygonHover={(d: any) => {
-            if (!d) {
-              setTooltip(null);
-              return;
-            }
-            const code = codeOf(d);
-            const info = countByCode[code];
-            const name = info?.name || d.properties?.name || "Unknown";
-            const count = info?.count || 0;
-            const text =
-              count > 0
-                ? `${getCountryFlag(code || name, info?.flag)} ${name}: ${count} incident${count !== 1 ? "s" : ""}`
-                : `${name}: No incidents`;
-            setTooltip((t) => ({ x: t?.x ?? 0, y: t?.y ?? 0, text }));
-          }}
-          onPolygonClick={(d: any) => {
-            const info = countByCode[codeOf(d)];
-            const name = info?.name || d.properties?.name;
-            if (info?.count > 0 && name && onCountryClick) onCountryClick(name);
-          }}
-          // ── Pulsing hotspot rings ──
-          ringsData={showRings ? hotspots : []}
-          ringLat={(d: any) => d.lat}
-          ringLng={(d: any) => d.lng}
-          ringColor={(d: any) => {
-            const base = toneColor(d.tone);
-            return (t: number) => base + Math.round((1 - t) * 200).toString(16).padStart(2, "0");
-          }}
-          ringMaxRadius={(d: any) => 3 + Math.min(7, (d.count / maxCount) * 7)}
+          onPolygonHover={onPolygonHover}
+          onPolygonClick={onPolygonClick}
+          // ── Pulsing hotspot rings (dots + arcs modes) ──
+          ringsData={showRings ? hotspots : EMPTY}
+          ringLat={ringLatA}
+          ringLng={ringLngA}
+          ringColor={ringColorA}
+          ringMaxRadius={ringMaxRadius}
           ringPropagationSpeed={2}
-          ringRepeatPeriod={(d: any) => 900 + (d.rank % 4) * 250}
-          // ── Telemetry arcs ──
+          ringRepeatPeriod={ringPeriodA}
+          // ── Hotspot point markers (dots mode only) ──
+          pointsData={points}
+          pointLat={pointLatA}
+          pointLng={pointLngA}
+          pointColor={pointColorA}
+          pointRadius={pointRadius}
+          pointAltitude={0.01}
+          pointsMerge={false}
+          // ── Telemetry arcs (arcs mode only) ──
           arcsData={arcs}
-          arcStartLat={(d: any) => d.startLat}
-          arcStartLng={(d: any) => d.startLng}
-          arcEndLat={(d: any) => d.endLat}
-          arcEndLng={(d: any) => d.endLng}
-          arcColor={(d: any) => d.color}
+          arcStartLat={arcStartLat}
+          arcStartLng={arcStartLng}
+          arcEndLat={arcEndLat}
+          arcEndLng={arcEndLng}
+          arcColor={arcColorA}
           arcStroke={0.5}
           arcAltitudeAutoScale={0.45}
           arcDashLength={0.5}
           arcDashGap={1.4}
-          arcDashInitialGap={() => Math.random()}
+          arcDashInitialGap={arcGapA}
           arcDashAnimateTime={reducedMotion ? 0 : 2600}
           arcsTransitionDuration={0}
         />
