@@ -108,8 +108,8 @@ export default function DashboardPage() {
       icon: Boxes,
       accent: "warn",
       // Dedicated monthly vendor/supply-chain incident series.
-      trend: kpi?.supply_chain.values,
-      deltaPct: kpi?.supply_chain.delta_pct,
+      trend: kpi?.supply_chain?.values,
+      deltaPct: kpi?.supply_chain?.delta_pct,
       caption: `${formatNumber(intel.overview.vendor_linked_count)} vendor-linked`,
       href: "/incidents?has_vendor=true",
     },
@@ -135,8 +135,8 @@ export default function DashboardPage() {
       accent: "brand",
       invertDelta: false,
       // Dedicated monthly distinct-countries series.
-      trend: kpi?.countries.values,
-      deltaPct: kpi?.countries.delta_pct,
+      trend: kpi?.countries?.values,
+      deltaPct: kpi?.countries?.delta_pct,
       caption: "distinct geographies",
       href: "/map",
     },
