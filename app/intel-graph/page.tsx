@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getThreatActors, getCampaigns } from "@/lib/api";
+import { buildFamilies } from "@/lib/campaign-families";
 import { GraphSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
@@ -58,9 +59,12 @@ export default function IntelGraphPage() {
       }
     }
 
-    // Campaigns linked to their actors.
+    // Campaigns linked to their actors. Collapse fragments of one real campaign
+    // (same actor/year split into separate campaign_ids across runs) into a
+    // single family node so the graph shows one "MOVEit" node, not three.
     if (want("campaign")) {
-      for (const c of campaignsQuery.data?.items ?? []) {
+      const primaries = buildFamilies(campaignsQuery.data?.items ?? []).map((f) => f.primary);
+      for (const c of primaries) {
         if (c.member_count < minIncidents) continue;
         const cid = `campaign:${c.campaign_id}`;
         add(cid, c.campaign_name, "campaign", Math.min(28, 8 + c.member_count));
