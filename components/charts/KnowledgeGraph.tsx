@@ -210,44 +210,30 @@ export function KnowledgeGraph({
         lit &&
         (node.id === active ||
           (active != null) ||
-          weight >= 6 ||
-          globalScale > 0.75 ||
-          (weight >= 4 && globalScale > 0.55));
+          weight >= 7 ||
+          globalScale > 1.0 ||
+          (weight >= 5 && globalScale > 0.7));
       if (showLabel) {
-        // Constant ON-SCREEN label size, robustly. Instead of trusting
-        // `1/globalScale` (which can drift from the real canvas transform on
-        // HiDPI displays and made text balloon when zoomed in), we render the
-        // label in *screen space*: read the live transform, reset it to
-        // identity, draw at a fixed device-pixel font, then restore. The text is
-        // therefore pinned to ~11 CSS px at every zoom level regardless of DPR.
-        const m = ctx.getTransform();
-        const dpr = m.a; // device pixels per world unit on the x-axis
-        const sx = m.a * node.x + m.e;
-        const sy = m.d * node.y + m.f;
-        const screenR = r * dpr;
-        const dprFont = Math.max(1, (typeof window !== "undefined" ? window.devicePixelRatio : 1) || 1);
-        // Zoom-responsive but clamped. 20px floor so labels are comfortably
-        // readable on the dense intel-graph even when the layout is zoomed out to
-        // fit; grows with zoom so zooming in helps read tight clusters; hard-
-        // capped at 34px so it can never balloon like the original bug.
-        const cssPx = Math.min(34, Math.max(20, 20 * Math.sqrt(globalScale)));
-        const fontPx = Math.round(cssPx * dprFont);
-        const text = label.length > 28 ? label.slice(0, 26) + "…" : label;
-
-        ctx.save();
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.font = `${fontPx}px var(--font-geist-mono), ui-monospace, monospace`;
+        // Draw the label in WORLD space (no transform reset). force-graph already
+        // scales the whole canvas by `globalScale`, so a font of `PX/globalScale`
+        // renders at a constant ~PX on screen at *every* zoom level — readable,
+        // never ballooning, never shrinking. This is the canonical, reliable
+        // approach; the earlier screen-space/devicePixelRatio trickery rendered
+        // unpredictably across displays.
+        const PX = 17;
+        const fontWorld = PX / globalScale;
+        const text = label.length > 30 ? label.slice(0, 28) + "…" : label;
+        ctx.font = `${fontWorld}px var(--font-geist-mono), ui-monospace, monospace`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const ty = sy + screenR + Math.round(cssPx * 0.32) * dprFont;
+        const ty = node.y + r + 4 / globalScale;
         // Dark halo behind the label so names stay legible over links/nodes.
-        ctx.lineWidth = Math.max(2.5, cssPx * 0.26) * dprFont;
-        ctx.strokeStyle = "rgba(8,11,18,0.9)";
+        ctx.lineWidth = 3.5 / globalScale;
+        ctx.strokeStyle = "rgba(8,11,18,0.92)";
         ctx.lineJoin = "round";
-        ctx.strokeText(text, sx, ty);
-        ctx.fillStyle = node.id === active ? "#f4f4f5" : "rgba(228,228,231,0.9)";
-        ctx.fillText(text, sx, ty);
-        ctx.restore();
+        ctx.strokeText(text, node.x, ty);
+        ctx.fillStyle = node.id === active ? "#ffffff" : "rgba(236,236,239,0.96)";
+        ctx.fillText(text, node.x, ty);
       }
       ctx.globalAlpha = 1;
     },
