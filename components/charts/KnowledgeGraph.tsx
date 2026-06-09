@@ -47,21 +47,29 @@ export interface KGLink {
 }
 
 // Shared entity palette + glyph, reused across investigations / campaigns / intel graph.
-export const ENTITY_STYLE: Record<string, { color: string; label: string }> = {
-  actor: { color: "#ff4757", label: "Threat actor" },
-  family: { color: "#818cf8", label: "Ransomware family" },
-  country: { color: "#00d8b4", label: "Country" },
-  campaign: { color: "#00d8b4", label: "Campaign" },
-  vendor: { color: "#ffb648", label: "Vendor" },
-  cve_or_product: { color: "#ff8c42", label: "CVE / product" },
-  platform: { color: "#4dbcff", label: "Platform" },
-  technique: { color: "#c084fc", label: "MITRE technique" },
-  incident: { color: "#8189a0", label: "Incident" },
-  institution: { color: "#34d399", label: "Institution" },
+// Each type carries a distinct colour AND a glyph, so nodes are differentiated by
+// both colour and icon (campaign was previously the same teal as country).
+export const ENTITY_STYLE: Record<string, { color: string; label: string; glyph: string }> = {
+  actor: { color: "#ff4757", label: "Threat actor", glyph: "💀" },
+  family: { color: "#818cf8", label: "Ransomware family", glyph: "🔒" },
+  country: { color: "#00d8b4", label: "Country", glyph: "🌐" },
+  campaign: { color: "#f472b6", label: "Campaign", glyph: "🎯" },
+  vendor: { color: "#ffb648", label: "Vendor", glyph: "🏢" },
+  cve_or_product: { color: "#ff8c42", label: "CVE / product", glyph: "🐞" },
+  platform: { color: "#4dbcff", label: "Platform", glyph: "🖥️" },
+  technique: { color: "#c084fc", label: "MITRE technique", glyph: "⚙️" },
+  incident: { color: "#8189a0", label: "Incident", glyph: "⚡" },
+  institution: { color: "#34d399", label: "Institution", glyph: "🎓" },
 };
+
+const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 function entityColor(type: string, explicit?: string): string {
   return explicit || ENTITY_STYLE[type]?.color || "#8189a0";
+}
+
+function entityGlyph(type: string): string {
+  return ENTITY_STYLE[type]?.glyph ?? "•";
 }
 
 // Drawn node radius — shared by the renderer, the pointer hit-area and the
@@ -194,13 +202,23 @@ export function KnowledgeGraph({
         ctx.fill();
       }
 
+      // Node = dark disc + colour-coded ring + a type glyph (💀 actor, 🎯
+      // campaign, 🎓 institution, …). Encoding type by BOTH colour and icon makes
+      // the graph readable even where palette hues are close.
       ctx.beginPath();
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-      ctx.fillStyle = color;
+      ctx.fillStyle = "#0d111b";
       ctx.fill();
-      ctx.lineWidth = 0.6;
-      ctx.strokeStyle = "rgba(8,11,18,0.85)";
+      ctx.lineWidth = Math.max(0.8, r * 0.3);
+      ctx.strokeStyle = color;
       ctx.stroke();
+      // Glyph sized to the node; scales with the node on zoom like the rest of
+      // the graph. Falls back to a coloured dot if the glyph can't render.
+      const glyph = entityGlyph(node.type);
+      ctx.font = `${r * 1.25}px ${EMOJI_FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(glyph, node.x, node.y);
 
       // Labels: hovered/active node + neighbours always; the rest reveal as you
       // zoom in (so a dense graph isn't a wall of text). Density threshold scales
@@ -261,6 +279,7 @@ export function KnowledgeGraph({
         <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-zinc-800/70 bg-[#080b12]/85 px-2.5 py-1.5 backdrop-blur-sm">
           {Array.from(new Set(nodes.map((n) => n.type))).slice(0, 8).map((t) => (
             <span key={t} className="flex items-center gap-1 text-[10px] text-zinc-400">
+              <span className="text-[11px] leading-none">{entityGlyph(t)}</span>
               <span className="h-2 w-2 rounded-full" style={{ background: entityColor(t) }} />
               {ENTITY_STYLE[t]?.label ?? t}
             </span>
