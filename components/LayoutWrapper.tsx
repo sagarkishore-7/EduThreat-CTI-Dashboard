@@ -56,6 +56,7 @@ export function LayoutWrapper({ children }: LayoutWrapperProps) {
             <AnimatePresence mode="wait">
               <motion.div
                 key={pathname}
+                className="min-w-0 max-w-full"
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
