@@ -228,6 +228,7 @@ function CampaignDetail({ id }: { id: string }) {
           label: n.label,
           type: n.type,
           val: Math.max(3, n.size),
+          layer: n.layer,
         })),
         links: graphQuery.data.edges.map((e) => ({
           source: e.source,
@@ -236,8 +237,8 @@ function CampaignDetail({ id }: { id: string }) {
         })),
       }
     : null;
-  const graphMeta = graphQuery.data?.meta;
-  const tracedCenter = graphMeta?.layout === "traced" ? graphMeta.center_id ?? null : null;
+  const isChain = graphQuery.data?.meta?.layout === "chain";
+  const victimGroups = graphQuery.data?.victim_groups ?? [];
 
   return (
     <Card className="flex flex-col">
@@ -260,46 +261,82 @@ function CampaignDetail({ id }: { id: string }) {
           {c.platforms.map((p) => <span key={p} className="pill pill-pulse">{p}</span>)}
         </div>
 
-        {/* Relationship graph — traced attack chain (actor → CVE → platform → victim) */}
+        {/* Attack chain — compact directional flow: platform → CVE → actor */}
         {graph && graph.nodes.length > 1 && (
-          <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
-            <KnowledgeGraph
-              nodes={graph.nodes}
-              links={graph.links}
-              height={560}
-              minimalLabels
-              layout={tracedCenter ? "traced" : "auto"}
-              centerId={tracedCenter}
-            />
+          <div>
+            <div className="mb-1.5 text-[10.5px] font-medium uppercase tracking-wide text-zinc-500">
+              Attack chain
+            </div>
+            <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
+              <KnowledgeGraph
+                nodes={graph.nodes}
+                links={graph.links}
+                height={isChain ? 300 : 520}
+                layout={isChain ? "flow" : "auto"}
+              />
+            </div>
           </div>
         )}
 
-        {/* Victim universities by role */}
-        <div className="space-y-3">
-          {(["vendor_operator", "direct_victim", "affected_via_vendor"] as const).map((role) => {
-            const rows = byRole[role];
-            if (!rows || rows.length === 0) return null;
-            return (
-              <div key={role}>
+        {/* Affected institutions — grouped by the asset they were hit through */}
+        {victimGroups.length > 0 ? (
+          <div className="space-y-3">
+            <div className="text-[10.5px] font-medium uppercase tracking-wide text-zinc-500">
+              Affected institutions
+            </div>
+            {victimGroups.map((g) => (
+              <div key={g.key}>
                 <div className="mb-1.5 flex items-center gap-2">
-                  <span className={`pill ${ROLE_PILL[role]}`}>{ROLE_LABEL[role]}</span>
-                  <span className="text-[10.5px] text-zinc-500">{formatNumber(rows.length)} institution{rows.length === 1 ? "" : "s"}</span>
+                  <span className={`pill ${g.via === "direct" ? "pill-threat" : "pill-pulse"}`}>
+                    {g.via === "direct" ? g.label : `Via ${g.label}`}
+                  </span>
+                  <span className="text-[10.5px] text-zinc-500">
+                    {formatNumber(g.count)} institution{g.count === 1 ? "" : "s"}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {rows.map((m) => (
+                  {g.institutions.map((inst) => (
                     <a
-                      key={m.membership_id}
-                      href={`/incidents/${m.canonical_incident_id}`}
+                      key={inst.canonical_incident_id}
+                      href={`/incidents/${inst.canonical_incident_id}`}
+                      title={inst.role ? ROLE_LABEL[inst.role] ?? inst.role : undefined}
                       className="rounded border border-zinc-800/70 bg-zinc-900/40 px-2 py-1 text-[11px] text-zinc-200 transition-colors hover:border-emerald-400/30 hover:text-emerald-300"
                     >
-                      {m.victim_name || "Unknown"}
+                      {inst.victim_name || "Unknown"}
                     </a>
                   ))}
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          /* Fallback: role grouping when no chain victim_groups (older API shape). */
+          <div className="space-y-3">
+            {(["vendor_operator", "direct_victim", "affected_via_vendor"] as const).map((role) => {
+              const rows = byRole[role];
+              if (!rows || rows.length === 0) return null;
+              return (
+                <div key={role}>
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className={`pill ${ROLE_PILL[role]}`}>{ROLE_LABEL[role]}</span>
+                    <span className="text-[10.5px] text-zinc-500">{formatNumber(rows.length)} institution{rows.length === 1 ? "" : "s"}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rows.map((m) => (
+                      <a
+                        key={m.membership_id}
+                        href={`/incidents/${m.canonical_incident_id}`}
+                        className="rounded border border-zinc-800/70 bg-zinc-900/40 px-2 py-1 text-[11px] text-zinc-200 transition-colors hover:border-emerald-400/30 hover:text-emerald-300"
+                      >
+                        {m.victim_name || "Unknown"}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </CardBody>
     </Card>
   );

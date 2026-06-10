@@ -847,9 +847,11 @@ export interface CampaignDetailResponse {
 
 export interface CampaignGraphNode {
   id: string;
-  type: "campaign" | "vendor" | "actor" | "cve" | "platform" | "institution" | "incident" | string;
+  type: "vendor" | "actor" | "cve" | "platform" | string;
   label: string;
   size: number;
+  /** Column index for the left-to-right flow (0 = asset/root, 1 = CVE, 2 = actor). */
+  layer?: number;
   confidence?: number;
   status?: string;
   metadata?: Record<string, unknown>;
@@ -858,20 +860,33 @@ export interface CampaignGraphNode {
 export interface CampaignGraphEdge {
   source: string;
   target: string;
-  /** Typed attack-chain relation (attributed_to, used_cve, exploits, makes, affected, …). */
+  /** Typed attack-chain relation (has_vuln, exploited_by, targeted_by). */
   relation?: string;
   type?: string;
   [k: string]: unknown;
+}
+
+export interface CampaignVictimGroup {
+  key: string;
+  label: string;
+  via: "platform" | "vendor" | "direct" | string;
+  count: number;
+  institutions: Array<{
+    canonical_incident_id: string;
+    victim_name: string;
+    role: string | null;
+    confidence: number | null;
+  }>;
 }
 
 export interface CampaignGraphResponse {
   campaign: CampaignSummary;
   nodes: CampaignGraphNode[];
   edges: CampaignGraphEdge[];
+  victim_groups?: CampaignVictimGroup[];
   meta?: {
     layout?: string;
-    center_id?: string;
-    center_type?: string;
+    roots?: string[];
     [k: string]: unknown;
   };
 }

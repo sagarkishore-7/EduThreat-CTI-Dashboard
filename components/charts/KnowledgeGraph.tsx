@@ -27,6 +27,8 @@ export interface KGNode {
   type: KGEntityType;
   /** Relative node weight (drives radius). */
   val?: number;
+  /** Column index (0 = root) for the left-to-right `layout="flow"` mode. */
+  layer?: number;
   color?: string;
   meta?: Record<string, unknown>;
   // mutated by the force simulation
@@ -38,7 +40,7 @@ export interface KGLink {
   source: string;
   target: string;
   kind?: string;
-  /** Typed attack-chain relation for the traced campaign graph. */
+  /** Typed attack-chain relation for the flow layout. */
   relation?: string;
 }
 
@@ -63,16 +65,18 @@ export const ENTITY_STYLE: Record<string, { color: string; label: string; glyph:
 // (and any cached responses) don't fall through to the default slate dot.
 ENTITY_STYLE.cve_or_product = ENTITY_STYLE.cve;
 
-// Subtle per-relation edge tint for the traced attack chain (falls back to the
-// source node's colour for untyped links / the other graphs).
+// Subtle per-relation edge tint for the flow layout (falls back to the source node's
+// colour for untyped links / the other graphs).
 const RELATION_COLOR: Record<string, string> = {
-  attributed_to: "#f472b6", // actor → campaign (pink)
-  used_cve: "#fbbf24", // actor → CVE (gold)
-  exploits: "#ff6b6b", // CVE → platform (red — the exploitation step)
-  makes: "#c2703d", // vendor → platform (bronze)
-  affected: "#34d399", // platform/vendor → institution (emerald)
-  targeted: "#4dbcff", // centre → platform (blue)
-  supply_chain: "#c2703d", // centre → vendor (bronze)
+  // campaign attack chain
+  has_vuln: "#fbbf24", // platform → CVE (gold)
+  exploited_by: "#ff6b6b", // CVE → actor (red — the exploitation step)
+  targeted_by: "#4dbcff", // platform → actor, no CVE (blue)
+  // investigations / intel-graph
+  operates_in: "#22d3ee", // country → actor (cyan)
+  uses: "#818cf8", // actor → family (indigo)
+  runs: "#f472b6", // actor → campaign (pink)
+  uses_cve: "#fbbf24", // campaign → CVE (gold)
 };
 
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
@@ -109,12 +113,10 @@ interface KnowledgeGraphProps {
   minimalLabels?: boolean;
   /**
    * Layout strategy. "auto" (default) picks star vs. network from the topology.
-   * "traced" lays the campaign attack chain out as concentric rings by BFS depth
-   * from `centerId` (actor → CVE → platform/vendor → institution reads outward).
+   * "flow" lays nodes out as left-to-right columns by their `layer` (0 = root),
+   * with directional arrows — the attack-chain / rooted-flow reading.
    */
-  layout?: "auto" | "traced";
-  /** Centre node for the traced layout (the actor or campaign hub). */
-  centerId?: string | null;
+  layout?: "auto" | "flow";
 }
 
 export function KnowledgeGraph({
@@ -127,7 +129,6 @@ export function KnowledgeGraph({
   showLegend = true,
   minimalLabels = false,
   layout = "auto",
-  centerId = null,
 }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -225,117 +226,71 @@ export function KnowledgeGraph({
     const nodes = graphData.nodes;
     const n = nodes.length;
 
-    // --- Traced attack chain: a deterministic radial dendrogram ---------------
-    // The campaign graph is an attack chain (actor → CVE → platform/vendor →
-    // institution), not a star. A physics layout — even forceRadial — only fixes
-    // each node's radius, not its angle, so siblings scatter and edges cross. We
-    // instead place every node DETERMINISTICALLY: radius = BFS hop-distance from
-    // the centre, angle = the node's slice of its parent's angular wedge (sized by
-    // the leaf count beneath it). Positions are pinned (fx/fy), so the trace reads
-    // cleanly outward with no overlap and is stable across renders.
-    if (layout === "traced") {
-      const adj = new Map<string, string[]>();
-      const degree = new Map<string, number>();
+    // --- Flow: left-to-right layered columns by node.layer --------------------
+    // The campaign chain / rooted investigation graphs read as a directional flow
+    // (asset → CVE → actor; country → actor → family), not a cloud. Research (MITRE
+    // Attack Flow; node-link-vs-Sankey study) shows a layered, directional layout is
+    // best for the synoptic "how it unfolded" read. We place each node in the column
+    // of its `layer` (0 = root, left), order within a column by a barycenter sweep to
+    // reduce edge crossings, pin positions, and draw directional arrows.
+    if (layout === "flow") {
+      // Adjacency keyed by direction (parents = lower layer, children = higher).
+      const parents = new Map<string, string[]>();
+      const children = new Map<string, string[]>();
       for (const l of graphData.links as any[]) {
         const s = typeof l.source === "object" ? l.source.id : l.source;
         const t = typeof l.target === "object" ? l.target.id : l.target;
-        (adj.get(s) ?? adj.set(s, []).get(s)!).push(t);
-        (adj.get(t) ?? adj.set(t, []).get(t)!).push(s);
-        degree.set(s, (degree.get(s) ?? 0) + 1);
-        degree.set(t, (degree.get(t) ?? 0) + 1);
+        (children.get(s) ?? children.set(s, []).get(s)!).push(t);
+        (parents.get(t) ?? parents.set(t, []).get(t)!).push(s);
       }
-      // Centre: the supplied id when present, else the highest-degree node.
-      let rootId = centerId && nodes.some((nd: any) => nd.id === centerId) ? centerId : null;
-      if (!rootId) {
-        let best = -1;
-        Array.from(degree.entries()).forEach(([id, d]) => {
-          if (d > best) {
-            best = d;
-            rootId = id;
-          }
+
+      // Compact the present layer values to contiguous columns 0..C.
+      const rawLayers = Array.from(new Set(nodes.map((nd: any) => nd.layer ?? 0))).sort(
+        (a, b) => a - b,
+      );
+      const colOf = new Map<number, number>();
+      rawLayers.forEach((lv, i) => colOf.set(lv, i));
+      const columns: any[][] = rawLayers.map(() => []);
+      nodes.forEach((nd: any) => columns[colOf.get(nd.layer ?? 0)!].push(nd));
+
+      // Order each column: seed by id, then barycenter sweeps (each node's rank =
+      // mean rank of its neighbours in the previous column) to minimise crossings.
+      const rank = new Map<string, number>();
+      const reindex = (col: any[]) => col.forEach((nd, i) => rank.set(nd.id, i));
+      columns.forEach((col) => {
+        col.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+        reindex(col);
+      });
+      for (let pass = 0; pass < 4; pass++) {
+        const ltr = pass % 2 === 0;
+        const seq = ltr ? columns.slice(1) : columns.slice(0, -1).reverse();
+        const neigh = ltr ? parents : children;
+        const bary = (nd: any) => {
+          const ns = neigh.get(nd.id) ?? [];
+          if (!ns.length) return rank.get(nd.id) ?? 0;
+          return ns.reduce((s, n) => s + (rank.get(n) ?? 0), 0) / ns.length;
+        };
+        for (const col of seq) {
+          col.sort((a, b) => bary(a) - bary(b));
+          reindex(col);
+        }
+      }
+
+      // Pin positions: x by column, y centred within the column. Spacing scales with
+      // the busiest column so dense columns (e.g. many actors) don't overlap.
+      const rLeaf = nodeRadius({ val: 6 });
+      const rowGap = 2 * rLeaf + 26;
+      const colGap = Math.max(150, 2 * rLeaf + 130);
+      const colCount = columns.length;
+      columns.forEach((col, ci) => {
+        const x = (ci - (colCount - 1) / 2) * colGap;
+        const y0 = -((col.length - 1) * rowGap) / 2; // centre the column vertically
+        col.forEach((nd: any, ri) => {
+          nd.fx = x;
+          nd.fy = y0 + ri * rowGap;
         });
-      }
-      rootId = rootId ?? nodes[0]?.id ?? null;
-
-      // BFS from the centre: depth + a single tree parent per node (first reached).
-      const depth = new Map<string, number>();
-      const parent = new Map<string, string>();
-      if (rootId) {
-        depth.set(rootId, 0);
-        const queue: string[] = [rootId];
-        while (queue.length) {
-          const cur = queue.shift() as string;
-          const d = depth.get(cur)!;
-          for (const nb of (adj.get(cur) ?? []).slice().sort()) {
-            if (!depth.has(nb)) {
-              depth.set(nb, d + 1);
-              parent.set(nb, cur);
-              queue.push(nb);
-            }
-          }
-        }
-      }
-      const maxDepth = Math.max(1, ...Array.from(depth.values()));
-      const depthOf = (id: string) => (depth.has(id) ? depth.get(id)! : maxDepth + 1);
-
-      // Tree children (stable order) + leaf counts beneath each node.
-      const children = new Map<string, string[]>();
-      Array.from(parent.entries()).forEach(([id, p]) => {
-        (children.get(p) ?? children.set(p, []).get(p)!).push(id);
-      });
-      children.forEach((arr) => arr.sort());
-      const leaves = new Map<string, number>();
-      const countLeaves = (id: string): number => {
-        const ch = children.get(id) ?? [];
-        if (!ch.length) {
-          leaves.set(id, 1);
-          return 1;
-        }
-        let s = 0;
-        for (const c of ch) s += countLeaves(c);
-        leaves.set(id, s);
-        return s;
-      };
-      const totalLeaves = rootId ? countLeaves(rootId) : 1;
-
-      // Angle = midpoint of the node's wedge; each child gets a slice proportional
-      // to its leaf count, so dense subtrees fan out and sparse ones stay tight.
-      const angle = new Map<string, number>();
-      const assign = (id: string, a0: number, a1: number) => {
-        angle.set(id, (a0 + a1) / 2);
-        const ch = children.get(id) ?? [];
-        if (!ch.length) return;
-        const total = leaves.get(id) || 1;
-        let cur = a0;
-        for (const c of ch) {
-          const span = (a1 - a0) * ((leaves.get(c) || 1) / total);
-          assign(c, cur, cur + span);
-          cur += span;
-        }
-      };
-      if (rootId) assign(rootId, -Math.PI / 2, (3 * Math.PI) / 2);
-
-      // Ring spacing: even rings, with the outermost wide enough that equally
-      // spaced leaves (2π / totalLeaves apart) clear each other.
-      const rLeaf = nodeRadius({ val: 4 });
-      const minGap = 2 * rLeaf + 40;
-      const ringStep = 2 * rLeaf + 110;
-      const fitRadius = (totalLeaves * minGap) / (2 * Math.PI * Math.max(1, maxDepth));
-      const baseRadius = Math.max(ringStep, fitRadius);
-
-      // Unreached nodes (no path from the centre) ring just outside, evenly spaced.
-      const unreached = nodes.filter((nd: any) => !angle.has(nd.id));
-      unreached.forEach((nd: any, i: number) => {
-        angle.set(nd.id, -Math.PI / 2 + (i / Math.max(1, unreached.length)) * 2 * Math.PI);
       });
 
-      // Pin every node at its (radius, angle); physics off so it stays put.
-      nodes.forEach((nd: any) => {
-        const r = depthOf(nd.id) * baseRadius;
-        const a = angle.get(nd.id) ?? 0;
-        nd.fx = nd.id === rootId ? 0 : r * Math.cos(a);
-        nd.fy = nd.id === rootId ? 0 : r * Math.sin(a);
-      });
       fg.d3Force?.("charge")?.strength?.(0);
       fg.d3Force?.("link")?.strength?.(0);
       fg.d3Force?.("radial", null);
@@ -429,7 +384,7 @@ export function KnowledgeGraph({
       fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1));
     }
     fg.d3ReheatSimulation?.();
-  }, [graphData, width, fgReady, layout, centerId]);
+  }, [graphData, width, fgReady, layout]);
 
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -491,11 +446,13 @@ export function KnowledgeGraph({
       const showLabel =
         active != null
           ? lit
-          : minimalLabels
-            ? globalScale > 2.4 // dense campaign graph: hover/zoom only
-            : isHub
-              ? weight >= 10 || globalScale > 1.0
-              : globalScale > 2.4;
+          : layout === "flow"
+            ? true // flow graphs are small + directional — label every node
+            : minimalLabels
+              ? globalScale > 2.4 // dense campaign graph: hover/zoom only
+              : isHub
+                ? weight >= 10 || globalScale > 1.0
+                : globalScale > 2.4;
       if (showLabel) {
         // Constant on-screen label size that is smooth across zoom and does NOT
         // grow when zooming in. We render in *screen space* (reset the transform
@@ -535,7 +492,7 @@ export function KnowledgeGraph({
       }
       ctx.globalAlpha = 1;
     },
-    [active, isLit, minimalLabels],
+    [active, isLit, minimalLabels, layout],
   );
 
   return (
@@ -576,17 +533,24 @@ export function KnowledgeGraph({
           }}
           linkColor={(l: any) => {
             if (!linkLit(l)) return "rgba(120,130,150,0.06)";
-            // Traced chain: tint each edge by its relation (exploits = red, affected
-            // = green, …) so the attack path reads at a glance; otherwise fall back
-            // to the source node's entity colour (intel-graph / star graphs).
+            // Flow chain: tint each edge by its relation (exploited_by = red, …) so the
+            // attack path reads at a glance; otherwise fall back to the source node's
+            // entity colour (intel-graph / star graphs).
             const relColor = l.relation ? RELATION_COLOR[l.relation] : undefined;
             const base = relColor ?? entityColor(typeof l.source === "object" ? l.source.type : "incident");
-            return base + "77";
+            return base + (layout === "flow" ? "cc" : "77");
           }}
           linkWidth={(l: any) => {
             if (!linkLit(l)) return 0.4;
-            // Emphasise the exploitation step in the traced chain.
-            return l.relation === "exploits" ? 1.6 : 1;
+            // Emphasise the exploitation step in the chain.
+            return l.relation === "exploited_by" ? 1.8 : layout === "flow" ? 1.2 : 1;
+          }}
+          // Directional arrowheads make the flow read as a directed chain.
+          linkDirectionalArrowLength={layout === "flow" ? 4 : 0}
+          linkDirectionalArrowRelPos={0.92}
+          linkDirectionalArrowColor={(l: any) => {
+            const relColor = l.relation ? RELATION_COLOR[l.relation] : undefined;
+            return relColor ?? entityColor(typeof l.source === "object" ? l.source.type : "incident");
           }}
           linkDirectionalParticles={(l: any) => (linkLit(l) && active ? 3 : 0)}
           linkDirectionalParticleSpeed={0.006}
