@@ -1,18 +1,12 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { forceCollide } from "d3-force";
+import { forceCollide, forceRadial } from "d3-force";
 
-// react-force-graph-2d touches window/canvas — load it client-only.
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-  loading: () => (
-    <div className="grid h-full w-full place-items-center text-sm text-zinc-600">
-      Loading graph…
-    </div>
-  ),
-});
+// react-force-graph-2d touches window/canvas, so it must load client-only. We
+// lazy-load it into state in an effect (instead of next/dynamic) because
+// next/dynamic does NOT forward refs to the wrapped component — that silently
+// left fgRef.current null, so the custom force layout never applied.
 
 export type KGEntityType =
   | "actor"
@@ -108,8 +102,28 @@ export function KnowledgeGraph({
 }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
+  // ForceGraph2D is lazy-loaded, so a plain ref can still be null when the
+  // force-config effect first runs (and it wouldn't re-run when the instance
+  // later mounts). A callback ref bumps this counter the moment the instance is
+  // available, so the effect re-runs and our custom forces actually apply.
+  const [fgReady, setFgReady] = useState(0);
+  const setFgRef = useCallback((inst: any) => {
+    fgRef.current = inst;
+    if (inst) setFgReady((v) => v + 1);
+  }, []);
   const [width, setWidth] = useState(0);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  // Client-only lazy load of react-force-graph-2d (preserves ref forwarding).
+  const [ForceGraph2D, setForceGraph2D] = useState<any>(null);
+  useEffect(() => {
+    let mounted = true;
+    import("react-force-graph-2d").then((m) => {
+      if (mounted) setForceGraph2D(() => m.default);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Measure the container so the canvas fills it responsively.
   useEffect(() => {
@@ -179,23 +193,95 @@ export function KnowledgeGraph({
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg || width === 0) return;
-    const n = graphData.nodes.length;
-    // The campaign/intel graphs are largely hub-and-spoke (one campaign node with
-    // every member linked to it), so leaves land on a single ring at the link
-    // distance and crowd. Counter it with (a) a much larger link distance that
-    // grows with node count → a bigger ring with more circumference to spread on,
-    // and (b) stronger repulsion so leaves push apart around that ring. The
-    // collision force keeps node+label boxes from overlapping.
-    const charge = fg.d3Force?.("charge");
-    if (charge) {
-      charge.strength(Math.max(-1200, -180 - n * 7));
-      charge.distanceMax?.(900);
+    const nodes = graphData.nodes;
+    const n = nodes.length;
+
+    // Detect a hub-and-spoke "star" (the campaign-detail graph: one campaign node
+    // with every member linked to it). Tuning charge/link numbers alone leaves the
+    // leaves as an UNEVEN physics scatter at varying radii that reads as clutter and
+    // can overflow the viewport. For a star we instead constrain the leaves to ONE
+    // ring with forceRadial, so they distribute evenly on a clean circle whose radius
+    // scales with the leaf count (enough circumference for every node) — deterministic
+    // and overlap-free. Non-star (multi-hub) graphs keep the network force tuning.
+    const degree = new Map<string, number>();
+    for (const l of graphData.links as any[]) {
+      const s = typeof l.source === "object" ? l.source.id : l.source;
+      const t = typeof l.target === "object" ? l.target.id : l.target;
+      degree.set(s, (degree.get(s) ?? 0) + 1);
+      degree.set(t, (degree.get(t) ?? 0) + 1);
     }
+    let hubId: string | null = null;
+    let hubDeg = 0;
+    Array.from(degree.entries()).forEach(([id, d]) => {
+      if (d > hubDeg) {
+        hubDeg = d;
+        hubId = id;
+      }
+    });
+    const leaves = nodes.filter((nd: any) => (degree.get(nd.id) ?? 0) <= 1).length;
+    const isStar = n >= 6 && hubDeg >= Math.max(4, (n - 1) * 0.6) && leaves >= n * 0.6;
+
+    const charge = fg.d3Force?.("charge");
     const link = fg.d3Force?.("link");
-    if (link) link.distance(70 + Math.min(170, n * 4)).strength(0.45);
-    fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1));
+
+    // Pin the hub to the simulation origin for a star (so forceRadial — which
+    // centres on (0,0) — forms a true ring around it); release any pin otherwise.
+    nodes.forEach((nd: any) => {
+      if (isStar && nd.id === hubId) {
+        nd.fx = 0;
+        nd.fy = 0;
+      } else {
+        nd.fx = undefined;
+        nd.fy = undefined;
+      }
+    });
+
+    if (isStar) {
+      // Distribute the leaves over one or more CONCENTRIC rings so no single ring
+      // is so crowded its node discs/glyphs touch. zoomToFit normalises absolute
+      // size, so what matters is nodes-per-ring (angular spacing), not radius:
+      // cap each ring at ~PER_RING and add rings as the leaf count grows. Each
+      // leaf gets a stable per-node target radius via forceRadial.
+      const rLeaf = nodeRadius({ val: 4 });
+      const PER_RING = 16;
+      const ringCount = Math.max(1, Math.ceil(leaves / PER_RING));
+      const perRing = Math.ceil(leaves / ringCount);
+      const baseRing = Math.max(150, Math.ceil((perRing * (2 * rLeaf + 40)) / (2 * Math.PI)));
+      const ringGap = 2 * rLeaf + 64;
+      // Assign each leaf (stably, by id order) to a ring index.
+      const leafIds = nodes
+        .filter((nd: any) => nd.id !== hubId && (degree.get(nd.id) ?? 0) <= 1)
+        .map((nd: any) => nd.id)
+        .sort();
+      const ringOf = new Map<string, number>();
+      leafIds.forEach((id, i) => ringOf.set(id, i % ringCount));
+      const targetRadius = (node: any) =>
+        node.id === hubId ? 0 : baseRing + (ringOf.get(node.id) ?? 0) * ringGap;
+
+      if (charge) {
+        charge.strength(Math.max(-900, -140 - n * 6));
+        charge.distanceMax?.(900);
+      }
+      // Weak link force so the radial constraint owns the radius (otherwise the two
+      // forces fight and re-introduce the uneven scatter).
+      if (link) link.distance(baseRing).strength(0.04);
+      fg.d3Force?.(
+        "radial",
+        forceRadial(targetRadius, 0, 0).strength((node: any) => (node.id === hubId ? 0 : 0.92)),
+      );
+      fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1).iterations(3));
+    } else {
+      // Multi-hub network: repulsion scaled by node count + collision keeps it clear.
+      if (charge) {
+        charge.strength(Math.max(-1200, -180 - n * 7));
+        charge.distanceMax?.(900);
+      }
+      if (link) link.distance(70 + Math.min(170, n * 4)).strength(0.45);
+      fg.d3Force?.("radial", null); // clear any star radial from a previous dataset
+      fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1));
+    }
     fg.d3ReheatSimulation?.();
-  }, [graphData, width]);
+  }, [graphData, width, fgReady]);
 
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -230,10 +316,14 @@ export function KnowledgeGraph({
       const glyphSize = r * 1.15;
       ctx.font = `${glyphSize}px ${EMOJI_FONT}`;
       ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      // Emoji glyphs sit slightly high against the "middle" baseline, so nudge
-      // down a touch to optically centre them inside the ring.
-      ctx.fillText(glyph, node.x, node.y + glyphSize * 0.06);
+      // Emoji don't sit on the text baseline predictably, so a fixed nudge never
+      // truly centres them. Measure the glyph's actual ink box and offset by its
+      // midpoint so it's optically centred in the ring regardless of font/emoji.
+      ctx.textBaseline = "alphabetic";
+      const m = ctx.measureText(glyph);
+      const ascent = m.actualBoundingBoxAscent ?? glyphSize * 0.7;
+      const descent = m.actualBoundingBoxDescent ?? glyphSize * 0.2;
+      ctx.fillText(glyph, node.x, node.y + (ascent - descent) / 2);
 
       // Label density: keep the on-screen set sparse so labels never overlap.
       // The campaign/intel graphs are hub-and-spoke with MANY leaf nodes
@@ -316,9 +406,12 @@ export function KnowledgeGraph({
       <div className="pointer-events-none absolute bottom-2 right-3 z-10 font-mono text-[10px] text-zinc-600">
         {nodes.length} nodes · {links.length} edges
       </div>
-      {width > 0 && (
+      {width > 0 && !ForceGraph2D && (
+        <div className="grid h-full w-full place-items-center text-sm text-zinc-600">Loading graph…</div>
+      )}
+      {width > 0 && ForceGraph2D && (
         <ForceGraph2D
-          ref={fgRef}
+          ref={setFgRef as any}
           width={width}
           height={height}
           graphData={graphData}
