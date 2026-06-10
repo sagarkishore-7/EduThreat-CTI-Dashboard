@@ -225,11 +225,14 @@ export function KnowledgeGraph({
     const nodes = graphData.nodes;
     const n = nodes.length;
 
-    // --- Traced attack chain: concentric rings by BFS depth from the centre ----
-    // The campaign graph is no longer a star, so the star/network tuning below
-    // would collapse the chain. Instead we place each node on a ring equal to its
-    // hop-distance from the centre (actor/campaign): CVEs r1, platforms/vendors r2,
-    // institutions r3 — so "actor → CVE → platform → institution" reads outward.
+    // --- Traced attack chain: a deterministic radial dendrogram ---------------
+    // The campaign graph is an attack chain (actor → CVE → platform/vendor →
+    // institution), not a star. A physics layout — even forceRadial — only fixes
+    // each node's radius, not its angle, so siblings scatter and edges cross. We
+    // instead place every node DETERMINISTICALLY: radius = BFS hop-distance from
+    // the centre, angle = the node's slice of its parent's angular wedge (sized by
+    // the leaf count beneath it). Positions are pinned (fx/fy), so the trace reads
+    // cleanly outward with no overlap and is stable across renders.
     if (layout === "traced") {
       const adj = new Map<string, string[]>();
       const degree = new Map<string, number>();
@@ -254,16 +257,19 @@ export function KnowledgeGraph({
       }
       rootId = rootId ?? nodes[0]?.id ?? null;
 
+      // BFS from the centre: depth + a single tree parent per node (first reached).
       const depth = new Map<string, number>();
+      const parent = new Map<string, string>();
       if (rootId) {
         depth.set(rootId, 0);
         const queue: string[] = [rootId];
         while (queue.length) {
           const cur = queue.shift() as string;
           const d = depth.get(cur)!;
-          for (const nb of adj.get(cur) ?? []) {
+          for (const nb of (adj.get(cur) ?? []).slice().sort()) {
             if (!depth.has(nb)) {
               depth.set(nb, d + 1);
+              parent.set(nb, cur);
               queue.push(nb);
             }
           }
@@ -272,55 +278,68 @@ export function KnowledgeGraph({
       const maxDepth = Math.max(1, ...Array.from(depth.values()));
       const depthOf = (id: string) => (depth.has(id) ? depth.get(id)! : maxDepth + 1);
 
-      // Nodes per ring → size each ring so its circumference fits its node count,
-      // and is always strictly outside the previous ring (monotonic radius).
-      const countAtDepth = new Map<number, number>();
-      nodes.forEach((nd: any) => {
-        const d = depthOf(nd.id);
-        countAtDepth.set(d, (countAtDepth.get(d) ?? 0) + 1);
+      // Tree children (stable order) + leaf counts beneath each node.
+      const children = new Map<string, string[]>();
+      Array.from(parent.entries()).forEach(([id, p]) => {
+        (children.get(p) ?? children.set(p, []).get(p)!).push(id);
       });
-      const rLeaf = nodeRadius({ val: 4 });
-      const minGap = 2 * rLeaf + 54; // min arc spacing between neighbours on a ring
-      const ringStep = 2 * rLeaf + 120; // min radial gap between successive rings
-      const radiusByDepth = new Map<number, number>([[0, 0]]);
-      let prev = 0;
-      Array.from(countAtDepth.keys())
-        .filter((d) => d > 0)
-        .sort((a, b) => a - b)
-        .forEach((d) => {
-          const cnt = countAtDepth.get(d) ?? 1;
-          const circumferenceRadius = (cnt * minGap) / (2 * Math.PI);
-          const r = Math.max(prev + ringStep, circumferenceRadius);
-          radiusByDepth.set(d, r);
-          prev = r;
-        });
-
-      // Pin the centre at the origin so the rings are concentric around it.
-      nodes.forEach((nd: any) => {
-        if (nd.id === rootId) {
-          nd.fx = 0;
-          nd.fy = 0;
-        } else {
-          nd.fx = undefined;
-          nd.fy = undefined;
+      children.forEach((arr) => arr.sort());
+      const leaves = new Map<string, number>();
+      const countLeaves = (id: string): number => {
+        const ch = children.get(id) ?? [];
+        if (!ch.length) {
+          leaves.set(id, 1);
+          return 1;
         }
+        let s = 0;
+        for (const c of ch) s += countLeaves(c);
+        leaves.set(id, s);
+        return s;
+      };
+      const totalLeaves = rootId ? countLeaves(rootId) : 1;
+
+      // Angle = midpoint of the node's wedge; each child gets a slice proportional
+      // to its leaf count, so dense subtrees fan out and sparse ones stay tight.
+      const angle = new Map<string, number>();
+      const assign = (id: string, a0: number, a1: number) => {
+        angle.set(id, (a0 + a1) / 2);
+        const ch = children.get(id) ?? [];
+        if (!ch.length) return;
+        const total = leaves.get(id) || 1;
+        let cur = a0;
+        for (const c of ch) {
+          const span = (a1 - a0) * ((leaves.get(c) || 1) / total);
+          assign(c, cur, cur + span);
+          cur += span;
+        }
+      };
+      if (rootId) assign(rootId, -Math.PI / 2, (3 * Math.PI) / 2);
+
+      // Ring spacing: even rings, with the outermost wide enough that equally
+      // spaced leaves (2π / totalLeaves apart) clear each other.
+      const rLeaf = nodeRadius({ val: 4 });
+      const minGap = 2 * rLeaf + 40;
+      const ringStep = 2 * rLeaf + 110;
+      const fitRadius = (totalLeaves * minGap) / (2 * Math.PI * Math.max(1, maxDepth));
+      const baseRadius = Math.max(ringStep, fitRadius);
+
+      // Unreached nodes (no path from the centre) ring just outside, evenly spaced.
+      const unreached = nodes.filter((nd: any) => !angle.has(nd.id));
+      unreached.forEach((nd: any, i: number) => {
+        angle.set(nd.id, -Math.PI / 2 + (i / Math.max(1, unreached.length)) * 2 * Math.PI);
       });
 
-      const charge = fg.d3Force?.("charge");
-      const link = fg.d3Force?.("link");
-      if (charge) {
-        charge.strength(Math.max(-700, -120 - n * 5));
-        charge.distanceMax?.(700);
-      }
-      // Weak link force so the radial constraint owns the ring radius.
-      if (link) link.distance(ringStep).strength(0.05);
-      fg.d3Force?.(
-        "radial",
-        forceRadial((node: any) => radiusByDepth.get(depthOf(node.id)) ?? prev, 0, 0).strength(
-          (node: any) => (node.id === rootId ? 0 : 0.95),
-        ),
-      );
-      fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1).iterations(3));
+      // Pin every node at its (radius, angle); physics off so it stays put.
+      nodes.forEach((nd: any) => {
+        const r = depthOf(nd.id) * baseRadius;
+        const a = angle.get(nd.id) ?? 0;
+        nd.fx = nd.id === rootId ? 0 : r * Math.cos(a);
+        nd.fy = nd.id === rootId ? 0 : r * Math.sin(a);
+      });
+      fg.d3Force?.("charge")?.strength?.(0);
+      fg.d3Force?.("link")?.strength?.(0);
+      fg.d3Force?.("radial", null);
+      fg.d3Force?.("collide", null);
       fg.d3ReheatSimulation?.();
       return;
     }
