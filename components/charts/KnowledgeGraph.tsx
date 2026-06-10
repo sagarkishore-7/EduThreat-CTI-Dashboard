@@ -386,6 +386,10 @@ export function KnowledgeGraph({
     fg.d3ReheatSimulation?.();
   }, [graphData, width, fgReady, layout]);
 
+  // Small flows (campaign chain, investigations) label every node; a large flow
+  // (the global intel-graph, 100+ nodes) reveals labels on zoom/hover to stay legible.
+  const flowLabelAll = layout === "flow" && nodes.length <= 45;
+
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const r = 2.5 + Math.sqrt(node.val ?? 4) * 1.25;
@@ -447,7 +451,9 @@ export function KnowledgeGraph({
         active != null
           ? lit
           : layout === "flow"
-            ? true // flow graphs are small + directional — label every node
+            ? flowLabelAll
+              ? true // small flow — label every node
+              : globalScale > 1.8 // dense flow (intel-graph): zoom/hover only
             : minimalLabels
               ? globalScale > 2.4 // dense campaign graph: hover/zoom only
               : isHub
@@ -492,7 +498,7 @@ export function KnowledgeGraph({
       }
       ctx.globalAlpha = 1;
     },
-    [active, isLit, minimalLabels, layout],
+    [active, isLit, minimalLabels, layout, flowLabelAll],
   );
 
   return (
