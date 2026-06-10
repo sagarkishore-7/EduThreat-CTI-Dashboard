@@ -20,24 +20,26 @@ export default function InvestigationsPage() {
   const { data, isLoading } = useQuery({ queryKey: ["threat-actors", 14], queryFn: () => getThreatActors(14) });
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Rooted left-to-right flow: country (root) → threat actor → ransomware family.
+  // Countries anchor the flow and group the actors that operated against them.
   const graph = useMemo(() => {
     const actors = (data?.threat_actors ?? []).filter((a) => a.name && a.name.toLowerCase() !== "unknown").slice(0, 12);
     const nodeMap = new Map<string, KGNode>();
     const links: KGLink[] = [];
-    const add = (id: string, label: string, type: KGNode["type"], val: number) => {
-      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, val });
+    const add = (id: string, label: string, type: KGNode["type"], val: number, layer: number) => {
+      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, val, layer });
     };
     for (const a of actors) {
-      add(a.name, a.name, "actor", Math.min(28, 12 + a.incident_count));
+      add(`actor:${a.name}`, a.name, "actor", Math.min(28, 12 + a.incident_count), 1);
       for (const c of (a.countries_targeted || []).slice(0, 4)) {
         if (!c) continue;
-        add(c, c, "country", 8);
-        links.push({ source: a.name, target: c });
+        add(`country:${c}`, c, "country", 8, 0);
+        links.push({ source: `country:${c}`, target: `actor:${a.name}`, relation: "operates_in" });
       }
       for (const fam of (a.ransomware_families || []).slice(0, 3)) {
         if (!fam) continue;
-        add(`${fam} (family)`, fam, "family", 7);
-        links.push({ source: a.name, target: `${fam} (family)` });
+        add(`family:${fam}`, fam, "family", 7, 2);
+        links.push({ source: `actor:${a.name}`, target: `family:${fam}`, relation: "uses" });
       }
     }
     return { nodes: Array.from(nodeMap.values()), links };
@@ -46,14 +48,14 @@ export default function InvestigationsPage() {
   if (isLoading) return <GraphSkeleton header={false} filters={false} table />;
 
   const actors = (data?.threat_actors ?? []).slice(0, 12);
-  const selectedActor = actors.find((a) => a.name === selected);
+  const selectedActor = actors.find((a) => `actor:${a.name}` === selected);
 
   return (
     <div className="animate-fade-in space-y-3.5">
       <Card>
         <CardHead
           title="Investigation Canvas"
-          sub="Actor → geography → ransomware-family relationship graph from the canonical set"
+          sub="Country → threat actor → ransomware-family flow from the canonical set"
           accentDot="pulse"
         />
         <CardBody className="p-0">
@@ -64,6 +66,7 @@ export default function InvestigationsPage() {
                   nodes={graph.nodes}
                   links={graph.links}
                   height={520}
+                  layout="flow"
                   highlightId={selected}
                   onSelect={(id) => {
                     // Only actors have an inspector; ignore country/family clicks.

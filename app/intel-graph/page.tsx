@@ -27,56 +27,57 @@ export default function IntelGraphPage() {
   const [minIncidents, setMinIncidents] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Rooted left-to-right flow: country (0) → actor (1) → {campaign, family} (2) → CVE (3).
   const { nodes, links } = useMemo(() => {
     const nodeMap = new Map<string, KGNode>();
     const links: KGLink[] = [];
     const want = (t: EntityFilter) => enabled.has(t);
-    const add = (id: string, label: string, type: KGNode["type"], val: number) => {
+    const add = (id: string, label: string, type: KGNode["type"], val: number, layer: number) => {
       const existing = nodeMap.get(id);
       if (existing) existing.val = Math.max(existing.val ?? 1, val);
-      else nodeMap.set(id, { id, label, type, val });
+      else nodeMap.set(id, { id, label, type, val, layer });
     };
-    const link = (a: string, b: string) => {
-      if (nodeMap.has(a) && nodeMap.has(b)) links.push({ source: a, target: b });
+    const link = (a: string, b: string, relation: string) => {
+      if (nodeMap.has(a) && nodeMap.has(b)) links.push({ source: a, target: b, relation });
     };
 
     // Threat actors and their families / countries.
     for (const a of actorsQuery.data?.threat_actors ?? []) {
       if (!a.name || a.name.toLowerCase() === "unknown") continue;
       if (a.incident_count < minIncidents) continue;
-      if (want("actor")) add(`actor:${a.name}`, a.name, "actor", Math.min(30, 10 + a.incident_count));
+      if (want("actor")) add(`actor:${a.name}`, a.name, "actor", Math.min(30, 10 + a.incident_count), 1);
       if (want("family")) {
         for (const fam of (a.ransomware_families || []).filter(Boolean).slice(0, 4)) {
-          add(`family:${fam}`, fam, "family", 7);
-          if (want("actor")) link(`actor:${a.name}`, `family:${fam}`);
+          add(`family:${fam}`, fam, "family", 7, 2);
+          if (want("actor")) link(`actor:${a.name}`, `family:${fam}`, "uses");
         }
       }
       if (want("country")) {
         for (const c of (a.countries_targeted || []).filter(Boolean).slice(0, 5)) {
-          add(`country:${c}`, c, "country", 6);
-          if (want("actor")) link(`actor:${a.name}`, `country:${c}`);
+          add(`country:${c}`, c, "country", 6, 0);
+          if (want("actor")) link(`country:${c}`, `actor:${a.name}`, "operates_in");
         }
       }
     }
 
-    // Campaigns linked to their actors. Collapse fragments of one real campaign
+    // Campaigns hang off their actors. Collapse fragments of one real campaign
     // (same actor/year split into separate campaign_ids across runs) into a
-    // single family node so the graph shows one "MOVEit" node, not three.
+    // single node so the graph shows one "MOVEit" node, not three.
     if (want("campaign")) {
       const primaries = buildFamilies(campaignsQuery.data?.items ?? []).map((f) => f.primary);
       for (const c of primaries) {
         if (c.member_count < minIncidents) continue;
         const cid = `campaign:${c.campaign_id}`;
-        add(cid, c.campaign_name, "campaign", Math.min(28, 8 + c.member_count));
+        add(cid, c.campaign_name, "campaign", Math.min(28, 8 + c.member_count), 2);
         for (const actor of (c.actors || []).filter(Boolean)) {
           if (want("actor")) {
-            add(`actor:${actor}`, actor, "actor", 10);
-            link(cid, `actor:${actor}`);
+            add(`actor:${actor}`, actor, "actor", 10, 1);
+            link(`actor:${actor}`, cid, "runs");
           }
         }
         for (const cve of (c.cves || []).filter(Boolean).slice(0, 3)) {
-          add(`cve:${cve}`, cve, "cve", 5);
-          link(cid, `cve:${cve}`);
+          add(`cve:${cve}`, cve, "cve", 5, 3);
+          link(cid, `cve:${cve}`, "uses_cve");
         }
       }
     }
@@ -142,6 +143,7 @@ export default function IntelGraphPage() {
                   nodes={nodes}
                   links={links}
                   height={560}
+                  layout="flow"
                   highlightId={selected}
                   onSelect={setSelected}
                 />
