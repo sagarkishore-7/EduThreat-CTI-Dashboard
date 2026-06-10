@@ -229,9 +229,15 @@ function CampaignDetail({ id }: { id: string }) {
           type: n.type,
           val: Math.max(3, n.size),
         })),
-        links: graphQuery.data.edges.map((e) => ({ source: e.source, target: e.target })),
+        links: graphQuery.data.edges.map((e) => ({
+          source: e.source,
+          target: e.target,
+          relation: (e.relation ?? (e.type as string | undefined)) as string | undefined,
+        })),
       }
     : null;
+  const graphMeta = graphQuery.data?.meta;
+  const tracedCenter = graphMeta?.layout === "traced" ? graphMeta.center_id ?? null : null;
 
   return (
     <Card className="flex flex-col">
@@ -254,10 +260,17 @@ function CampaignDetail({ id }: { id: string }) {
           {c.platforms.map((p) => <span key={p} className="pill pill-pulse">{p}</span>)}
         </div>
 
-        {/* Relationship graph */}
+        {/* Relationship graph — traced attack chain (actor → CVE → platform → victim) */}
         {graph && graph.nodes.length > 1 && (
           <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
-            <KnowledgeGraph nodes={graph.nodes} links={graph.links} height={560} minimalLabels />
+            <KnowledgeGraph
+              nodes={graph.nodes}
+              links={graph.links}
+              height={560}
+              minimalLabels
+              layout={tracedCenter ? "traced" : "auto"}
+              centerId={tracedCenter}
+            />
           </div>
         )}
 

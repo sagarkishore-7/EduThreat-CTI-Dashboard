@@ -14,7 +14,7 @@ export type KGEntityType =
   | "country"
   | "campaign"
   | "vendor"
-  | "cve_or_product"
+  | "cve"
   | "platform"
   | "technique"
   | "incident"
@@ -38,22 +38,41 @@ export interface KGLink {
   source: string;
   target: string;
   kind?: string;
+  /** Typed attack-chain relation for the traced campaign graph. */
+  relation?: string;
 }
 
 // Shared entity palette + glyph, reused across investigations / campaigns / intel graph.
-// Each type carries a distinct colour AND a glyph, so nodes are differentiated by
-// both colour and icon (campaign was previously the same teal as country).
+// Each type carries a DISTINCT hue AND a glyph, so nodes (and the legend dots, which
+// read the same map) are differentiated by both. The hues are spread around the wheel
+// so adjacent types never read as the same colour — the previous vendor amber (#ffb648)
+// and CVE orange (#ff8c42) were near-identical, and country/institution were both green.
 export const ENTITY_STYLE: Record<string, { color: string; label: string; glyph: string }> = {
-  actor: { color: "#ff4757", label: "Threat actor", glyph: "💀" },
-  family: { color: "#818cf8", label: "Ransomware family", glyph: "🔒" },
-  country: { color: "#00d8b4", label: "Country", glyph: "🌐" },
-  campaign: { color: "#f472b6", label: "Campaign", glyph: "🎯" },
-  vendor: { color: "#ffb648", label: "Vendor", glyph: "🏢" },
-  cve_or_product: { color: "#ff8c42", label: "CVE / product", glyph: "🐞" },
-  platform: { color: "#4dbcff", label: "Platform", glyph: "🖥️" },
-  technique: { color: "#c084fc", label: "MITRE technique", glyph: "⚙️" },
-  incident: { color: "#8189a0", label: "Incident", glyph: "⚡" },
-  institution: { color: "#34d399", label: "Institution", glyph: "🎓" },
+  actor: { color: "#ff4757", label: "Threat actor", glyph: "💀" }, // red
+  family: { color: "#818cf8", label: "Ransomware family", glyph: "🔒" }, // indigo
+  country: { color: "#22d3ee", label: "Country", glyph: "🌐" }, // cyan
+  campaign: { color: "#f472b6", label: "Campaign", glyph: "🎯" }, // pink
+  vendor: { color: "#c2703d", label: "Vendor", glyph: "🏢" }, // bronze
+  cve: { color: "#fbbf24", label: "CVE", glyph: "🐞" }, // gold
+  platform: { color: "#4dbcff", label: "Platform", glyph: "🖥️" }, // blue
+  technique: { color: "#a855f7", label: "MITRE technique", glyph: "⚙️" }, // violet
+  incident: { color: "#8189a0", label: "Incident", glyph: "⚡" }, // slate
+  institution: { color: "#34d399", label: "Institution", glyph: "🎓" }, // emerald
+};
+// Legacy node type from pre-traced graph data — render as a CVE so old payloads
+// (and any cached responses) don't fall through to the default slate dot.
+ENTITY_STYLE.cve_or_product = ENTITY_STYLE.cve;
+
+// Subtle per-relation edge tint for the traced attack chain (falls back to the
+// source node's colour for untyped links / the other graphs).
+const RELATION_COLOR: Record<string, string> = {
+  attributed_to: "#f472b6", // actor → campaign (pink)
+  used_cve: "#fbbf24", // actor → CVE (gold)
+  exploits: "#ff6b6b", // CVE → platform (red — the exploitation step)
+  makes: "#c2703d", // vendor → platform (bronze)
+  affected: "#34d399", // platform/vendor → institution (emerald)
+  targeted: "#4dbcff", // centre → platform (blue)
+  supply_chain: "#c2703d", // centre → vendor (bronze)
 };
 
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
@@ -88,6 +107,14 @@ interface KnowledgeGraphProps {
    * already lists the entities: label nothing by default, reveal on hover only.
    */
   minimalLabels?: boolean;
+  /**
+   * Layout strategy. "auto" (default) picks star vs. network from the topology.
+   * "traced" lays the campaign attack chain out as concentric rings by BFS depth
+   * from `centerId` (actor → CVE → platform/vendor → institution reads outward).
+   */
+  layout?: "auto" | "traced";
+  /** Centre node for the traced layout (the actor or campaign hub). */
+  centerId?: string | null;
 }
 
 export function KnowledgeGraph({
@@ -99,6 +126,8 @@ export function KnowledgeGraph({
   className,
   showLegend = true,
   minimalLabels = false,
+  layout = "auto",
+  centerId = null,
 }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -196,6 +225,125 @@ export function KnowledgeGraph({
     const nodes = graphData.nodes;
     const n = nodes.length;
 
+    // --- Traced attack chain: a deterministic radial dendrogram ---------------
+    // The campaign graph is an attack chain (actor → CVE → platform/vendor →
+    // institution), not a star. A physics layout — even forceRadial — only fixes
+    // each node's radius, not its angle, so siblings scatter and edges cross. We
+    // instead place every node DETERMINISTICALLY: radius = BFS hop-distance from
+    // the centre, angle = the node's slice of its parent's angular wedge (sized by
+    // the leaf count beneath it). Positions are pinned (fx/fy), so the trace reads
+    // cleanly outward with no overlap and is stable across renders.
+    if (layout === "traced") {
+      const adj = new Map<string, string[]>();
+      const degree = new Map<string, number>();
+      for (const l of graphData.links as any[]) {
+        const s = typeof l.source === "object" ? l.source.id : l.source;
+        const t = typeof l.target === "object" ? l.target.id : l.target;
+        (adj.get(s) ?? adj.set(s, []).get(s)!).push(t);
+        (adj.get(t) ?? adj.set(t, []).get(t)!).push(s);
+        degree.set(s, (degree.get(s) ?? 0) + 1);
+        degree.set(t, (degree.get(t) ?? 0) + 1);
+      }
+      // Centre: the supplied id when present, else the highest-degree node.
+      let rootId = centerId && nodes.some((nd: any) => nd.id === centerId) ? centerId : null;
+      if (!rootId) {
+        let best = -1;
+        Array.from(degree.entries()).forEach(([id, d]) => {
+          if (d > best) {
+            best = d;
+            rootId = id;
+          }
+        });
+      }
+      rootId = rootId ?? nodes[0]?.id ?? null;
+
+      // BFS from the centre: depth + a single tree parent per node (first reached).
+      const depth = new Map<string, number>();
+      const parent = new Map<string, string>();
+      if (rootId) {
+        depth.set(rootId, 0);
+        const queue: string[] = [rootId];
+        while (queue.length) {
+          const cur = queue.shift() as string;
+          const d = depth.get(cur)!;
+          for (const nb of (adj.get(cur) ?? []).slice().sort()) {
+            if (!depth.has(nb)) {
+              depth.set(nb, d + 1);
+              parent.set(nb, cur);
+              queue.push(nb);
+            }
+          }
+        }
+      }
+      const maxDepth = Math.max(1, ...Array.from(depth.values()));
+      const depthOf = (id: string) => (depth.has(id) ? depth.get(id)! : maxDepth + 1);
+
+      // Tree children (stable order) + leaf counts beneath each node.
+      const children = new Map<string, string[]>();
+      Array.from(parent.entries()).forEach(([id, p]) => {
+        (children.get(p) ?? children.set(p, []).get(p)!).push(id);
+      });
+      children.forEach((arr) => arr.sort());
+      const leaves = new Map<string, number>();
+      const countLeaves = (id: string): number => {
+        const ch = children.get(id) ?? [];
+        if (!ch.length) {
+          leaves.set(id, 1);
+          return 1;
+        }
+        let s = 0;
+        for (const c of ch) s += countLeaves(c);
+        leaves.set(id, s);
+        return s;
+      };
+      const totalLeaves = rootId ? countLeaves(rootId) : 1;
+
+      // Angle = midpoint of the node's wedge; each child gets a slice proportional
+      // to its leaf count, so dense subtrees fan out and sparse ones stay tight.
+      const angle = new Map<string, number>();
+      const assign = (id: string, a0: number, a1: number) => {
+        angle.set(id, (a0 + a1) / 2);
+        const ch = children.get(id) ?? [];
+        if (!ch.length) return;
+        const total = leaves.get(id) || 1;
+        let cur = a0;
+        for (const c of ch) {
+          const span = (a1 - a0) * ((leaves.get(c) || 1) / total);
+          assign(c, cur, cur + span);
+          cur += span;
+        }
+      };
+      if (rootId) assign(rootId, -Math.PI / 2, (3 * Math.PI) / 2);
+
+      // Ring spacing: even rings, with the outermost wide enough that equally
+      // spaced leaves (2π / totalLeaves apart) clear each other.
+      const rLeaf = nodeRadius({ val: 4 });
+      const minGap = 2 * rLeaf + 40;
+      const ringStep = 2 * rLeaf + 110;
+      const fitRadius = (totalLeaves * minGap) / (2 * Math.PI * Math.max(1, maxDepth));
+      const baseRadius = Math.max(ringStep, fitRadius);
+
+      // Unreached nodes (no path from the centre) ring just outside, evenly spaced.
+      const unreached = nodes.filter((nd: any) => !angle.has(nd.id));
+      unreached.forEach((nd: any, i: number) => {
+        angle.set(nd.id, -Math.PI / 2 + (i / Math.max(1, unreached.length)) * 2 * Math.PI);
+      });
+
+      // Pin every node at its (radius, angle); physics off so it stays put.
+      nodes.forEach((nd: any) => {
+        const r = depthOf(nd.id) * baseRadius;
+        const a = angle.get(nd.id) ?? 0;
+        nd.fx = nd.id === rootId ? 0 : r * Math.cos(a);
+        nd.fy = nd.id === rootId ? 0 : r * Math.sin(a);
+      });
+      fg.d3Force?.("charge")?.strength?.(0);
+      fg.d3Force?.("link")?.strength?.(0);
+      fg.d3Force?.("radial", null);
+      fg.d3Force?.("collide", null);
+      fg.d3ReheatSimulation?.();
+      return;
+    }
+
     // Detect a hub-and-spoke "star" (the campaign-detail graph: one campaign node
     // with every member linked to it). Tuning charge/link numbers alone leaves the
     // leaves as an UNEVEN physics scatter at varying radii that reads as clutter and
@@ -281,7 +429,7 @@ export function KnowledgeGraph({
       fg.d3Force?.("collide", forceCollide((node: any) => nodeRadius(node) + 16).strength(1));
     }
     fg.d3ReheatSimulation?.();
-  }, [graphData, width, fgReady]);
+  }, [graphData, width, fgReady, layout, centerId]);
 
   const drawNode = useCallback(
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
@@ -426,14 +574,20 @@ export function KnowledgeGraph({
             ctx.arc(node.x, node.y, r + 2, 0, 2 * Math.PI);
             ctx.fill();
           }}
-          linkColor={(l: any) =>
-            linkLit(l)
-              ? entityColor(
-                  typeof l.source === "object" ? l.source.type : "incident",
-                ) + "66"
-              : "rgba(120,130,150,0.06)"
-          }
-          linkWidth={(l: any) => (linkLit(l) ? 1 : 0.4)}
+          linkColor={(l: any) => {
+            if (!linkLit(l)) return "rgba(120,130,150,0.06)";
+            // Traced chain: tint each edge by its relation (exploits = red, affected
+            // = green, …) so the attack path reads at a glance; otherwise fall back
+            // to the source node's entity colour (intel-graph / star graphs).
+            const relColor = l.relation ? RELATION_COLOR[l.relation] : undefined;
+            const base = relColor ?? entityColor(typeof l.source === "object" ? l.source.type : "incident");
+            return base + "77";
+          }}
+          linkWidth={(l: any) => {
+            if (!linkLit(l)) return 0.4;
+            // Emphasise the exploitation step in the traced chain.
+            return l.relation === "exploits" ? 1.6 : 1;
+          }}
           linkDirectionalParticles={(l: any) => (linkLit(l) && active ? 3 : 0)}
           linkDirectionalParticleSpeed={0.006}
           linkDirectionalParticleWidth={1.6}

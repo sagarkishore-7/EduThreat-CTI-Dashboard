@@ -847,7 +847,7 @@ export interface CampaignDetailResponse {
 
 export interface CampaignGraphNode {
   id: string;
-  type: "campaign" | "vendor" | "actor" | "cve_or_product" | "platform" | "incident" | string;
+  type: "campaign" | "vendor" | "actor" | "cve" | "platform" | "institution" | "incident" | string;
   label: string;
   size: number;
   confidence?: number;
@@ -855,11 +855,25 @@ export interface CampaignGraphNode {
   metadata?: Record<string, unknown>;
 }
 
+export interface CampaignGraphEdge {
+  source: string;
+  target: string;
+  /** Typed attack-chain relation (attributed_to, used_cve, exploits, makes, affected, …). */
+  relation?: string;
+  type?: string;
+  [k: string]: unknown;
+}
+
 export interface CampaignGraphResponse {
   campaign: CampaignSummary;
   nodes: CampaignGraphNode[];
-  edges: Array<{ source: string; target: string; [k: string]: unknown }>;
-  meta?: Record<string, unknown>;
+  edges: CampaignGraphEdge[];
+  meta?: {
+    layout?: string;
+    center_id?: string;
+    center_type?: string;
+    [k: string]: unknown;
+  };
 }
 
 export async function getCampaigns(limit = 50): Promise<CampaignListResponse> {

@@ -75,7 +75,7 @@ export default function IntelGraphPage() {
           }
         }
         for (const cve of (c.cves || []).filter(Boolean).slice(0, 3)) {
-          add(`cve:${cve}`, cve, "cve_or_product", 5);
+          add(`cve:${cve}`, cve, "cve", 5);
           link(cid, `cve:${cve}`);
         }
       }
