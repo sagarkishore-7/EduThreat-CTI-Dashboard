@@ -2,12 +2,7 @@
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import {
-  sankey as d3Sankey,
-  sankeyLinkHorizontal,
-  sankeyJustify,
-  type SankeyGraph,
-} from "d3-sankey";
+import { sankey as d3Sankey, sankeyLinkHorizontal, type SankeyGraph } from "d3-sankey";
 import { entityColor, entityIcon } from "@/lib/entity-style";
 
 // A weighted, left-to-right Sankey for the investigations + intel-graph relationship flows
@@ -86,9 +81,16 @@ export function FlowSankey({ nodes, links, height = 540, selectedId = null, onSe
     const usedNodes = nodes.filter((n) => used.has(n.id));
     if (!usedNodes.length || !cleanLinks.length) return null;
 
+    // Pin each node to its assigned column by compacting the present `layer` values to a
+    // contiguous 0..C range and aligning on that. d3-sankey's default (sankeyJustify)
+    // ignores our layer and right-justifies leaf nodes — which pushed actors with no
+    // ransomware family into the family column. This keeps every entity type in its stage.
+    const presentLayers = Array.from(new Set(usedNodes.map((n) => n.layer))).sort((a, b) => a - b);
+    const colOfLayer = new Map(presentLayers.map((lv, i) => [lv, i]));
+
     const sankeyGen = d3Sankey<SNode, SLink>()
       .nodeId((d) => d.id)
-      .nodeAlign(sankeyJustify)
+      .nodeAlign((n) => colOfLayer.get((n as SNode).layer) ?? 0)
       .nodeWidth(13)
       .nodePadding(14)
       .extent([
@@ -146,7 +148,9 @@ export function FlowSankey({ nodes, links, height = 540, selectedId = null, onSe
   const pathGen = sankeyLinkHorizontal<SNode, SLink>();
 
   return (
-    <div ref={ref} className="relative w-full overflow-x-auto" style={{ minHeight: height }}>
+    <div className="w-full">
+      <LegendStrip nodes={nodes} />
+      <div ref={ref} className="w-full overflow-x-auto" style={{ minHeight: height }}>
       {!graph ? (
         <div className="grid place-items-center text-sm text-zinc-600" style={{ height }}>
           No relationships match the current filters.
@@ -244,19 +248,24 @@ export function FlowSankey({ nodes, links, height = 540, selectedId = null, onSe
           </g>
         </svg>
       )}
-      <LegendStrip nodes={nodes} />
+      </div>
     </div>
   );
 }
 
 function LegendStrip({ nodes }: { nodes: SankeyNodeInput[] }) {
-  const types = useMemo(() => Array.from(new Set(nodes.map((n) => n.type))), [nodes]);
+  // Ordered by column so the legend reads in the same left-to-right order as the flow.
+  const types = useMemo(() => {
+    const firstLayer = new Map<string, number>();
+    for (const n of nodes) if (!firstLayer.has(n.type)) firstLayer.set(n.type, n.layer);
+    return Array.from(firstLayer.keys()).sort((a, b) => (firstLayer.get(a)! - firstLayer.get(b)!));
+  }, [nodes]);
   return (
-    <div className="pointer-events-none absolute left-3 top-2 z-10 flex flex-wrap gap-x-3 gap-y-1 rounded-md border border-zinc-800/60 bg-[#080b12]/85 px-2 py-1 backdrop-blur-sm">
+    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
       {types.map((t) => {
         const Icon = entityIcon(t);
         return (
-          <span key={t} className="flex items-center gap-1 text-[9.5px] capitalize text-zinc-400">
+          <span key={t} className="flex items-center gap-1 text-[10px] capitalize text-zinc-400">
             <Icon size={11} style={{ color: entityColor(t) }} />
             {t}
           </span>
