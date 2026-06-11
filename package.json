@@ -16,6 +16,7 @@
     "@types/react-simple-maps": "^3.0.6",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
+    "d3-sankey": "^0.12.3",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.40.0",
     "globe.gl": "^2.46.1",
@@ -32,6 +33,7 @@
     "topojson-client": "^3.1.0"
   },
   "devDependencies": {
+    "@types/d3-sankey": "^0.12.5",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.14",
     "@types/react-dom": "^18.3.5",

@@ -18,6 +18,10 @@ const KnowledgeGraph = dynamic(
   () => import("@/components/charts/KnowledgeGraph").then((m) => m.KnowledgeGraph),
   { ssr: false },
 );
+const AttackChainFlow = dynamic(
+  () => import("@/components/charts/AttackChainFlow").then((m) => m.AttackChainFlow),
+  { ssr: false },
+);
 
 const TYPE_LABEL: Record<string, string> = {
   mass_exploitation: "Mass Exploitation",
@@ -213,6 +217,8 @@ function CampaignDetail({ id }: { id: string }) {
     queryKey: ["campaign-graph", id],
     queryFn: () => import("@/lib/api").then((m) => m.getCampaignGraph(id)),
   });
+  // Cross-filter: an asset/actor node clicked in the attack chain focuses its victim group.
+  const [focusKey, setFocusKey] = useState<string | null>(null);
 
   if (isLoading || !data) return <Card><CardBody><div className="h-64 animate-pulse rounded bg-zinc-900/40" /></CardBody></Card>;
   const c = data.campaign;
@@ -261,19 +267,35 @@ function CampaignDetail({ id }: { id: string }) {
           {c.platforms.map((p) => <span key={p} className="pill pill-pulse">{p}</span>)}
         </div>
 
-        {/* Attack chain — compact directional flow: platform → CVE → actor */}
-        {graph && graph.nodes.length > 1 && (
+        {/* Attack chain — directional stepper: platform → CVE → actor → victims */}
+        {graphQuery.data && graphQuery.data.nodes.length > 1 && (
           <div>
-            <div className="mb-1.5 text-[10.5px] font-medium uppercase tracking-wide text-zinc-500">
-              Attack chain
+            <div className="mb-2 flex items-center gap-2">
+              <span className="text-[10.5px] font-medium uppercase tracking-wide text-zinc-500">Attack chain</span>
+              {focusKey && (
+                <button
+                  type="button"
+                  onClick={() => setFocusKey(null)}
+                  className="text-[10px] text-zinc-500 underline-offset-2 hover:text-zinc-300 hover:underline"
+                >
+                  clear filter
+                </button>
+              )}
             </div>
-            <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14]">
-              <KnowledgeGraph
-                nodes={graph.nodes}
-                links={graph.links}
-                height={isChain ? 300 : 520}
-                layout={isChain ? "flow" : "auto"}
-              />
+            <div className="rounded-lg border border-zinc-800/70 bg-[#0a0c14] p-3">
+              {isChain ? (
+                <AttackChainFlow
+                  nodes={graphQuery.data.nodes}
+                  edges={graphQuery.data.edges}
+                  victimGroups={victimGroups}
+                  activeKey={focusKey}
+                  onFocus={setFocusKey}
+                />
+              ) : (
+                graph && (
+                  <KnowledgeGraph nodes={graph.nodes} links={graph.links} height={520} layout="auto" />
+                )
+              )}
             </div>
           </div>
         )}
@@ -284,7 +306,9 @@ function CampaignDetail({ id }: { id: string }) {
             <div className="text-[10.5px] font-medium uppercase tracking-wide text-zinc-500">
               Affected institutions
             </div>
-            {victimGroups.map((g) => (
+            {victimGroups
+              .filter((g) => !focusKey || g.key === focusKey)
+              .map((g) => (
               <div key={g.key}>
                 <div className="mb-1.5 flex items-center gap-2">
                   <span className={`pill ${g.via === "direct" ? "pill-threat" : "pill-pulse"}`}>
