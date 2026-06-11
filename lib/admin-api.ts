@@ -192,6 +192,37 @@ export async function cancelV2Task(token: string, taskId: string): Promise<Recor
   });
 }
 
+export interface V2ClassifierQuality {
+  title_relevance: { pending: number; relevant: number; irrelevant: number; llm_classified: number };
+  second_gate: {
+    llm_gated: {
+      true_positive: number;
+      false_positive: number;
+      pending_enrichment: number;
+      judged: number;
+      fp_rate_pct: number | null;
+      tp_rate_pct: number | null;
+    };
+    overall_reference: { edu_true: number; edu_false: number; reject_rate_pct: number | null };
+    keyword_baseline_reject_pct: number;
+  };
+  extraction_quality: {
+    open_canonicals: number;
+    with_institution_pct: number;
+    with_date_pct: number;
+    with_actor_pct: number;
+    edu_confirmed_pct: number;
+  };
+  samples: {
+    false_positives: Array<{ title: string; title_reason: string | null; title_score: number | null; rejected_reason: string | null }>;
+    true_positives: Array<{ title: string; title_reason: string | null; institution_name: string | null; incident_date: string | null }>;
+  };
+}
+
+export async function getV2ClassifierQuality(token: string, sampleLimit = 12): Promise<V2ClassifierQuality> {
+  return adminRequest(`/api/admin/v2/classifier-quality?sample_limit=${sampleLimit}`, token);
+}
+
 export async function runV2Plan(
   token: string,
   planName: string,
