@@ -21,6 +21,7 @@ import {
   runV2Plan,
   setStoredAdminSession,
 } from "@/lib/admin-api";
+import { getIncidents } from "@/lib/api";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import {
   Ban,
@@ -138,6 +139,16 @@ export default function AdminPage() {
     queryFn: () => getV2Tasks(token!, { task_type: "orchestrate_plan", limit: 12 }),
     enabled: Boolean(token),
     refetchInterval: 15_000,
+  });
+
+  // Public incidents endpoint returns the count of *open* canonicals (the figure
+  // the incidents page shows). The admin /status count is the raw total across
+  // all statuses, so we surface both to explain the gap.
+  const openCanonicalsQuery = useQuery({
+    queryKey: ["admin-v2-open-canonicals", token],
+    queryFn: () => getIncidents({ per_page: 1 }),
+    enabled: Boolean(token),
+    refetchInterval: 60_000,
   });
 
   useEffect(() => {
@@ -308,6 +319,11 @@ export default function AdminPage() {
     [taskTypeSummary],
   );
 
+  const totalCanonicals = progressMetrics?.canonicalIncidents || 0;
+  const openCanonicals = Number(openCanonicalsQuery.data?.pagination?.total ?? NaN);
+  const hasOpenCount = Number.isFinite(openCanonicals);
+  const nonOpenCanonicals = hasOpenCount ? Math.max(totalCanonicals - openCanonicals, 0) : 0;
+
   const planRows = plansQuery.data?.items || [];
   const preflight = preflightQuery.data;
   const manualReview = manualReviewQuery.data;
@@ -429,7 +445,16 @@ export default function AdminPage() {
             tone="info"
           />
           <HealthCard label="Source enrichments" value={formatNumber(progressMetrics?.sourceEnrichments || 0)} detail={`${progressMetrics ? progressMetrics.enrichCoveragePct.toFixed(1) : "0.0"}% enrichment coverage`} tone="pulse" />
-          <HealthCard label="Canonicals" value={formatNumber(progressMetrics?.canonicalIncidents || 0)} detail={`${progressMetrics ? progressMetrics.canonicalYieldPct.toFixed(1) : "0.0"}% corpus yield`} tone="threat" />
+          <HealthCard
+            label="Canonicals (open)"
+            value={formatNumber(hasOpenCount ? openCanonicals : totalCanonicals)}
+            detail={
+              hasOpenCount
+                ? `${formatNumber(totalCanonicals)} total · ${formatNumber(nonOpenCanonicals)} non-open (merged/excluded)`
+                : `${formatNumber(totalCanonicals)} total across all statuses`
+            }
+            tone="threat"
+          />
           <HealthCard label="Manual review" value={formatNumber(manualReview?.meta.returned || 0)} detail="Current queue sample" tone="warn" />
           <HealthCard label="Hard rejects" value={formatNumber(rejected?.meta.returned || 0)} detail="Victimless / non-canonicalizable sample" tone="danger" />
         </div>
