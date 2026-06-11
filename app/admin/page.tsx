@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ADMIN_SESSION_KEY,
+  cancelV2Task,
   getStoredAdminSession,
   getV2ConsistencyCandidates,
   getV2ManualReviewQueue,
@@ -11,6 +12,7 @@ import {
   getV2Preflight,
   getV2RejectedEnrichments,
   getV2RuntimeStatus,
+  getV2Tasks,
   isAdminAuthError,
   loginV2Admin,
   logoutV2Admin,
@@ -21,19 +23,16 @@ import {
 } from "@/lib/admin-api";
 import { cn, formatDate, formatNumber } from "@/lib/utils";
 import {
-  Activity,
-  AlertTriangle,
+  Ban,
   CheckCircle2,
-  Database,
+  Cpu,
+  Layers,
+  Loader2,
   LogIn,
   LogOut,
   Play,
   RefreshCw,
-  Shield,
   Sparkles,
-  TerminalSquare,
-  Workflow,
-  XCircle,
 } from "lucide-react";
 
 type ActionState =
@@ -134,6 +133,13 @@ export default function AdminPage() {
     refetchInterval: 60_000,
   });
 
+  const orchestrationQuery = useQuery({
+    queryKey: ["admin-v2-orchestration", token],
+    queryFn: () => getV2Tasks(token!, { task_type: "orchestrate_plan", limit: 12 }),
+    enabled: Boolean(token),
+    refetchInterval: 15_000,
+  });
+
   useEffect(() => {
     const authError = [
       preflightQuery.error,
@@ -142,6 +148,7 @@ export default function AdminPage() {
       manualReviewQuery.error,
       rejectedQuery.error,
       consistencyQuery.error,
+      orchestrationQuery.error,
     ].find(isAdminAuthError);
 
     if (token && authError) {
@@ -150,6 +157,7 @@ export default function AdminPage() {
   }, [
     consistencyQuery.error,
     manualReviewQuery.error,
+    orchestrationQuery.error,
     plansQuery.error,
     preflightQuery.error,
     queryClient,
@@ -166,6 +174,7 @@ export default function AdminPage() {
       manualReviewQuery.refetch(),
       rejectedQuery.refetch(),
       consistencyQuery.refetch(),
+      orchestrationQuery.refetch(),
     ]);
     setActionState({ type: "success", message: "Operations telemetry refreshed." });
   };
@@ -197,6 +206,22 @@ export default function AdminPage() {
       setActionState({ type: "success", message: `Queued consistency sweep: ${JSON.stringify(payload)}` });
       statusQuery.refetch();
       consistencyQuery.refetch();
+    },
+    onError: (error: Error) => handleAdminError(error),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (taskId: string) => cancelV2Task(token!, taskId),
+    onSuccess: (payload) => {
+      const cancelled = Boolean((payload as Record<string, unknown>)?.cancelled);
+      setActionState({
+        type: cancelled ? "success" : "error",
+        message: cancelled
+          ? `Run cancelled (${String((payload as Record<string, unknown>)?.run_id ?? "").slice(0, 8) || "task"}).`
+          : `Not cancellable: ${String((payload as Record<string, unknown>)?.message ?? "already terminal")}`,
+      });
+      orchestrationQuery.refetch();
+      statusQuery.refetch();
     },
     onError: (error: Error) => handleAdminError(error),
   });
@@ -269,6 +294,19 @@ export default function AdminPage() {
       leasedWork,
     };
   }, [statusQuery.data?.counts, taskTypeSummary]);
+
+  const orchestrationTasks = useMemo(() => {
+    const items = (orchestrationQuery.data?.items as Array<Record<string, unknown>> | undefined) || [];
+    return items
+      .filter((t) => ["queued", "leased"].includes(String(t.status)))
+      .sort((a, b) => (String(a.status) === "leased" ? -1 : 1) - (String(b.status) === "leased" ? -1 : 1));
+  }, [orchestrationQuery.data]);
+
+  // Per-type rows that currently have queued or leased work — the "what's running now".
+  const activeTypes = useMemo(
+    () => taskTypeSummary.filter((item) => item.queued + item.leased > 0),
+    [taskTypeSummary],
+  );
 
   const planRows = plansQuery.data?.items || [];
   const preflight = preflightQuery.data;
@@ -399,204 +437,329 @@ export default function AdminPage() {
 
       {actionState && <StatusBanner type={actionState.type} message={actionState.message} />}
 
-      <div className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="space-y-4">
-          <div className="ops-panel overflow-hidden">
-            <div className="ops-panel-head">
-              <div>
-                <p className="ops-subtle">Plan orchestration</p>
-                <h2 className="ops-title">Scheduled plans and manual triggers</h2>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => qualityMutation.mutate()}
-                  className="ops-chip ops-chip-pulse"
-                  disabled={qualityMutation.isPending}
-                >
-                  <Sparkles className="h-3 w-3" />
-                  Quality sweep
-                </button>
-                <button
-                  onClick={() => consistencyMutation.mutate()}
-                  className="ops-chip ops-chip-brand"
-                  disabled={consistencyMutation.isPending}
-                >
-                  <CheckCircle2 className="h-3 w-3" />
-                  Consistency sweep
-                </button>
-              </div>
+      {/* BAND 1 — at-a-glance operations: active runs, workers, data plane (no scrolling) */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="ops-panel overflow-hidden">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Orchestration</p>
+              <h2 className="ops-title">Active &amp; queued runs</h2>
             </div>
-            <div className="divide-y divide-zinc-800/70">
-              {planRows.map((plan) => (
-                <div key={plan.name} className="grid gap-4 px-5 py-4 lg:grid-cols-[1fr_120px_150px] lg:items-center">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-zinc-100">{plan.name}</p>
-                    <p className="mt-1 text-xs text-zinc-500">
-                      {plan.description || "Named orchestration flow for the v2 runtime."}
-                    </p>
-                  </div>
-                  <div className="font-mono text-[11px] text-zinc-500">
-                    {plan.worker_max_tasks ? `${plan.worker_max_tasks} max tasks` : "runtime-managed"}
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
+            {orchestrationTasks.length > 0 && (
+              <span className="ops-chip ops-chip-brand">{orchestrationTasks.length} active</span>
+            )}
+          </div>
+          <div className="space-y-2 px-5 py-4">
+            {orchestrationTasks.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/30 px-3 py-5 text-sm text-zinc-500">
+                No runs are queued or executing right now.
+              </div>
+            ) : (
+              orchestrationTasks.map((task) => {
+                const running = String(task.status) === "leased";
+                const taskId = String(task.task_id);
+                const runId = String(task.run_id || task.task_id);
+                return (
+                  <div
+                    key={taskId}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-zinc-800/70 bg-zinc-900/35 px-3 py-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            running
+                              ? "animate-pulse bg-emerald-400 shadow-[0_0_8px_rgba(0,216,180,0.8)]"
+                              : "bg-amber-400",
+                          )}
+                        />
+                        <p className="truncate font-mono text-xs text-zinc-200">{runId.slice(0, 8)}</p>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]",
+                            running ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300",
+                          )}
+                        >
+                          {running ? "running" : "queued"}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] text-zinc-500">
+                        attempt {String(task.attempt_count ?? 0)}/{String(task.max_attempts ?? 5)} ·{" "}
+                        {String(task.task_type)}
+                      </p>
+                    </div>
                     <button
-                      onClick={() => planMutation.mutate({ planName: plan.name })}
-                      disabled={planMutation.isPending}
-                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-60"
+                      onClick={() => {
+                        if (running && !window.confirm("This run is currently executing. Cancel it?")) return;
+                        cancelMutation.mutate(taskId);
+                      }}
+                      disabled={cancelMutation.isPending}
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 py-1.5 text-[11px] font-medium text-red-300 transition-colors hover:bg-red-500/15 disabled:opacity-50"
                     >
-                      <Play className="h-3.5 w-3.5" />
-                      Run
+                      {cancelMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Ban className="h-3 w-3" />
+                      )}
+                      Cancel
                     </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                );
+              })
+            )}
           </div>
+        </div>
 
-          <div className="ops-panel overflow-hidden">
-            <div className="ops-panel-head">
-              <div>
-                <p className="ops-subtle">Recent runs</p>
-                <h2 className="ops-title">Execution history</h2>
-              </div>
+        <div className="ops-panel overflow-hidden">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Workers &amp; queue</p>
+              <h2 className="ops-title">Live processing</h2>
             </div>
-            <div className="overflow-x-auto">
-              <table className="ops-table">
-                <thead>
-                  <tr>
-                    <th>Run</th>
-                    <th>Type</th>
-                    <th>Status</th>
-                    <th>Started</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentRuns.map((run, index) => (
-                    <tr key={`${String(run.run_id || run.run_type || index)}`}>
-                      <td className="font-mono text-xs text-zinc-400">{String(run.run_id || "n/a")}</td>
-                      <td>{String(run.run_type || "runtime")}</td>
-                      <td>
-                        <RunStatus status={String(run.status || "unknown")} />
-                      </td>
-                      <td className="text-zinc-500">{formatDate(String(run.started_at || run.updated_at || ""))}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Cpu className="h-4 w-4 text-zinc-600" />
           </div>
-
-          <div className="ops-panel overflow-hidden">
-            <div className="ops-panel-head">
-              <div>
-                <p className="ops-subtle">Live operations log</p>
-                <h2 className="ops-title">Recent queue and run activity</h2>
-              </div>
-              <div className="ops-chip ops-chip-brand">Streaming snapshot</div>
-            </div>
-            <div className="space-y-2 bg-[#090c14] px-5 py-4 font-mono text-[11px]">
-              {consoleEvents.map((event) => (
-                <div key={event.key} className="flex items-start gap-3 text-zinc-300">
-                  <span className="shrink-0 text-zinc-600">{formatConsoleTimestamp(event.ts)}</span>
-                  <span className={cn("shrink-0 font-semibold", consoleTone(event.kind))}>
-                    [{event.label.toUpperCase()}]
-                  </span>
-                  <span className="text-zinc-400">{event.message}</span>
-                </div>
-              ))}
-              {consoleEvents.length === 0 && (
-                <p className="text-zinc-600">No recent queue or run activity is available yet.</p>
+          <div className="grid grid-cols-2 gap-3 px-5 py-4">
+            <MetaBox
+              label="Leased / running"
+              value={formatNumber(progressMetrics?.leasedWork || 0)}
+              tone={(progressMetrics?.leasedWork || 0) > 0 ? "ok" : "neutral"}
+            />
+            <MetaBox label="Queued / waiting" value={formatNumber(progressMetrics?.queuedWork || 0)} tone="neutral" />
+          </div>
+          <div className="border-t border-zinc-800/70 px-5 py-4">
+            <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Active by stage</p>
+            <div className="space-y-1.5">
+              {activeTypes.length > 0 ? (
+                activeTypes.map((item) => (
+                  <div
+                    key={item.taskType}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/60 bg-[#0b0f17]/80 px-3 py-1.5"
+                  >
+                    <span className="truncate font-mono text-[11px] text-zinc-300">{item.taskType}</span>
+                    <span className="shrink-0 font-mono text-[11px]">
+                      <span className="text-emerald-300">{item.leased}</span>
+                      <span className="text-zinc-600"> run</span>
+                      <span className="mx-1 text-zinc-700">·</span>
+                      <span className="text-amber-300">{item.queued}</span>
+                      <span className="text-zinc-600"> queued</span>
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-zinc-500">Queue is idle — no work in flight.</p>
               )}
             </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="ops-panel overflow-hidden">
-            <div className="ops-panel-head">
-              <div>
-                <p className="ops-subtle">Data plane</p>
-                <h2 className="ops-title">Database and preflight</h2>
+        <div className="ops-panel overflow-hidden">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Data plane</p>
+              <h2 className="ops-title">Database &amp; preflight</h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 px-5 py-4">
+            <MetaBox label="DB connected" value={dbConnected ? "true" : "false"} tone={dbConnected ? "ok" : "bad"} />
+            <MetaBox label="Alembic rev" value={dbRevision} tone="neutral" />
+            <MetaBox
+              label="Fetch success"
+              value={`${progressMetrics ? progressMetrics.fetchSuccessPct.toFixed(1) : "0.0"}%`}
+              tone={(progressMetrics?.fetchSuccessPct || 0) >= 70 ? "ok" : "warn"}
+            />
+            <MetaBox
+              label="Expired leases"
+              value={formatNumber(status?.queue_health.expired_leases || 0)}
+              tone={(status?.queue_health.expired_leases || 0) > 0 ? "bad" : "ok"}
+            />
+            <MetaBox
+              label="Preflight ready"
+              value={String(Boolean(preflight?.ready))}
+              tone={preflight?.ready ? "ok" : "warn"}
+            />
+            <MetaBox
+              label="Fetch attempts"
+              value={formatNumber(progressMetrics?.articleFetchAttempts || 0)}
+              tone="neutral"
+            />
+          </div>
+          {Array.isArray(preflight?.warnings) && preflight.warnings.length > 0 && (
+            <div className="border-t border-zinc-800/70 px-5 py-4">
+              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Warnings</p>
+              <div className="space-y-2">
+                {preflight.warnings.map((warning) => (
+                  <div
+                    key={warning}
+                    className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-300"
+                  >
+                    {warning}
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
-              <MetaBox label="DB connected" value={dbConnected ? "true" : "false"} tone={dbConnected ? "ok" : "bad"} />
-              <MetaBox label="Alembic revision" value={dbRevision} tone="neutral" />
-              <MetaBox label="Queued work" value={formatNumber(progressMetrics?.queuedWork || 0)} tone="neutral" />
-              <MetaBox label="Leased work" value={formatNumber(progressMetrics?.leasedWork || 0)} tone="neutral" />
-              <MetaBox label="Fetch attempts" value={formatNumber(progressMetrics?.articleFetchAttempts || 0)} tone="neutral" />
-              <MetaBox label="Fetch success" value={`${progressMetrics ? progressMetrics.fetchSuccessPct.toFixed(1) : "0.0"}%`} tone={(progressMetrics?.fetchSuccessPct || 0) >= 70 ? "ok" : "warn"} />
-              <MetaBox label="Expired leases" value={formatNumber(status?.queue_health.expired_leases || 0)} tone={(status?.queue_health.expired_leases || 0) > 0 ? "bad" : "ok"} />
-              <MetaBox label="Preflight ready" value={String(Boolean(preflight?.ready))} tone={preflight?.ready ? "ok" : "warn"} />
+          )}
+        </div>
+      </div>
+
+      {/* BAND 2 — plan triggers (full width) */}
+      <div className="ops-panel overflow-hidden">
+        <div className="ops-panel-head">
+          <div>
+            <p className="ops-subtle">Plan orchestration</p>
+            <h2 className="ops-title">Scheduled plans &amp; manual triggers</h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => qualityMutation.mutate()} className="ops-chip ops-chip-pulse" disabled={qualityMutation.isPending}>
+              <Sparkles className="h-3 w-3" />
+              Quality sweep
+            </button>
+            <button onClick={() => consistencyMutation.mutate()} className="ops-chip ops-chip-brand" disabled={consistencyMutation.isPending}>
+              <CheckCircle2 className="h-3 w-3" />
+              Consistency sweep
+            </button>
+          </div>
+        </div>
+        <div className="grid gap-3 px-5 py-4 sm:grid-cols-2 xl:grid-cols-3">
+          {planRows.map((plan) => (
+            <div key={plan.name} className="flex flex-col rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+              <p className="text-sm font-semibold text-zinc-100">{plan.name}</p>
+              <p className="mt-1 flex-1 text-xs text-zinc-500">
+                {plan.description || "Named orchestration flow for the v2 runtime."}
+              </p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <span className="font-mono text-[11px] text-zinc-500">
+                  {plan.worker_max_tasks ? `${plan.worker_max_tasks} max` : "runtime-managed"}
+                </span>
+                <button
+                  onClick={() => planMutation.mutate({ planName: plan.name })}
+                  disabled={planMutation.isPending}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-400/15 disabled:opacity-60"
+                >
+                  <Play className="h-3.5 w-3.5" />
+                  Run
+                </button>
+              </div>
             </div>
-            {Array.isArray(preflight?.warnings) && preflight.warnings.length > 0 && (
-              <div className="border-t border-zinc-800/70 px-5 py-4">
-                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Warnings</p>
-                <div className="space-y-2">
-                  {preflight.warnings.map((warning) => (
-                    <div key={warning} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">
-                      {warning}
-                    </div>
-                  ))}
+          ))}
+        </div>
+      </div>
+
+      {/* BAND 3 — task distribution + live log (two columns) */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="ops-panel overflow-hidden">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Task summary</p>
+              <h2 className="ops-title">Queue distribution by stage</h2>
+            </div>
+            <Layers className="h-4 w-4 text-zinc-600" />
+          </div>
+          <div className="grid gap-3 px-5 py-4 sm:grid-cols-2">
+            {taskTypeSummary.map((item) => (
+              <div key={item.taskType} className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <p className="truncate font-mono text-xs text-zinc-100">{item.taskType}</p>
+                  <span className="shrink-0 text-[11px] text-zinc-500">
+                    {formatNumber(item.queued + item.leased + item.completed + item.failed + item.deadLetter)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <TaskPill label="Queued" value={item.queued} />
+                  <TaskPill label="Leased" value={item.leased} />
+                  <TaskPill label="Completed" value={item.completed} />
+                  <TaskPill label="Failed" value={item.failed} />
+                  <TaskPill label="Dead letter" value={item.deadLetter} full />
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ops-panel overflow-hidden">
+          <div className="ops-panel-head">
+            <div>
+              <p className="ops-subtle">Live operations log</p>
+              <h2 className="ops-title">Recent queue &amp; run activity</h2>
+            </div>
+            <div className="ops-chip ops-chip-brand">Snapshot</div>
+          </div>
+          <div className="space-y-2 bg-[#090c14] px-5 py-4 font-mono text-[11px]">
+            {consoleEvents.map((event) => (
+              <div key={event.key} className="flex items-start gap-3 text-zinc-300">
+                <span className="shrink-0 text-zinc-600">{formatConsoleTimestamp(event.ts)}</span>
+                <span className={cn("shrink-0 font-semibold", consoleTone(event.kind))}>
+                  [{event.label.toUpperCase()}]
+                </span>
+                <span className="text-zinc-400">{event.message}</span>
+              </div>
+            ))}
+            {consoleEvents.length === 0 && (
+              <p className="text-zinc-600">No recent queue or run activity is available yet.</p>
             )}
           </div>
+        </div>
+      </div>
 
-          <QueuePanel
-            eyebrow="Manual review"
-            title="Rows that exhausted re-enrichment"
-            items={(manualReview?.items || []).slice(0, 6)}
-            empty="No rows are waiting in the manual review queue."
-            accent="warn"
-            reasonKey="manual_review_reason"
-          />
+      {/* BAND 4 — review queues spread horizontally (was a tall stacked column) */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <QueuePanel
+          eyebrow="Manual review"
+          title="Exhausted re-enrichment"
+          items={(manualReview?.items || []).slice(0, 6)}
+          empty="No rows are waiting in the manual review queue."
+          accent="warn"
+          reasonKey="manual_review_reason"
+        />
+        <QueuePanel
+          eyebrow="Hard rejects"
+          title="Intentionally excluded"
+          items={(rejected?.items || []).slice(0, 6)}
+          empty="No hard-rejected enrichments are visible in this sample."
+          accent="danger"
+          reasonKey="failed_reason"
+        />
+        <QueuePanel
+          eyebrow="Consistency drift"
+          title="Canonicals needing review"
+          items={(consistency?.items || []).slice(0, 6)}
+          empty="No consistency candidates are visible in this sample."
+          accent="brand"
+          reasonKey="reason"
+        />
+      </div>
 
-          <QueuePanel
-            eyebrow="Hard rejects"
-            title="Rows intentionally excluded"
-            items={(rejected?.items || []).slice(0, 6)}
-            empty="No hard-rejected enrichments are visible in this sample."
-            accent="danger"
-            reasonKey="failed_reason"
-          />
-
-          <QueuePanel
-            eyebrow="Consistency drift"
-            title="Canonicals needing review"
-            items={(consistency?.items || []).slice(0, 6)}
-            empty="No consistency candidates are visible in this sample."
-            accent="brand"
-            reasonKey="reason"
-          />
-
-          <div className="ops-panel overflow-hidden">
-            <div className="ops-panel-head">
-              <div>
-                <p className="ops-subtle">Task summary</p>
-                <h2 className="ops-title">Queue distribution</h2>
-              </div>
-            </div>
-            <div className="grid gap-3 px-5 py-4">
-              {taskTypeSummary.map((item) => (
-                <div key={item.taskType} className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="font-mono text-sm text-zinc-100">{item.taskType}</p>
-                    <span className="text-[11px] text-zinc-500">
-                      {formatNumber(item.queued + item.leased + item.completed + item.failed + item.deadLetter)} total
-                    </span>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <TaskPill label="Queued" value={item.queued} />
-                    <TaskPill label="Leased" value={item.leased} />
-                    <TaskPill label="Completed" value={item.completed} />
-                    <TaskPill label="Failed" value={item.failed} />
-                    <TaskPill label="Dead letter" value={item.deadLetter} full />
-                  </div>
-                </div>
-              ))}
-            </div>
+      {/* BAND 5 — run history (full width) */}
+      <div className="ops-panel overflow-hidden">
+        <div className="ops-panel-head">
+          <div>
+            <p className="ops-subtle">Recent runs</p>
+            <h2 className="ops-title">Execution history</h2>
           </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="ops-table">
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Started</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentRuns.map((run, index) => (
+                <tr key={`${String(run.run_id || run.run_type || index)}`}>
+                  <td className="font-mono text-xs text-zinc-400">{String(run.run_id || "n/a")}</td>
+                  <td>{String(run.run_type || "runtime")}</td>
+                  <td>
+                    <RunStatus status={String(run.status || "unknown")} />
+                  </td>
+                  <td className="text-zinc-500">{formatDate(String(run.started_at || run.updated_at || ""))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

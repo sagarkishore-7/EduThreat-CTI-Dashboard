@@ -186,6 +186,12 @@ export async function getV2Plans(token: string): Promise<{ items: V2PlanDefiniti
   return adminRequest("/api/admin/v2/plans", token);
 }
 
+export async function cancelV2Task(token: string, taskId: string): Promise<Record<string, unknown>> {
+  return adminRequest(`/api/admin/v2/tasks/${encodeURIComponent(taskId)}/cancel`, token, {
+    method: "POST",
+  });
+}
+
 export async function runV2Plan(
   token: string,
   planName: string,
