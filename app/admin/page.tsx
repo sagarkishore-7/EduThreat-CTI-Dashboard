@@ -11,6 +11,7 @@ import {
   getV2Plans,
   getV2Preflight,
   getV2RejectedEnrichments,
+  getV2ClassifierQuality,
   getV2RuntimeStatus,
   getV2Tasks,
   isAdminAuthError,
@@ -33,7 +34,9 @@ import {
   LogOut,
   Play,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
+  Target,
 } from "lucide-react";
 
 type ActionState =
@@ -147,6 +150,13 @@ export default function AdminPage() {
   const openCanonicalsQuery = useQuery({
     queryKey: ["admin-v2-open-canonicals", token],
     queryFn: () => getIncidents({ per_page: 1 }),
+    enabled: Boolean(token),
+    refetchInterval: 60_000,
+  });
+
+  const classifierQuery = useQuery({
+    queryKey: ["admin-v2-classifier-quality", token],
+    queryFn: () => getV2ClassifierQuality(token!, 10),
     enabled: Boolean(token),
     refetchInterval: 60_000,
   });
@@ -319,6 +329,7 @@ export default function AdminPage() {
     [taskTypeSummary],
   );
 
+  const classifier = classifierQuery.data;
   const totalCanonicals = progressMetrics?.canonicalIncidents || 0;
   const openCanonicals = Number(openCanonicalsQuery.data?.pagination?.total ?? NaN);
   const hasOpenCount = Number.isFinite(openCanonicals);
@@ -724,6 +735,138 @@ export default function AdminPage() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* BAND 3.5 — LLM title-gate quality + extraction quality */}
+      <div className="ops-panel overflow-hidden">
+        <div className="ops-panel-head">
+          <div>
+            <p className="ops-subtle">Classifier quality</p>
+            <h2 className="ops-title">LLM title gate → article gate → extraction</h2>
+          </div>
+          <ShieldCheck className="h-4 w-4 text-zinc-600" />
+        </div>
+
+        {!classifier ? (
+          <div className="px-5 py-8 text-sm text-zinc-500">
+            {classifierQuery.isError ? "Quality telemetry unavailable." : "Loading classifier telemetry…"}
+          </div>
+        ) : (
+          <div className="space-y-4 px-5 py-4">
+            {/* headline stats */}
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+                <div className="mb-2 flex items-center gap-2">
+                  <Target className="h-3.5 w-3.5 text-rose-300" />
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Title FP rate</p>
+                </div>
+                <p className="font-mono text-[28px] leading-none text-rose-300">
+                  {classifier.second_gate.llm_gated.fp_rate_pct ?? "—"}
+                  {classifier.second_gate.llm_gated.fp_rate_pct !== null ? "%" : ""}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {classifier.second_gate.llm_gated.fp_rate_pct !== null &&
+                  classifier.second_gate.llm_gated.fp_rate_pct < classifier.second_gate.keyword_baseline_reject_pct ? (
+                    <span className="text-emerald-300">
+                      ▼ down from ~{classifier.second_gate.keyword_baseline_reject_pct}% keyword baseline
+                    </span>
+                  ) : (
+                    <span>vs ~{classifier.second_gate.keyword_baseline_reject_pct}% keyword baseline</span>
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Title relevant → enriched</p>
+                <p className="font-mono text-[28px] leading-none text-zinc-100">
+                  {formatNumber(classifier.second_gate.llm_gated.judged)}
+                </p>
+                <p className="mt-2 text-xs">
+                  <span className="text-emerald-300">{formatNumber(classifier.second_gate.llm_gated.true_positive)} kept</span>
+                  <span className="mx-1 text-zinc-600">·</span>
+                  <span className="text-rose-300">{formatNumber(classifier.second_gate.llm_gated.false_positive)} rejected</span>
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Titles classified</p>
+                <p className="font-mono text-[28px] leading-none text-sky-300">
+                  {formatNumber(classifier.title_relevance.llm_classified)}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {formatNumber(classifier.title_relevance.relevant)} relevant ·{" "}
+                  {formatNumber(classifier.title_relevance.irrelevant)} dropped ·{" "}
+                  {formatNumber(classifier.title_relevance.pending)} pending
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800/70 bg-zinc-900/35 p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">Edu precision (kept)</p>
+                <p className="font-mono text-[28px] leading-none text-emerald-300">
+                  {classifier.second_gate.llm_gated.tp_rate_pct ?? "—"}
+                  {classifier.second_gate.llm_gated.tp_rate_pct !== null ? "%" : ""}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">of title-relevant rows confirmed edu by the article gate</p>
+              </div>
+            </div>
+
+            {/* extraction quality */}
+            <div>
+              <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-zinc-500">
+                Extraction quality · {formatNumber(classifier.extraction_quality.open_canonicals)} open canonicals
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <MetaBox label="With institution" value={`${classifier.extraction_quality.with_institution_pct}%`} tone={classifier.extraction_quality.with_institution_pct >= 90 ? "ok" : "warn"} />
+                <MetaBox label="With date" value={`${classifier.extraction_quality.with_date_pct}%`} tone={classifier.extraction_quality.with_date_pct >= 80 ? "ok" : "warn"} />
+                <MetaBox label="With actor" value={`${classifier.extraction_quality.with_actor_pct}%`} tone="neutral" />
+                <MetaBox label="Edu confirmed" value={`${classifier.extraction_quality.edu_confirmed_pct}%`} tone={classifier.extraction_quality.edu_confirmed_pct >= 95 ? "ok" : "warn"} />
+              </div>
+            </div>
+
+            {/* spot-check samples */}
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="rounded-2xl border border-rose-500/15 bg-rose-500/[0.04] p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-rose-300">
+                  False positives — title kept, article gate rejected
+                </p>
+                <div className="space-y-2">
+                  {classifier.samples.false_positives.length === 0 && (
+                    <p className="text-sm text-zinc-500">No title false positives in this sample.</p>
+                  )}
+                  {classifier.samples.false_positives.map((s, i) => (
+                    <div key={`fp-${i}`} className="rounded-xl border border-zinc-800/70 bg-[#0b0f17]/80 p-3">
+                      <p className="truncate text-sm font-medium text-zinc-200" title={s.title}>{s.title}</p>
+                      {s.rejected_reason && (
+                        <p className="mt-1 text-[11px] text-rose-300/80">rejected: {s.rejected_reason}</p>
+                      )}
+                      {s.title_reason && <p className="mt-0.5 text-[11px] text-zinc-500">title said: {s.title_reason}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/[0.04] p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-emerald-300">
+                  True positives — title kept → canonicalized
+                </p>
+                <div className="space-y-2">
+                  {classifier.samples.true_positives.length === 0 && (
+                    <p className="text-sm text-zinc-500">No canonicalized samples yet.</p>
+                  )}
+                  {classifier.samples.true_positives.map((s, i) => (
+                    <div key={`tp-${i}`} className="rounded-xl border border-zinc-800/70 bg-[#0b0f17]/80 p-3">
+                      <p className="truncate text-sm font-medium text-zinc-200" title={s.title}>{s.title}</p>
+                      <p className="mt-1 text-[11px] text-emerald-300/80">
+                        → {s.institution_name || "(institution n/a)"}
+                        {s.incident_date ? ` · ${s.incident_date}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* BAND 4 — review queues spread horizontally (was a tall stacked column) */}
