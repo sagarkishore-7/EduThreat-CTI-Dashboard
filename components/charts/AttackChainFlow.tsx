@@ -24,6 +24,8 @@ export interface AttackChainFlowProps {
   nodes: CampaignGraphNode[];
   edges: CampaignGraphEdge[];
   victimGroups: CampaignVictimGroup[];
+  /** The campaign's authoritative attributed actors — the chain shows only these. */
+  campaignActors?: string[];
   /** Currently cross-filtered group key (asset/actor node id), or null. */
   activeKey?: string | null;
   /** Fired when a card is clicked (its node id) or null to clear. */
@@ -32,7 +34,9 @@ export interface AttackChainFlowProps {
 
 const COL_LABEL: Record<number, string> = { 0: "Asset", 1: "Vulnerability", 2: "Threat actor" };
 
-export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, onFocus }: AttackChainFlowProps) {
+const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+export function AttackChainFlow({ nodes, edges, victimGroups, campaignActors, activeKey = null, onFocus }: AttackChainFlowProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -46,21 +50,35 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
     return m;
   }, [victimGroups]);
 
-  const columns = useMemo(() => {
-    // Only render nodes that actually participate in the flow. Downstream victim orgs
-    // (e.g. National Student Clearinghouse, TIAA, CDW) leak into a campaign's vendor list
-    // and become layer-0 asset nodes with NO connecting edge — orphans floating in the
-    // asset column. A flow graph should only show connected nodes, so drop them here.
-    // (The deeper fix — keeping those victim orgs out of campaign `vendors` — lands in the
-    // backend correlation at the freeze re-correlation.)
+  // The chain shows only the campaign's attributed actors. The backend graph unions in
+  // every per-incident actor seen in member evidence, so an actor_activity_wave (defined
+  // by ONE actor) accretes co-mentioned actors — the graph showed 7 actors for a "Qilin
+  // wave". Constrain actor-layer nodes to `campaignActors` (the authoritative list); drop
+  // the rest + their edges. mass_exploitation keeps its full multi-actor list (those ARE
+  // in campaignActors). No-op when campaignActors is absent.
+  const { keptNodes, keptEdges } = useMemo(() => {
+    const actorSet = campaignActors ? new Set(campaignActors.map(norm)) : null;
+    const allowed = new Set<string>();
+    for (const n of nodes) {
+      const isActor = n.type === "actor";
+      if (isActor && actorSet && !actorSet.has(norm(n.label))) continue;
+      allowed.add(n.id);
+    }
+    const ke = edges.filter((e) => allowed.has(e.source) && allowed.has(e.target));
+    // Drop orphans (no surviving edge): downstream victim orgs (TIAA, NSC, CDW) leak into a
+    // campaign's vendor list and become layer-0 asset nodes with no connecting edge.
     const connected = new Set<string>();
-    for (const e of edges) {
+    for (const e of ke) {
       connected.add(e.source);
       connected.add(e.target);
     }
+    const kn = nodes.filter((n) => allowed.has(n.id) && connected.has(n.id));
+    return { keptNodes: kn, keptEdges: ke };
+  }, [nodes, edges, campaignActors]);
+
+  const columns = useMemo(() => {
     const byLayer = new Map<number, FlowNode[]>();
-    for (const n of nodes) {
-      if (!connected.has(n.id)) continue;
+    for (const n of keptNodes) {
       const fn: FlowNode = {
         id: n.id,
         label: n.label,
@@ -76,18 +94,18 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
     return Array.from(byLayer.keys())
       .sort((a, b) => a - b)
       .map((layer) => ({ layer, nodes: (byLayer.get(layer) ?? []).sort((a, b) => b.size - a.size) }));
-  }, [nodes, edges]);
+  }, [keptNodes]);
 
   // adjacency for path highlighting
   const neighbours = useMemo(() => {
     const m = new Map<string, Set<string>>();
     const ensure = (id: string) => m.get(id) ?? m.set(id, new Set()).get(id)!;
-    for (const e of edges) {
+    for (const e of keptEdges) {
       ensure(e.source).add(e.target);
       ensure(e.target).add(e.source);
     }
     return m;
-  }, [edges]);
+  }, [keptEdges]);
 
   const active = hoverId ?? activeKey;
   const isLit = useCallback(
@@ -102,9 +120,9 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
     if (!host) return;
     const hostBox = host.getBoundingClientRect();
     setBoxH(host.offsetHeight);
-    const maxDownstream = Math.max(1, ...victimGroups.map((g) => g.count), ...nodes.map((n) => n.size ?? 0));
+    const maxDownstream = Math.max(1, ...victimGroups.map((g) => g.count), ...keptNodes.map((n) => n.size ?? 0));
     const next: Array<{ d: string; color: string; width: number; key: string; lit: boolean }> = [];
-    for (const e of edges) {
+    for (const e of keptEdges) {
       const a = cardRefs.current.get(e.source);
       const b = cardRefs.current.get(e.target);
       if (!a || !b) continue;
@@ -141,7 +159,7 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
       });
     }
     setPaths(next);
-  }, [edges, nodes, victimGroups, victimCountByAsset, isLit]);
+  }, [keptEdges, keptNodes, victimGroups, victimCountByAsset, isLit]);
 
   useEffect(() => {
     recompute();

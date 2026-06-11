@@ -288,6 +288,7 @@ function CampaignDetail({ id }: { id: string }) {
                   nodes={graphQuery.data.nodes}
                   edges={graphQuery.data.edges}
                   victimGroups={victimGroups}
+                  campaignActors={c.actors}
                   activeKey={focusKey}
                   onFocus={setFocusKey}
                 />
