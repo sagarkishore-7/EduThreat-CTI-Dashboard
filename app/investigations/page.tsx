@@ -9,10 +9,10 @@ import { GraphSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
 import { Share2 } from "lucide-react";
-import type { KGNode, KGLink } from "@/components/charts/KnowledgeGraph";
+import type { SankeyNodeInput, SankeyLinkInput } from "@/components/charts/FlowSankey";
 
-const KnowledgeGraph = dynamic(
-  () => import("@/components/charts/KnowledgeGraph").then((m) => m.KnowledgeGraph),
+const FlowSankey = dynamic(
+  () => import("@/components/charts/FlowSankey").then((m) => m.FlowSankey),
   { ssr: false },
 );
 
@@ -20,26 +20,28 @@ export default function InvestigationsPage() {
   const { data, isLoading } = useQuery({ queryKey: ["threat-actors", 14], queryFn: () => getThreatActors(14) });
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Rooted left-to-right flow: country (root) → threat actor → ransomware family.
-  // Countries anchor the flow and group the actors that operated against them.
+  // Weighted Sankey: country → threat actor → ransomware family. Ribbon width = the
+  // actor's incident_count (the volume a force-graph can't show). Countries anchor it.
   const graph = useMemo(() => {
     const actors = (data?.threat_actors ?? []).filter((a) => a.name && a.name.toLowerCase() !== "unknown").slice(0, 12);
-    const nodeMap = new Map<string, KGNode>();
-    const links: KGLink[] = [];
-    const add = (id: string, label: string, type: KGNode["type"], val: number, layer: number) => {
-      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, val, layer });
+    const nodeMap = new Map<string, SankeyNodeInput>();
+    const links: SankeyLinkInput[] = [];
+    const add = (id: string, label: string, type: string, layer: number) => {
+      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, layer });
     };
     for (const a of actors) {
-      add(`actor:${a.name}`, a.name, "actor", Math.min(28, 12 + a.incident_count), 1);
-      for (const c of (a.countries_targeted || []).slice(0, 4)) {
-        if (!c) continue;
-        add(`country:${c}`, c, "country", 8, 0);
-        links.push({ source: `country:${c}`, target: `actor:${a.name}`, relation: "operates_in" });
+      const w = Math.max(1, a.incident_count);
+      add(`actor:${a.name}`, a.name, "actor", 1);
+      const countries = (a.countries_targeted || []).filter(Boolean).slice(0, 4);
+      const families = (a.ransomware_families || []).filter(Boolean).slice(0, 3);
+      // split the actor's volume across its countries / families so totals stay sane
+      for (const c of countries) {
+        add(`country:${c}`, c, "country", 0);
+        links.push({ source: `country:${c}`, target: `actor:${a.name}`, value: w / countries.length, relation: "operates_in" });
       }
-      for (const fam of (a.ransomware_families || []).slice(0, 3)) {
-        if (!fam) continue;
-        add(`family:${fam}`, fam, "family", 7, 2);
-        links.push({ source: `actor:${a.name}`, target: `family:${fam}`, relation: "uses" });
+      for (const fam of families) {
+        add(`family:${fam}`, fam, "family", 2);
+        links.push({ source: `actor:${a.name}`, target: `family:${fam}`, value: w / families.length, relation: "uses" });
       }
     }
     return { nodes: Array.from(nodeMap.values()), links };
@@ -60,14 +62,13 @@ export default function InvestigationsPage() {
         />
         <CardBody className="p-0">
           <div className="grid xl:grid-cols-[1fr_320px]">
-            <div className="h-[520px] border-b border-zinc-800/70 xl:border-b-0 xl:border-r">
+            <div className="border-b border-zinc-800/70 p-3 xl:border-b-0 xl:border-r">
               {graph.nodes.length > 0 ? (
-                <KnowledgeGraph
+                <FlowSankey
                   nodes={graph.nodes}
                   links={graph.links}
-                  height={520}
-                  layout="flow"
-                  highlightId={selected}
+                  height={500}
+                  selectedId={selected}
                   onSelect={(id) => {
                     // Only actors have an inspector; ignore country/family clicks.
                     const node = graph.nodes.find((n) => n.id === id);
@@ -75,7 +76,7 @@ export default function InvestigationsPage() {
                   }}
                 />
               ) : (
-                <div className="grid h-full place-items-center text-sm text-zinc-600">No relationship data available.</div>
+                <div className="grid h-[500px] place-items-center text-sm text-zinc-600">No relationship data available.</div>
               )}
             </div>
 

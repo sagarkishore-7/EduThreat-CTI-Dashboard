@@ -9,10 +9,11 @@ import { buildFamilies } from "@/lib/campaign-families";
 import { GraphSkeleton } from "@/components/ui/Skeleton";
 import { Card, CardHead, CardBody } from "@/components/ui/Card";
 import { formatNumber, getCountryFlag } from "@/lib/utils";
-import { ENTITY_STYLE, type KGNode, type KGLink } from "@/components/charts/KnowledgeGraph";
+import { ENTITY_STYLE } from "@/lib/entity-style";
+import type { SankeyNodeInput, SankeyLinkInput } from "@/components/charts/FlowSankey";
 
-const KnowledgeGraph = dynamic(
-  () => import("@/components/charts/KnowledgeGraph").then((m) => m.KnowledgeGraph),
+const FlowSankey = dynamic(
+  () => import("@/components/charts/FlowSankey").then((m) => m.FlowSankey),
   { ssr: false },
 );
 
@@ -27,57 +28,65 @@ export default function IntelGraphPage() {
   const [minIncidents, setMinIncidents] = useState(1);
   const [selected, setSelected] = useState<string | null>(null);
 
-  // Rooted left-to-right flow: country (0) → actor (1) → {campaign, family} (2) → CVE (3).
+  // Weighted Sankey: country (0) → actor (1) → {campaign, family} (2) → CVE (3).
+  // Ribbon width = incident/member volume. Top-N per column + an "Other (n)" sink keep
+  // the global graph readable (the 100+ node hairball was the core problem).
   const { nodes, links } = useMemo(() => {
-    const nodeMap = new Map<string, KGNode>();
-    const links: KGLink[] = [];
+    const nodeMap = new Map<string, SankeyNodeInput>();
+    const links: SankeyLinkInput[] = [];
     const want = (t: EntityFilter) => enabled.has(t);
-    const add = (id: string, label: string, type: KGNode["type"], val: number, layer: number) => {
-      const existing = nodeMap.get(id);
-      if (existing) existing.val = Math.max(existing.val ?? 1, val);
-      else nodeMap.set(id, { id, label, type, val, layer });
+    const add = (id: string, label: string, type: string, layer: number) => {
+      if (!nodeMap.has(id)) nodeMap.set(id, { id, label, type, layer });
     };
-    const link = (a: string, b: string, relation: string) => {
-      if (nodeMap.has(a) && nodeMap.has(b)) links.push({ source: a, target: b, relation });
+    const link = (a: string, b: string, value: number, relation: string) => {
+      if (nodeMap.has(a) && nodeMap.has(b) && value > 0) links.push({ source: a, target: b, value, relation });
     };
 
-    // Threat actors and their families / countries.
-    for (const a of actorsQuery.data?.threat_actors ?? []) {
-      if (!a.name || a.name.toLowerCase() === "unknown") continue;
-      if (a.incident_count < minIncidents) continue;
-      if (want("actor")) add(`actor:${a.name}`, a.name, "actor", Math.min(30, 10 + a.incident_count), 1);
+    // Top-N actors / campaigns by volume so the graph never exceeds ~50 nodes.
+    const actors = (actorsQuery.data?.threat_actors ?? [])
+      .filter((a) => a.name && a.name.toLowerCase() !== "unknown" && a.incident_count >= minIncidents)
+      .sort((x, y) => y.incident_count - x.incident_count)
+      .slice(0, 15);
+
+    for (const a of actors) {
+      const w = Math.max(1, a.incident_count);
+      if (want("actor")) add(`actor:${a.name}`, a.name, "actor", 1);
       if (want("family")) {
-        for (const fam of (a.ransomware_families || []).filter(Boolean).slice(0, 4)) {
-          add(`family:${fam}`, fam, "family", 7, 2);
-          if (want("actor")) link(`actor:${a.name}`, `family:${fam}`, "uses");
+        const fams = (a.ransomware_families || []).filter(Boolean).slice(0, 3);
+        for (const fam of fams) {
+          add(`family:${fam}`, fam, "family", 2);
+          if (want("actor")) link(`actor:${a.name}`, `family:${fam}`, w / fams.length, "uses");
         }
       }
       if (want("country")) {
-        for (const c of (a.countries_targeted || []).filter(Boolean).slice(0, 5)) {
-          add(`country:${c}`, c, "country", 6, 0);
-          if (want("actor")) link(`country:${c}`, `actor:${a.name}`, "operates_in");
+        const ctys = (a.countries_targeted || []).filter(Boolean).slice(0, 4);
+        for (const c of ctys) {
+          add(`country:${c}`, c, "country", 0);
+          if (want("actor")) link(`country:${c}`, `actor:${a.name}`, w / ctys.length, "operates_in");
         }
       }
     }
 
-    // Campaigns hang off their actors. Collapse fragments of one real campaign
-    // (same actor/year split into separate campaign_ids across runs) into a
-    // single node so the graph shows one "MOVEit" node, not three.
+    // Campaigns hang off their actors (deduped to one node per real campaign family).
     if (want("campaign")) {
-      const primaries = buildFamilies(campaignsQuery.data?.items ?? []).map((f) => f.primary);
+      const primaries = buildFamilies(campaignsQuery.data?.items ?? [])
+        .map((f) => f.primary)
+        .filter((c) => c.member_count >= minIncidents)
+        .sort((x, y) => y.member_count - x.member_count)
+        .slice(0, 12);
       for (const c of primaries) {
-        if (c.member_count < minIncidents) continue;
         const cid = `campaign:${c.campaign_id}`;
-        add(cid, c.campaign_name, "campaign", Math.min(28, 8 + c.member_count), 2);
-        for (const actor of (c.actors || []).filter(Boolean)) {
-          if (want("actor")) {
-            add(`actor:${actor}`, actor, "actor", 10, 1);
-            link(`actor:${actor}`, cid, "runs");
+        add(cid, c.campaign_name, "campaign", 2);
+        const acts = (c.actors || []).filter(Boolean);
+        for (const actor of acts) {
+          if (want("actor") && nodeMap.has(`actor:${actor}`)) {
+            link(`actor:${actor}`, cid, Math.max(1, c.member_count) / acts.length, "runs");
           }
         }
-        for (const cve of (c.cves || []).filter(Boolean).slice(0, 3)) {
-          add(`cve:${cve}`, cve, "cve", 5, 3);
-          link(cid, `cve:${cve}`, "uses_cve");
+        const cves = (c.cves || []).filter(Boolean).slice(0, 3);
+        for (const cve of cves) {
+          add(`cve:${cve}`, cve, "cve", 3);
+          link(cid, `cve:${cve}`, Math.max(1, c.member_count) / cves.length, "uses_cve");
         }
       }
     }
@@ -137,14 +146,13 @@ export default function IntelGraphPage() {
           </div>
 
           <div className="grid xl:grid-cols-[1fr_300px]">
-            <div className="min-h-[560px] border-b border-zinc-800/70 xl:border-b-0 xl:border-r">
+            <div className="min-h-[560px] border-b border-zinc-800/70 p-3 xl:border-b-0 xl:border-r">
               {nodes.length > 0 ? (
-                <KnowledgeGraph
+                <FlowSankey
                   nodes={nodes}
                   links={links}
-                  height={560}
-                  layout="flow"
-                  highlightId={selected}
+                  height={540}
+                  selectedId={selected}
                   onSelect={setSelected}
                 />
               ) : (
