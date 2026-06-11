@@ -47,8 +47,20 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
   }, [victimGroups]);
 
   const columns = useMemo(() => {
+    // Only render nodes that actually participate in the flow. Downstream victim orgs
+    // (e.g. National Student Clearinghouse, TIAA, CDW) leak into a campaign's vendor list
+    // and become layer-0 asset nodes with NO connecting edge — orphans floating in the
+    // asset column. A flow graph should only show connected nodes, so drop them here.
+    // (The deeper fix — keeping those victim orgs out of campaign `vendors` — lands in the
+    // backend correlation at the freeze re-correlation.)
+    const connected = new Set<string>();
+    for (const e of edges) {
+      connected.add(e.source);
+      connected.add(e.target);
+    }
     const byLayer = new Map<number, FlowNode[]>();
     for (const n of nodes) {
+      if (!connected.has(n.id)) continue;
       const fn: FlowNode = {
         id: n.id,
         label: n.label,
@@ -64,7 +76,7 @@ export function AttackChainFlow({ nodes, edges, victimGroups, activeKey = null, 
     return Array.from(byLayer.keys())
       .sort((a, b) => a - b)
       .map((layer) => ({ layer, nodes: (byLayer.get(layer) ?? []).sort((a, b) => b.size - a.size) }));
-  }, [nodes]);
+  }, [nodes, edges]);
 
   // adjacency for path highlighting
   const neighbours = useMemo(() => {
