@@ -149,7 +149,9 @@ export default function AdminPage() {
   // all statuses, so we surface both to explain the gap.
   const openCanonicalsQuery = useQuery({
     queryKey: ["admin-v2-open-canonicals", token],
-    queryFn: () => getIncidents({ per_page: 1 }),
+    // open + education-related = the published dataset count, matching the
+    // incidents page total and the homepage headline.
+    queryFn: () => getIncidents({ per_page: 1, is_education_related: true }),
     enabled: Boolean(token),
     refetchInterval: 60_000,
   });
@@ -466,8 +468,18 @@ export default function AdminPage() {
             }
             tone="threat"
           />
-          <HealthCard label="Manual review" value={formatNumber(manualReview?.meta.returned || 0)} detail="Current queue sample" tone="warn" />
-          <HealthCard label="Hard rejects" value={formatNumber(rejected?.meta.returned || 0)} detail="Victimless / non-canonicalizable sample" tone="danger" />
+          <HealthCard
+            label="Manual review"
+            value={formatNumber(manualReview?.meta.total ?? manualReview?.meta.returned ?? 0)}
+            detail={`${formatNumber(manualReview?.meta.returned || 0)} shown · awaiting operator`}
+            tone="warn"
+          />
+          <HealthCard
+            label="Hard rejects"
+            value={formatNumber(rejected?.meta.total ?? rejected?.meta.returned ?? 0)}
+            detail={`${formatNumber(rejected?.meta.returned || 0)} shown · victimless / non-canonicalizable`}
+            tone="danger"
+          />
         </div>
       </div>
 

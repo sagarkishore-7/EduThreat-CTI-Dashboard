@@ -720,6 +720,7 @@ export async function getIncidents(params: {
   search?: string;
   sort_by?: string;
   sort_order?: string;
+  is_education_related?: boolean;
 } = {}): Promise<IncidentListResponse> {
   const page = params.page || 1;
   const perPage = params.per_page || 25;
@@ -731,6 +732,8 @@ export async function getIncidents(params: {
 
   const countryCode = toCountryCode(params.country);
   if (countryCode) searchParams.set("country_code", countryCode);
+  if (params.is_education_related !== undefined)
+    searchParams.set("is_education_related", String(params.is_education_related));
   if (params.attack_category) searchParams.set("attack_category", params.attack_category);
   if (params.institution_type) searchParams.set("institution_type", params.institution_type);
   if (params.search) searchParams.set("search", params.search);

@@ -50,6 +50,7 @@ export interface V2ManualReviewQueueResponse {
   meta: {
     limit: number;
     returned: number;
+    total?: number;
   };
 }
 
@@ -67,6 +68,7 @@ export interface V2RejectedEnrichmentsResponse {
   meta: {
     limit: number;
     returned: number;
+    total?: number;
   };
 }
 
