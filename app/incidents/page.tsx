@@ -103,6 +103,10 @@ function IncidentsContent() {
       getIncidents({
         page,
         per_page: perPage,
+        // Published dataset = open + education-related canonicals. Filtering here
+        // keeps the "Filtered Results" total in lock-step with the homepage
+        // headline and the admin canonical count (all use the same definition).
+        is_education_related: true,
         search: search || undefined,
         sort_by: sortBy,
         sort_order: sortOrder,
