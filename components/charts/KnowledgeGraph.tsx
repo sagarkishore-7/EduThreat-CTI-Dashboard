@@ -131,6 +131,16 @@ interface KnowledgeGraphProps {
    * Only meaningful with highlightMode="trail".
    */
   isolateActive?: boolean;
+  /**
+   * Fill the parent container's height instead of using a fixed `height`. The canvas
+   * height is measured from the container, so the graph fills a full-screen layout.
+   */
+  fillParent?: boolean;
+  /**
+   * Node types whose labels are always drawn, regardless of zoom or highlight — e.g.
+   * ["country"] so countries stay findable in a dense graph.
+   */
+  alwaysLabelTypes?: string[];
 }
 
 export function KnowledgeGraph({
@@ -145,7 +155,13 @@ export function KnowledgeGraph({
   layout = "auto",
   highlightMode = "neighbors",
   isolateActive = false,
+  fillParent = false,
+  alwaysLabelTypes,
 }: KnowledgeGraphProps) {
+  const alwaysLabelSet = useMemo(
+    () => new Set(alwaysLabelTypes ?? []),
+    [alwaysLabelTypes],
+  );
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
   // ForceGraph2D is lazy-loaded, so a plain ref can still be null when the
@@ -158,6 +174,7 @@ export function KnowledgeGraph({
     if (inst) setFgReady((v) => v + 1);
   }, []);
   const [width, setWidth] = useState(0);
+  const [measuredHeight, setMeasuredHeight] = useState(height);
   const [hoverId, setHoverId] = useState<string | null>(null);
   // Client-only lazy load of react-force-graph-2d (preserves ref forwarding).
   const [ForceGraph2D, setForceGraph2D] = useState<any>(null);
@@ -171,18 +188,24 @@ export function KnowledgeGraph({
     };
   }, []);
 
-  // Measure the container so the canvas fills it responsively.
+  // Measure the container so the canvas fills it responsively (both dimensions when
+  // fillParent, so the graph can occupy a full-screen layout).
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
     const ro = new ResizeObserver((entries) => {
-      const w = entries[0]?.contentRect.width ?? 0;
-      if (w) setWidth(Math.floor(w));
+      const r = entries[0]?.contentRect;
+      if (r?.width) setWidth(Math.floor(r.width));
+      if (fillParent && r?.height) setMeasuredHeight(Math.floor(r.height));
     });
     ro.observe(el);
     setWidth(Math.floor(el.clientWidth));
+    if (fillParent && el.clientHeight) setMeasuredHeight(Math.floor(el.clientHeight));
     return () => ro.disconnect();
-  }, []);
+  }, [fillParent]);
+
+  // Height actually handed to the canvas.
+  const canvasHeight = fillParent ? measuredHeight : height;
 
   // Stable graphData reference (force-graph mutates node objects with x/y).
   const graphData = useMemo(
@@ -530,18 +553,24 @@ export function KnowledgeGraph({
       // hover or when zoomed in. The campaign detail card already lists the
       // vendors/CVEs/actors as chips, so the graph doesn't need their labels.
       const isHub = node.type === "campaign" || node.type === "actor" || node.type === "country";
+      // Types flagged always-on (e.g. countries) keep their label at every zoom so they
+      // stay findable; when a node is active we still defer to the trail-lit set so the
+      // focused path reads cleanly.
+      const alwaysLabel = alwaysLabelSet.has(node.type);
       const showLabel =
         active != null
-          ? lit
-          : layout === "flow"
-            ? flowLabelAll
-              ? true // small flow — label every node
-              : globalScale > 1.8 // dense flow (intel-graph): zoom/hover only
-            : minimalLabels
-              ? globalScale > 2.4 // dense campaign graph: hover/zoom only
-              : isHub
-                ? weight >= 10 || globalScale > 1.0
-                : globalScale > 2.4;
+          ? lit || alwaysLabel
+          : alwaysLabel
+            ? true
+            : layout === "flow"
+              ? flowLabelAll
+                ? true // small flow — label every node
+                : globalScale > 1.8 // dense flow (intel-graph): zoom/hover only
+              : minimalLabels
+                ? globalScale > 2.4 // dense campaign graph: hover/zoom only
+                : isHub
+                  ? weight >= 10 || globalScale > 1.0
+                  : globalScale > 2.4;
       if (showLabel) {
         // Constant on-screen label size that is smooth across zoom and does NOT
         // grow when zooming in. We render in *screen space* (reset the transform
@@ -581,11 +610,15 @@ export function KnowledgeGraph({
       }
       ctx.globalAlpha = 1;
     },
-    [active, isLit, minimalLabels, layout, flowLabelAll],
+    [active, isLit, minimalLabels, layout, flowLabelAll, alwaysLabelSet],
   );
 
   return (
-    <div ref={containerRef} className={className} style={{ position: "relative", height }}>
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ position: "relative", height: fillParent ? "100%" : height }}
+    >
       {showLegend && (
         <div className="pointer-events-none absolute left-3 top-3 z-10 flex flex-wrap gap-x-3 gap-y-1 rounded-lg border border-zinc-800/70 bg-[#080b12]/85 px-2.5 py-1.5 backdrop-blur-sm">
           {Array.from(new Set(nodes.map((n) => n.type))).slice(0, 8).map((t) => (
@@ -607,7 +640,7 @@ export function KnowledgeGraph({
         <ForceGraph2D
           ref={setFgRef as any}
           width={width}
-          height={height}
+          height={canvasHeight}
           graphData={graphData}
           backgroundColor="rgba(0,0,0,0)"
           nodeRelSize={4}
