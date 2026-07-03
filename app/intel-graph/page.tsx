@@ -35,6 +35,7 @@ export default function IntelGraphPage() {
   const [minPlatform, setMinPlatform] = useState(1);
   const [includeCves, setIncludeCves] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isolate, setIsolate] = useState(false);
 
   const { data: graph, isLoading, isError } = useQuery({
     queryKey: ["intel-graph", minActor, minPlatform, includeCves],
@@ -111,6 +112,20 @@ export default function IntelGraphPage() {
                   Size scales with incident volume within each tier. An actor spanning several
                   countries links them together.
                 </p>
+                <p className="mt-2 rounded-md bg-zinc-900/50 px-2 py-1.5 text-[10px] leading-tight text-zinc-500">
+                  Click any node to trace its <span className="text-zinc-300">full trail</span> —
+                  a country lights all its actors, their CVEs, and the platforms hit. Toggle
+                  <span className="text-zinc-300"> Isolate</span> to follow that trail alone.
+                </p>
+                <label className="mt-2 flex items-center gap-2 text-[12px] text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={isolate}
+                    onChange={(e) => setIsolate(e.target.checked)}
+                    className="accent-red-500"
+                  />
+                  Isolate selected trail
+                </label>
               </div>
 
               <div className="space-y-2.5">
@@ -173,6 +188,8 @@ export default function IntelGraphPage() {
                   height={560}
                   layout="auto"
                   minimalLabels
+                  highlightMode="trail"
+                  isolateActive={isolate}
                   highlightId={selectedId}
                   onSelect={setSelectedId}
                 />
