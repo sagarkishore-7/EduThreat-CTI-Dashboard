@@ -13,6 +13,13 @@ const nextConfig = {
     }
     return [];
   },
+  // The former Sankey-based Intel Graph is superseded by the entity-rooted
+  // Investigations knowledge graph; redirect any lingering links.
+  async redirects() {
+    return [
+      { source: '/intel-graph', destination: '/investigations', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

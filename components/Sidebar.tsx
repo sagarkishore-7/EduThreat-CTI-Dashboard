@@ -21,7 +21,6 @@ import {
   ClipboardList,
   Layers,
   Cog,
-  Waypoints,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,7 +52,6 @@ const NAV: NavGroup[] = [
   {
     group: "Intelligence",
     items: [
-      { name: "Intel Graph", href: "/intel-graph", icon: Waypoints, dot: true },
       { name: "Campaigns", href: "/campaigns", icon: Layers },
       { name: "Attack Intel", href: "/attacks", icon: AlertTriangle },
       { name: "Threat Actors", href: "/threat-actors", icon: Users, badgeKey: "actors" },
