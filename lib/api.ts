@@ -906,6 +906,87 @@ export async function getCampaignGraph(id: string): Promise<CampaignGraphRespons
   return fetchAPI<CampaignGraphResponse>(`/api/v2/campaigns/${encodeURIComponent(id)}/graph`);
 }
 
+// ── Investigation knowledge graph (entity-rooted) ──────────────────────────────
+export type InvestigationRootType =
+  | "actor" | "country" | "institution" | "cve" | "vendor" | "platform";
+
+export interface InvestigationGraphResponse {
+  root: { type: InvestigationRootType; value: string; id: string };
+  nodes: CampaignGraphNode[];
+  edges: CampaignGraphEdge[];
+  victim_groups: CampaignVictimGroup[];
+  meta: {
+    layout: string;
+    root_type: string;
+    root_value: string;
+    total_incidents: number;
+    node_count: number;
+    edge_count: number;
+    [k: string]: unknown;
+  };
+}
+
+export interface InvestigationVictim {
+  canonical_incident_id: string;
+  victim_name: string | null;
+  institution_type: string | null;
+  country: string | null;
+  incident_date: string | null;
+  attack_category?: string | null;
+  ransomware_family?: string | null;
+  records_affected_max?: number | null;
+}
+
+export interface InvestigationVictimsResponse {
+  root: { type: string; value: string };
+  trail: Record<string, string>;
+  count: number;
+  institutions: InvestigationVictim[];
+}
+
+/** Filters that narrow a rooted investigation graph or scope a victim drill-down. */
+export interface InvestigationFilters {
+  year_min?: number;
+  year_max?: number;
+  attack_family?: string;
+}
+
+/** Entity keys that, combined with the root, pin a single trail for the victim list. */
+export interface InvestigationTrail {
+  actor?: string;
+  cve?: string;
+  platform?: string;
+  country?: string;
+  institution?: string;
+}
+
+function investigationQuery(params: Record<string, string | number | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+  }
+  return qs.toString();
+}
+
+export async function getInvestigationGraph(
+  rootType: InvestigationRootType,
+  rootValue: string,
+  filters: InvestigationFilters = {},
+): Promise<InvestigationGraphResponse> {
+  const qs = investigationQuery({ root_type: rootType, root_value: rootValue, ...filters });
+  return fetchAPI<InvestigationGraphResponse>(`/api/v2/investigate/graph?${qs}`);
+}
+
+export async function getInvestigationVictims(
+  rootType: InvestigationRootType,
+  rootValue: string,
+  trail: InvestigationTrail = {},
+  filters: InvestigationFilters = {},
+): Promise<InvestigationVictimsResponse> {
+  const qs = investigationQuery({ root_type: rootType, root_value: rootValue, ...trail, ...filters });
+  return fetchAPI<InvestigationVictimsResponse>(`/api/v2/investigate/victims?${qs}`);
+}
+
 export interface FeedHealthItem {
   source: string;
   group: string;
