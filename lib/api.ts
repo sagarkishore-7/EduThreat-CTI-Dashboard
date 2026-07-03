@@ -987,6 +987,38 @@ export async function getInvestigationVictims(
   return fetchAPI<InvestigationVictimsResponse>(`/api/v2/investigate/victims?${qs}`);
 }
 
+// ── Whole-dataset intel graph ──────────────────────────────────────────────────
+export interface IntelGraphResponse {
+  nodes: CampaignGraphNode[];
+  edges: CampaignGraphEdge[];
+  meta: {
+    layout: string;
+    total_incidents: number;
+    node_count: number;
+    edge_count: number;
+    type_counts: Record<string, number>;
+    thresholds: { country: number; actor: number; platform: number };
+    [k: string]: unknown;
+  };
+}
+
+/** Density thresholds for the global graph; 1 = show every node of that type. */
+export interface IntelGraphFilters {
+  min_country_incidents?: number;
+  min_actor_incidents?: number;
+  min_platform_incidents?: number;
+  include_cves?: boolean;
+}
+
+export async function getIntelGraph(filters: IntelGraphFilters = {}): Promise<IntelGraphResponse> {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) {
+    if (v !== undefined && v !== null) qs.set(k, String(v));
+  }
+  const suffix = qs.toString() ? `?${qs}` : "";
+  return fetchAPI<IntelGraphResponse>(`/api/v2/intel-graph${suffix}`);
+}
+
 export interface FeedHealthItem {
   source: string;
   group: string;

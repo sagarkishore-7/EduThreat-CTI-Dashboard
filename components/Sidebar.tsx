@@ -45,13 +45,13 @@ const NAV: NavGroup[] = [
     items: [
       { name: "Dashboard", href: "/", icon: LayoutDashboard },
       { name: "Incidents", href: "/incidents", icon: FileText, badgeKey: "incidents" },
-      { name: "Investigations", href: "/investigations", icon: Share2, dot: true },
       { name: "Geo Map", href: "/map", icon: Globe2 },
     ],
   },
   {
     group: "Intelligence",
     items: [
+      { name: "Intel Graph", href: "/intel-graph", icon: Share2, dot: true },
       { name: "Campaigns", href: "/campaigns", icon: Layers },
       { name: "Attack Intel", href: "/attacks", icon: AlertTriangle },
       { name: "Threat Actors", href: "/threat-actors", icon: Users, badgeKey: "actors" },
