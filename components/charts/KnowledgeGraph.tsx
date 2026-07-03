@@ -117,6 +117,20 @@ interface KnowledgeGraphProps {
    * with directional arrows — the attack-chain / rooted-flow reading.
    */
   layout?: "auto" | "flow";
+  /**
+   * How a hovered/selected node highlights the rest.
+   * "neighbors" (default): only its direct neighbours (the campaign fallback graph).
+   * "trail": the whole directional trail-web reachable along the edge orientation
+   * (e.g. country → its actors → their CVEs → their platforms, and upstream), so an
+   * analyst follows a full trail from a single node without hopping node-by-node.
+   */
+  highlightMode?: "neighbors" | "trail";
+  /**
+   * When true and a node is active, hide everything outside that node's trail so the
+   * single trail-web stands alone (positions are kept, only visibility changes).
+   * Only meaningful with highlightMode="trail".
+   */
+  isolateActive?: boolean;
 }
 
 export function KnowledgeGraph({
@@ -129,6 +143,8 @@ export function KnowledgeGraph({
   showLegend = true,
   minimalLabels = false,
   layout = "auto",
+  highlightMode = "neighbors",
+  isolateActive = false,
 }: KnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -177,27 +193,77 @@ export function KnowledgeGraph({
     [nodes, links],
   );
 
-  // Adjacency for neighbour-highlighting.
-  const neighbours = useMemo(() => {
-    const m = new Map<string, Set<string>>();
-    const ensure = (id: string) => m.get(id) ?? m.set(id, new Set()).get(id)!;
+  // Adjacency for highlighting. `neighbours` is undirected (1-hop, the default mode);
+  // `fwdAdj`/`revAdj` are directed (source→target / target→source) and drive the
+  // "trail" mode's transitive closure along the edge orientation.
+  const { neighbours, fwdAdj, revAdj } = useMemo(() => {
+    const und = new Map<string, Set<string>>();
+    const fwd = new Map<string, Set<string>>();
+    const rev = new Map<string, Set<string>>();
+    const ensure = (m: Map<string, Set<string>>, id: string) =>
+      m.get(id) ?? m.set(id, new Set()).get(id)!;
     for (const l of links) {
       const s = typeof l.source === "string" ? l.source : (l.source as any).id;
       const t = typeof l.target === "string" ? l.target : (l.target as any).id;
-      ensure(s).add(t);
-      ensure(t).add(s);
+      ensure(und, s).add(t);
+      ensure(und, t).add(s);
+      ensure(fwd, s).add(t);
+      ensure(rev, t).add(s);
     }
-    return m;
+    return { neighbours: und, fwdAdj: fwd, revAdj: rev };
   }, [links]);
 
   const active = hoverId ?? highlightId;
+
+  // The directional closure from a node: everything reachable downstream (following
+  // edges source→target) plus everything upstream (following them in reverse). For a
+  // country that is its whole actors→CVEs→platforms web; for a platform it walks up to
+  // the countries. Bounded (platforms are sinks, no intra-layer edges).
+  const closureFrom = useCallback(
+    (id: string) => {
+      const seen = new Set<string>([id]);
+      const walk = (adj: Map<string, Set<string>>) => {
+        const stack = [id];
+        while (stack.length) {
+          const cur = stack.pop()!;
+          const nbrs = adj.get(cur);
+          if (!nbrs) continue;
+          nbrs.forEach((nxt) => {
+            if (!seen.has(nxt)) {
+              seen.add(nxt);
+              stack.push(nxt);
+            }
+          });
+        }
+      };
+      walk(fwdAdj);
+      walk(revAdj);
+      return seen;
+    },
+    [fwdAdj, revAdj],
+  );
+
+  // Highlight (dim the rest) follows the active node — hover or selection — for a quick
+  // trail preview. Memoised per active node.
+  const trailSet = useMemo(
+    () => (highlightMode !== "trail" || !active ? null : closureFrom(active)),
+    [highlightMode, active, closureFrom],
+  );
+  // Isolation (hide the rest) pins to the *selected* node only, so hovering doesn't
+  // collapse the graph on every mouse-move.
+  const isolateSet = useMemo(
+    () => (highlightMode !== "trail" || !highlightId ? null : closureFrom(highlightId)),
+    [highlightMode, highlightId, closureFrom],
+  );
+
   const isLit = useCallback(
     (id: string) => {
       if (!active) return true;
       if (id === active) return true;
+      if (trailSet) return trailSet.has(id);
       return neighbours.get(active)?.has(id) ?? false;
     },
-    [active, neighbours],
+    [active, trailSet, neighbours],
   );
 
   const linkLit = useCallback(
@@ -205,9 +271,26 @@ export function KnowledgeGraph({
       if (!active) return true;
       const s = typeof l.source === "object" ? l.source.id : l.source;
       const t = typeof l.target === "object" ? l.target.id : l.target;
+      // A trail edge connects two lit nodes; a 1-hop edge just touches the active node.
+      if (trailSet) return trailSet.has(s) && trailSet.has(t);
       return s === active || t === active;
     },
-    [active],
+    [active, trailSet],
+  );
+
+  // Isolate: when enabled with a node selected, only that node's trail set is visible.
+  const nodeVisible = useCallback(
+    (n: any) => (!isolateActive || !isolateSet ? true : isolateSet.has(n.id)),
+    [isolateActive, isolateSet],
+  );
+  const linkVisible = useCallback(
+    (l: any) => {
+      if (!isolateActive || !isolateSet) return true;
+      const s = typeof l.source === "object" ? l.source.id : l.source;
+      const t = typeof l.target === "object" ? l.target.id : l.target;
+      return isolateSet.has(s) && isolateSet.has(t);
+    },
+    [isolateActive, isolateSet],
   );
 
   // Zoom-to-fit once the simulation settles.
@@ -528,6 +611,8 @@ export function KnowledgeGraph({
           graphData={graphData}
           backgroundColor="rgba(0,0,0,0)"
           nodeRelSize={4}
+          nodeVisibility={nodeVisible}
+          linkVisibility={linkVisible}
           nodeCanvasObjectMode={() => "replace"}
           nodeCanvasObject={drawNode}
           nodePointerAreaPaint={(node: any, color: string, ctx: CanvasRenderingContext2D) => {
